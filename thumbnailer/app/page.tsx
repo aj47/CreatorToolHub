@@ -20,6 +20,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const [mode, setMode] = useState<"builder" | "custom">("builder");
 
@@ -151,14 +152,65 @@ export default function Home() {
     };
   }, [videoUrl]);
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  // Prevent the browser from opening the file when dropped anywhere on the page
+  useEffect(() => {
+    const prevent = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("dragover", prevent);
+    window.addEventListener("drop", prevent);
+    return () => {
+      window.removeEventListener("dragover", prevent);
+      window.removeEventListener("drop", prevent);
+    };
+  }, []);
+
+  const isVideo = (f: File) => f && f.type && f.type.startsWith("video/");
+  const MAX_SIZE_MB = 500; // guidance only
+  const loadVideoFromFile = (f: File) => {
+    if (!isVideo(f)) {
+      setError("Unsupported file. Please drop a video file (e.g., mp4, mov).");
+      return;
+    }
+    if (f.size > MAX_SIZE_MB * 1024 * 1024) {
+      setError(`File is large (>${MAX_SIZE_MB} MB). The browser may struggle to load it.`);
+      // continue anyway
+    } else {
+      setError(null);
+    }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
     const url = URL.createObjectURL(f);
     setVideoUrl(url);
     setVideoReady(false);
     setFrames([]);
     setResults([]);
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    loadVideoFromFile(f);
+    // Reset the input so the same file can be re-selected if needed
+    try { e.target.value = ""; } catch {}
+  };
+
+  const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) loadVideoFromFile(f);
+  };
+  const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+  const onDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
   };
 
   const captureFrame = () => {
@@ -249,7 +301,27 @@ export default function Home() {
         <p>Select a local video, scrub to a moment, and capture frames.</p>
 
         <div style={{ display: "grid", gap: 12 }}>
-          <input type="file" accept="video/*" onChange={onFile} />
+          <div
+            role="region"
+            aria-label="Drop a video file here or use the file picker"
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragEnter={onDragOver}
+            onDragLeave={onDragLeave}
+            style={{
+              padding: 16,
+              border: "2px dashed #999",
+              borderColor: dragActive ? "#2563eb" : "#999",
+              borderRadius: 8,
+              background: dragActive ? "#eff6ff" : "transparent",
+              transition: "background 120ms, border-color 120ms"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <input type="file" accept="video/*" onChange={onFile} aria-label="Choose video file" />
+              <span style={{ color: "#555" }}>or drag and drop a video file here</span>
+            </div>
+          </div>
 
           {videoUrl && (
             <div style={{ display: "grid", gap: 8 }}>
