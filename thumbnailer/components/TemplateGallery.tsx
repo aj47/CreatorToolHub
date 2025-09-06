@@ -3,11 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { curatedStyles, isBuiltinProfileId } from "../lib/gallery/curatedStyles";
 
 type Preset = {
-  label: string;
-  template: string;
+  title: string;
+  prompt: string;
   colors: string[];
-  layout: "left_subject_right_text" | "split_screen" | "center_text";
-  subject: "face" | "product" | "ui" | "two_faces";
+  referenceImages: string[];
 };
 
 export default function TemplateGallery(props: {
@@ -24,34 +23,40 @@ export default function TemplateGallery(props: {
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [showOnlyFavs, setShowOnlyFavs] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftLabel, setDraftLabel] = useState("");
-  const [draftTemplate, setDraftTemplate] = useState("");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftPrompt, setDraftPrompt] = useState("");
   const [draftColors, setDraftColors] = useState("");
-  const [draftSubject, setDraftSubject] = useState<Preset["subject"]>("face");
-  const [draftLayout, setDraftLayout] = useState<Preset["layout"]>("left_subject_right_text");
+  const [draftRefs, setDraftRefs] = useState("");
 
   // New preset draft state
   const [newOpen, setNewOpen] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
-  const [newTemplate, setNewTemplate] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newPrompt, setNewPrompt] = useState("");
   const [newColors, setNewColors] = useState<string[]>([]);
-  const [newSubject, setNewSubject] = useState<Preset["subject"]>("face");
-  const [newLayout, setNewLayout] = useState<Preset["layout"]>("left_subject_right_text");
+  const [newRefs, setNewRefs] = useState<string>("");
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("cg_style_favs_v1");
+      const raw2 = localStorage.getItem("cg_style_favs_v2");
+      const raw1 = !raw2 ? localStorage.getItem("cg_style_favs_v1") : null;
+      const raw = raw2 || raw1;
       if (raw) setFavorites(JSON.parse(raw));
     } catch {}
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem("cg_style_favs_v1", JSON.stringify(favorites)); } catch {}
+    try { localStorage.setItem("cg_style_favs_v2", JSON.stringify(favorites)); } catch {}
   }, [favorites]);
 
   const combined = useMemo(() => {
     const curated = curatedStyles.map((s) => ({ ...s, source: isBuiltinProfileId(s.id) ? "builtin" as const : "curated" as const }));
-    const customs = Object.entries(customPresets).map(([id, p]) => ({ id, label: p.label, template: p.template, previewUrl: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='480' height='270'><rect width='100%' height='100%' fill='%2364748B'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='Inter, ui-sans-serif, system-ui' font-size='28' font-weight='700' fill='#ffffff'>${p.label.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</text></svg>`)}`, source: "custom" as const }));
+    const customs = Object.entries(customPresets).map(([id, p]) => {
+      const title = p.title || "Custom";
+      const prompt = p.prompt || "";
+      const safeTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const previewUrl = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='480' height='270'><rect width='100%' height='100%' fill='%2364748B'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='Inter, ui-sans-serif, system-ui' font-size='28' font-weight='700' fill='#ffffff'>${safeTitle}</text></svg>`)}`;
+      return { id, title, prompt, previewUrl, source: "custom" as const };
+    });
     return [...curated, ...customs];
   }, [customPresets]);
 
@@ -73,7 +78,7 @@ export default function TemplateGallery(props: {
         {list.map((s) => (
           <article key={s.id} style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
             <div style={{ position: "relative" }}>
-              <img src={s.previewUrl} alt={s.label} style={{ display: "block", width: "100%" }} />
+              <img src={s.previewUrl} alt={s.title} style={{ display: "block", width: "100%" }} />
               <button
                 onClick={() => toggleFav(s.id)}
                 title={favorites[s.id] ? "Unfavorite" : "Favorite"}
@@ -104,10 +109,10 @@ export default function TemplateGallery(props: {
             </div>
             <div style={{ padding: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <strong>{s.label}</strong>
+                <strong>{s.title}</strong>
                 {isBuiltinProfileId(s.id) && <span style={{ fontSize: 10, opacity: 0.6 }}>Built-in</span>}
               </div>
-              <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3 }}>{s.template}</p>
+              <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3 }}>{s.prompt}</p>
               <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                 <button
                   onClick={() => onApply(s.id)}
@@ -122,11 +127,10 @@ export default function TemplateGallery(props: {
                     <button onClick={() => {
                       setEditingId(s.id);
                       const p = customPresets[s.id];
-                      setDraftLabel(p.label);
-                      setDraftTemplate(p.template);
+                      setDraftTitle(p.title);
+                      setDraftPrompt(p.prompt);
                       setDraftColors((p.colors || []).join(", "));
-                      setDraftSubject(p.subject);
-                      setDraftLayout(p.layout);
+                      setDraftRefs((p.referenceImages || []).join(", "));
                     }}>Edit</button>
                     <button onClick={() => onDeletePreset(s.id)} title="Delete">×</button>
                   </>
@@ -135,13 +139,14 @@ export default function TemplateGallery(props: {
 
               {editingId === s.id && (
                 <div style={{ display: "grid", gap: 6, marginTop: 8, borderTop: "1px solid #eee", paddingTop: 8 }}>
-                  <input type="text" value={draftLabel} onChange={(e) => setDraftLabel(e.target.value)} placeholder="Preset name" />
-                  <input type="text" value={draftTemplate} onChange={(e) => setDraftTemplate(e.target.value)} placeholder="Style template" />
+                  <input type="text" value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} placeholder="Title" />
+                  <input type="text" value={draftPrompt} onChange={(e) => setDraftPrompt(e.target.value)} placeholder="Exact prompt" />
                   <input type="text" value={draftColors} onChange={(e) => setDraftColors(e.target.value)} placeholder="Colors comma-separated" />
+                  <input type="text" value={draftRefs} onChange={(e) => setDraftRefs(e.target.value)} placeholder="Reference images (comma-separated URLs)" />
                   <div style={{ display: "grid", gap: 6 }}>
                     <span style={{ fontSize: 12 }}>Pick colors</span>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {draftColors.split(',').map((s, idx) => s.trim()).filter(Boolean).map((c, idx) => (
+                      {draftColors.split(',').map((s) => s.trim()).filter(Boolean).map((c, idx) => (
                         <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <input
                             type="color"
@@ -170,29 +175,12 @@ export default function TemplateGallery(props: {
                       }}>+ Add color</button>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <label>
-                      Subject:&nbsp;
-                      <select value={draftSubject} onChange={(e) => setDraftSubject(e.target.value as any)}>
-                        <option value="face">Face</option>
-                        <option value="product">Product</option>
-                        <option value="ui">UI</option>
-                        <option value="two_faces">Two faces</option>
-                      </select>
-                    </label>
-                    <label>
-                      Layout:&nbsp;
-                      <select value={draftLayout} onChange={(e) => setDraftLayout(e.target.value as any)}>
-                        <option value="left_subject_right_text">Left subject / Right text</option>
-                        <option value="split_screen">Split screen</option>
-                        <option value="center_text">Center text</option>
-                      </select>
-                    </label>
-                  </div>
+
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => {
                       const colors = draftColors.split(',').map((s) => s.trim()).filter(Boolean);
-                      onUpdatePreset(s.id, { label: draftLabel, template: draftTemplate, colors, subject: draftSubject, layout: draftLayout });
+                      const referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                      onUpdatePreset(s.id, { title: draftTitle, prompt: draftPrompt, colors, referenceImages });
                       setEditingId(null);
                     }}>Save</button>
                     <button onClick={() => setEditingId(null)}>Cancel</button>
@@ -208,8 +196,8 @@ export default function TemplateGallery(props: {
             <button onClick={() => setNewOpen(true)} style={{ padding: "24px 12px", cursor: "pointer" }}>+ New template</button>
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
-              <input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Preset name" />
-              <input type="text" value={newTemplate} onChange={(e) => setNewTemplate(e.target.value)} placeholder="Style template" />
+              <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Title" />
+              <input type="text" value={newPrompt} onChange={(e) => setNewPrompt(e.target.value)} placeholder="Exact prompt" />
               <div style={{ display: "grid", gap: 6 }}>
                 <span style={{ fontSize: 12 }}>Pick colors</span>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -229,39 +217,21 @@ export default function TemplateGallery(props: {
                   <button type="button" onClick={() => setNewColors((prev) => [...prev, "#00E5FF"]) }>+ Add color</button>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <label>
-                  Subject:&nbsp;
-                  <select value={newSubject} onChange={(e) => setNewSubject(e.target.value as any)}>
-                    <option value="face">Face</option>
-                    <option value="product">Product</option>
-                    <option value="ui">UI</option>
-                    <option value="two_faces">Two faces</option>
-                  </select>
-                </label>
-                <label>
-                  Layout:&nbsp;
-                  <select value={newLayout} onChange={(e) => setNewLayout(e.target.value as any)}>
-                    <option value="left_subject_right_text">Left subject / Right text</option>
-                    <option value="split_screen">Split screen</option>
-                    <option value="center_text">Center text</option>
-                  </select>
-                </label>
-              </div>
+              <input type="text" value={newRefs} onChange={(e) => setNewRefs(e.target.value)} placeholder="Reference images (comma-separated URLs)" />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => {
-                  const label = newLabel.trim();
-                  const template = newTemplate.trim();
-                  if (!label || !template) return;
-                  onCreatePreset({ label, template, colors: newColors, layout: newLayout, subject: newSubject });
+                  const title = newTitle.trim();
+                  const prompt = newPrompt.trim();
+                  if (!title || !prompt) return;
+                  const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                  onCreatePreset({ title, prompt, colors: newColors, referenceImages });
                   setNewOpen(false);
-                  setNewLabel("");
-                  setNewTemplate("");
+                  setNewTitle("");
+                  setNewPrompt("");
+                  setNewRefs("");
                   setNewColors([]);
-                  setNewSubject("face");
-                  setNewLayout("left_subject_right_text");
                 }}>Create</button>
-                <button onClick={() => { setNewOpen(false); setNewLabel(""); setNewTemplate(""); setNewColors([]); setNewSubject("face"); setNewLayout("left_subject_right_text"); }}>Cancel</button>
+                <button onClick={() => { setNewOpen(false); setNewTitle(""); setNewPrompt(""); setNewRefs(""); setNewColors([]); }}>Cancel</button>
               </div>
             </div>
           )}
