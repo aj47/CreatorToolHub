@@ -1,0 +1,21 @@
+# OS and editor
+.DS_Store
+*.swp
+*.swo
+
+# Node/Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env*
+.env.*.local
+
