@@ -19,3 +19,6 @@ pnpm-debug.log*
 .env*
 .env.*.local
 
+.wrangler/
+.vercel/
+.next//
