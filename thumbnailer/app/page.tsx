@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./page.module.css";
 import { buildPrompt } from "../lib/prompt/builder";
 import { profiles } from "../lib/prompt/profiles";
+import TemplateGallery from "../components/TemplateGallery";
 
 type Frame = { dataUrl: string; b64: string };
 
@@ -322,6 +323,14 @@ export default function Home() {
                 </select>
               </label>
             </div>
+
+            {/* Template Gallery */}
+            <TemplateGallery
+              currentId={profile}
+              onApply={(id) => setProfile(id)}
+              readOnly={mode === "custom"}
+            />
+
 
             <label style={{ display: "grid", gap: 6 }}>
               <span>Headline</span>
