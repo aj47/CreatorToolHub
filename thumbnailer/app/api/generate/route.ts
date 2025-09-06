@@ -1,4 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
+export const runtime = 'edge';
+
 
 // Initialize with API key from environment
 const ai = new GoogleGenAI({
