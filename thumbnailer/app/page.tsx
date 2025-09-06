@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import styles from "./page.module.css";
 import { buildPrompt } from "../lib/prompt/builder";
 import { profiles } from "../lib/prompt/profiles";
+import LayoutSandbox from "../components/LayoutSandbox";
 
 type Frame = { dataUrl: string; b64: string };
 
@@ -20,6 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [layoutExport, setLayoutExport] = useState<null | { imageB64: string; description: string }>(null);
 
   const [mode, setMode] = useState<"builder" | "custom">("builder");
 
@@ -188,8 +190,9 @@ export default function Home() {
     setResults([]);
     try {
       const templateOverride = customStyleProfiles[profile]?.template;
+      const layoutNote = layoutExport?.description ? `Layout: ${layoutExport.description}` : "";
       const finalPrompt = mode === "custom"
-        ? (fullPrompt || "")
+        ? [layoutNote, (fullPrompt || "")].filter(Boolean).join("\n\n")
         : buildPrompt({
             profile,
             templateOverride,
@@ -198,12 +201,13 @@ export default function Home() {
             layout,
             subject,
             aspect,
-            notes: prompt,
+            notes: [prompt, layoutNote].filter(Boolean).join("\n\n"),
           });
       const body = {
         prompt: finalPrompt,
         frames: frames.slice(0, 3).map((f) => f.b64),
         variants: count,
+        layoutImage: layoutExport?.imageB64 || undefined,
       };
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -283,6 +287,20 @@ export default function Home() {
               </div>
             </section>
           )}
+
+          {/* Layout Sandbox */}
+          <section>
+            <LayoutSandbox aspect={aspect} onExport={(e) => setLayoutExport(e)} />
+            {layoutExport && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <img src={`data:image/png;base64,${layoutExport.imageB64}`} alt="layout-preview" style={{ width: 160, border: "1px solid #ddd" }} />
+                <div style={{ fontSize: 12 }}>
+                  <div><strong>Layout description:</strong></div>
+                  <div>{layoutExport.description}</div>
+                </div>
+              </div>
+            )}
+          </section>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <label>
