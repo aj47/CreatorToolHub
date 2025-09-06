@@ -4,6 +4,7 @@ import styles from "./page.module.css";
 import { buildPrompt } from "../lib/prompt/builder";
 import { profiles } from "../lib/prompt/profiles";
 import TemplateGallery from "../components/TemplateGallery";
+import { curatedStyles, curatedMap } from "../lib/gallery/curatedStyles";
 
 type Frame = { dataUrl: string; b64: string };
 
@@ -52,7 +53,11 @@ export default function Home() {
   const [newStyleLabel, setNewStyleLabel] = useState<string>("");
   const [newStyleTemplate, setNewStyleTemplate] = useState<string>("");
 
+  const curatedProfiles: Record<string, { label: string; template: string }> = Object.fromEntries(
+    curatedStyles.map((s) => [s.id, { label: s.label, template: s.template }])
+  );
   const allProfiles: Record<string, { label: string; template: string }> = {
+    ...curatedProfiles,
     ...profiles,
     ...customStyleProfiles,
   };
@@ -188,7 +193,7 @@ export default function Home() {
     setLoading(true);
     setResults([]);
     try {
-      const templateOverride = customStyleProfiles[profile]?.template;
+      const templateOverride = customStyleProfiles[profile]?.template || curatedMap[profile]?.template;
       const finalPrompt = mode === "custom"
         ? (fullPrompt || "")
         : buildPrompt({
