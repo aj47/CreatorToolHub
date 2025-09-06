@@ -77,10 +77,7 @@ export default function Home() {
     setCustomPresets(obj);
     try { localStorage.setItem("cg_custom_presets_v1", JSON.stringify(obj)); } catch {}
   };
-  const persistFullPrompts = (obj: Record<string, { label: string; prompt: string }>) => {
-    setCustomPromptPresets(obj);
-    try { localStorage.setItem("cg_custom_full_prompts_v1", JSON.stringify(obj)); } catch {}
-  };
+
 
 
   const deleteCustomPreset = (id: string) => {
@@ -118,42 +115,6 @@ export default function Home() {
   };
 
 
-  const saveFullPromptPreset = () => {
-    const label = newFullLabel.trim();
-    const promptStr = fullPrompt.trim();
-    if (!label || !promptStr) return;
-    const id = `preset:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-    const next = { ...customPromptPresets, [id]: { label, prompt: promptStr } };
-    persistFullPrompts(next);
-    setSelectedFullPreset(id);
-    setNewFullLabel("");
-  };
-  const loadFullPromptPreset = (id: string) => {
-    setSelectedFullPreset(id);
-    const p = customPromptPresets[id]?.prompt || "";
-    setFullPrompt(p);
-  };
-  const deleteFullPromptPreset = (id: string) => {
-    const next = { ...customPromptPresets };
-    delete next[id];
-    persistFullPrompts(next);
-    if (selectedFullPreset === id) setSelectedFullPreset("");
-  };
-
-
-  const toHex6 = (s: string) => {
-    const t = String(s || "").trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(t)) return t;
-    if (/^[0-9a-fA-F]{6}$/.test(t)) return `#${t}`;
-    if (/^#[0-9a-fA-F]{3}$/.test(t)) {
-      const r = t.slice(1);
-      return `#${r[0]}${r[0]}${r[1]}${r[1]}${r[2]}${r[2]}`;
-    }
-    if (/^[0-9a-fA-F]{3}$/.test(t)) {
-      return `#${t[0]}${t[0]}${t[1]}${t[1]}${t[2]}${t[2]}`;
-    }
-    return "#000000";
-  };
 
   useEffect(() => {
     return () => {
