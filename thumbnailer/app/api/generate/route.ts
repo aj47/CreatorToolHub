@@ -13,7 +13,7 @@ type GenerateParams = Parameters<typeof ai.models.generateContent>[0];
 
 export async function POST(req: Request) {
   try {
-    const { prompt, frames = [], variants = 4 } = await req.json();
+    const { prompt, frames = [], variants = 4, layoutImage } = await req.json();
 
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
       return Response.json(
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       ...frames.slice(0, 3).map((b64: string) => ({
         inlineData: { data: b64, mimeType: "image/png" },
       })),
+      ...(layoutImage ? [{ inlineData: { data: String(layoutImage), mimeType: "image/png" } }] : []),
     ] as unknown as GenerateParams["contents"];
 
     const count = Math.max(1, Math.min(Number(variants) || 4, 8));
