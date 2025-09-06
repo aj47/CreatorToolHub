@@ -4,7 +4,7 @@ import styles from "./page.module.css";
 import { buildPrompt } from "../lib/prompt/builder";
 import { profiles } from "../lib/prompt/profiles";
 import TemplateGallery from "../components/TemplateGallery";
-import { curatedMap, isBuiltinProfileId } from "../lib/gallery/curatedStyles";
+import { curatedMap } from "../lib/gallery/curatedStyles";
 
 type Frame = { dataUrl: string; b64: string };
 
@@ -23,72 +23,51 @@ export default function Home() {
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<string>("vlog");
-  const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
-  const [layout, setLayout] = useState<
-    | "left_subject_right_text"
-    | "split_screen"
-    | "center_text"
-  >("left_subject_right_text");
-  const [subject, setSubject] = useState<"face" | "product" | "ui" | "two_faces">(
-    "face"
-  );
 
-  // Custom prompt (raw) mode
-  const [fullPrompt, setFullPrompt] = useState<string>("");
-  const [customPromptPresets, setCustomPromptPresets] = useState<
-    Record<string, { label: string; prompt: string }>
-  >({});
-  const [newFullLabel, setNewFullLabel] = useState<string>("");
-  const [selectedFullPreset, setSelectedFullPreset] = useState<string>("");
 
-  // Unified custom presets (label, template, plus colors/layout/subject)
+
+  // Template consists of: title, exact prompt, colors, reference images
   type Preset = {
-    label: string;
-    template: string;
+    title: string;
+    prompt: string;
     colors: string[];
-    layout: "left_subject_right_text" | "split_screen" | "center_text";
-    subject: "face" | "product" | "ui" | "two_faces";
+    referenceImages: string[];
   };
   const [customPresets, setCustomPresets] = useState<Record<string, Preset>>({});
-  const [newStyleLabel, setNewStyleLabel] = useState<string>("");
-  const [newStyleTemplate, setNewStyleTemplate] = useState<string>("");
-  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
 
 
 
   // Load saved custom profiles and prompt presets
   useEffect(() => {
     try {
-      const cp = localStorage.getItem("cg_custom_presets_v1");
-      if (cp) {
-        const obj = JSON.parse(cp) as Record<string, Preset>;
+      const cp2 = localStorage.getItem("cg_custom_presets_v2");
+      const cp1 = !cp2 ? localStorage.getItem("cg_custom_presets_v1") : null;
+      if (cp2) {
+        const obj = JSON.parse(cp2) as Record<string, Preset>;
         if (obj && typeof obj === "object") setCustomPresets(obj);
+      } else if (cp1) {
+        // migrate v1 (label/template/colors/layout/subject) to v2 (title/prompt/colors/referenceImages)
+        type OldPresetV1 = { label?: string; template?: string; colors?: string[]; referenceImages?: string[]; layout?: string; subject?: string };
+        const old = JSON.parse(cp1) as Record<string, OldPresetV1>;
+        const migrated: Record<string, Preset> = {};
+        for (const [id, v] of Object.entries(old)) {
+          migrated[id] = { title: v.label ?? "Custom", prompt: v.template ?? "", colors: Array.isArray(v.colors) ? v.colors : [], referenceImages: Array.isArray(v.referenceImages) ? v.referenceImages : [] };
+        }
+        setCustomPresets(migrated);
+        try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(migrated)); } catch {}
       } else {
         const legacy = localStorage.getItem("cg_custom_style_profiles_v1");
         if (legacy) {
           const old = JSON.parse(legacy) as Record<string, { label: string; template: string }>;
           const migrated: Record<string, Preset> = {};
           for (const [id, v] of Object.entries(old)) {
-            migrated[id] = { label: v.label, template: v.template, colors: [], layout: "left_subject_right_text", subject: "face" };
+            migrated[id] = { title: v.label, prompt: v.template, colors: [], referenceImages: [] };
           }
           setCustomPresets(migrated);
-          try { localStorage.setItem("cg_custom_presets_v1", JSON.stringify(migrated)); } catch {}
-        }
-      }
-    } catch {}
-    try {
-      const pp = localStorage.getItem("cg_custom_full_prompts_v1");
-      if (pp) {
-        const obj = JSON.parse(pp) as Record<string, { label: string; prompt: string }>;
-        if (obj && typeof obj === "object") {
-          setCustomPromptPresets(obj);
-          const first = Object.keys(obj)[0];
-          if (first) {
-            setSelectedFullPreset(first);
-            setFullPrompt(obj[first].prompt);
-          }
+          try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(migrated)); } catch {}
         }
       }
     } catch {}
@@ -103,23 +82,7 @@ export default function Home() {
     try { localStorage.setItem("cg_custom_full_prompts_v1", JSON.stringify(obj)); } catch {}
   };
 
-  const saveCustomPreset = () => {
-    const label = newStyleLabel.trim();
-    const template = newStyleTemplate.trim();
-    if (!label || !template) return;
-    if (editingPresetId) {
-      const next = { ...customPresets, [editingPresetId]: { ...customPresets[editingPresetId], label, template, colors, layout, subject } };
-      persistCustomPresets(next);
-      setEditingPresetId(null);
-    } else {
-      const id = `custom:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-      const next = { ...customPresets, [id]: { label, template, colors, layout, subject } };
-      persistCustomPresets(next);
-      setProfile(id);
-    }
-    setNewStyleLabel("");
-    setNewStyleTemplate("");
-  };
+
   const deleteCustomPreset = (id: string) => {
     const next = { ...customPresets };
     delete next[id];
@@ -127,8 +90,6 @@ export default function Home() {
     if (profile === id) {
       setProfile("vlog");
       setColors([]);
-      setLayout("left_subject_right_text");
-      setSubject("face");
     }
   };
 
@@ -137,25 +98,23 @@ export default function Home() {
     let baseLabel = "Preset";
     let baseTemplate = "";
     if (customPresets[id]) {
-      baseLabel = customPresets[id].label;
-      baseTemplate = customPresets[id].template;
+      baseLabel = customPresets[id].title;
+      baseTemplate = customPresets[id].prompt;
     } else if (curatedMap[id]) {
-      baseLabel = curatedMap[id].label;
-      baseTemplate = curatedMap[id].template;
+      baseLabel = curatedMap[id].title;
+      baseTemplate = curatedMap[id].prompt;
     } else {
       // built-in from profiles
-      const p = (profiles as any)[id];
-      if (p) { baseLabel = p.label; baseTemplate = p.template; }
+      const p = profiles[id as keyof typeof profiles] as { title: string; prompt: string } | undefined;
+      if (p) { baseLabel = p.title; baseTemplate = p.prompt; }
     }
     const label = `${baseLabel} Copy`;
     const newId = `custom:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-    const newPreset: Preset = { label, template: baseTemplate, colors: [], layout: "left_subject_right_text", subject: "face" };
+    const newPreset: Preset = { title: label, prompt: baseTemplate, colors: [], referenceImages: [] };
     const next: Record<string, Preset> = { ...customPresets, [newId]: newPreset };
     persistCustomPresets(next);
     setProfile(newId);
     setColors([]);
-    setLayout("left_subject_right_text");
-    setSubject("face");
   };
 
 
@@ -238,20 +197,37 @@ export default function Home() {
     setLoading(true);
     setResults([]);
     try {
-      const templateOverride = isBuiltinProfileId(profile) ? undefined : (customPresets[profile]?.template ?? curatedMap[profile]?.template);
+      const promptOverride = customPresets[profile]?.prompt ?? curatedMap[profile]?.prompt;
       const finalPrompt = buildPrompt({
             profile,
-            templateOverride,
+            promptOverride,
             headline,
             colors,
-            layout,
-            subject,
             aspect,
             notes: [prompt].filter(Boolean).join("\n\n"),
           });
+      // Optionally append template reference images (URLs) after captured frames
+      const refUrls: string[] = (customPresets[profile]?.referenceImages
+        ?? curatedMap[profile]?.referenceImages
+        ?? []) as string[];
+      const refB64: string[] = [];
+      for (const u of refUrls.slice(0, 3)) {
+        try {
+          const dataUrl = await fetch(u).then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref"))).then(blob => new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onerror = () => reject(new Error("reader"));
+            fr.onload = () => resolve(String(fr.result || ""));
+            fr.readAsDataURL(blob);
+          }));
+          const b64 = dataUrl.split(",")[1] || "";
+          if (b64) refB64.push(b64);
+        } catch {}
+      }
+      const primary = frames.map((f) => f.b64);
+      const combinedFrames = [...primary, ...refB64].slice(0, 3);
       const body = {
         prompt: finalPrompt,
-        frames: frames.slice(0, 3).map((f) => f.b64),
+        frames: combinedFrames,
         variants: count,
       };
       const res = await fetch("/api/generate", {
@@ -344,13 +320,9 @@ export default function Home() {
                 const p = customPresets[id];
                 if (p) {
                   setColors(p.colors || []);
-                  setLayout(p.layout);
-                  setSubject(p.subject);
                 } else {
                   // applying built-in/curated resets to defaults unless a custom preset is selected later
                   setColors([]);
-                  setLayout("left_subject_right_text");
-                  setSubject("face");
                 }
               }}
               customPresets={customPresets}
@@ -361,18 +333,14 @@ export default function Home() {
                 persistCustomPresets(next);
                 if (profile === id) {
                   if (update.colors) setColors(update.colors);
-                  if (update.layout) setLayout(update.layout);
-                  if (update.subject) setSubject(update.subject);
                 }
               }}
               onCreatePreset={(p) => {
-                const id = `custom:${p.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-                const next = { ...customPresets, [id]: p };
+                const id = `custom:${p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+                const next = { ...customPresets, [id]: p } as Record<string, Preset>;
                 persistCustomPresets(next);
                 setProfile(id);
                 setColors(p.colors || []);
-                setLayout(p.layout);
-                setSubject(p.subject);
               }}
             />
 
