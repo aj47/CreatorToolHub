@@ -35,13 +35,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const inputParts = [
+    type GenAIPart = { text?: string; inlineData?: { data: string; mimeType: string } };
+    const inputParts: GenAIPart[] = [
       { text: String(prompt) },
       ...frames.slice(0, 3).map((b64: string) => ({
         inlineData: { data: b64, mimeType: "image/png" },
       })),
       ...(layoutImage ? [{ inlineData: { data: String(layoutImage), mimeType: "image/png" } }] : []),
-    ] as any;
+    ];
 
     const count = Math.max(1, Math.min(Number(variants) || 4, 8));
     const allImages: string[] = [];
