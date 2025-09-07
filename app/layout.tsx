@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,9 +27,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <header style={{ padding: "12px 16px", borderBottom: "1px solid #eee", display: "flex", gap: 12 }}>
-          <a href="/" style={{ fontWeight: 600 }}>Creator Tool Hub</a>
+          <Link href="/" style={{ fontWeight: 600 }}>Creator Tool Hub</Link>
           <nav style={{ display: "flex", gap: 12 }}>
-            <a href="/thumbnails">Thumbnail Creator</a>
+            <Link href="/thumbnails">Thumbnail Creator</Link>
           </nav>
         </header>
         {children}
