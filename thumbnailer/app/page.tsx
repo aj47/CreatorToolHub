@@ -159,18 +159,26 @@ export default function Home() {
     setResults([]);
     try {
       const promptOverride = customPresets[profile]?.prompt ?? curatedMap[profile]?.prompt;
+      // Determine any template reference images up front
+      const refUrls: string[] = (customPresets[profile]?.referenceImages
+        ?? curatedMap[profile]?.referenceImages
+        ?? []) as string[];
+
+      // If references are present, add an automatic note to strongly copy them (incl. text)
+      const autoRefNote = refUrls.length > 0
+        ? "Use the attached reference image(s) as the primary style and layout guide. Copy the reference closely: composition, color palette, typography, and the text style and placement. Keep all text extremely legible."
+        : undefined;
+
       const finalPrompt = buildPrompt({
             profile,
             promptOverride,
             headline,
             colors,
             aspect,
-            notes: [prompt].filter(Boolean).join("\n\n"),
+            notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
           });
-      // Optionally append template reference images (URLs) after captured frames
-      const refUrls: string[] = (customPresets[profile]?.referenceImages
-        ?? curatedMap[profile]?.referenceImages
-        ?? []) as string[];
+
+      // Fetch reference images as base64
       const refB64: string[] = [];
       for (const u of refUrls.slice(0, 3)) {
         try {
@@ -184,8 +192,18 @@ export default function Home() {
           if (b64) refB64.push(b64);
         } catch {}
       }
-      const primary = frames.map((f) => f.b64);
-      const combinedFrames = [...primary, ...refB64].slice(0, 3);
+
+      // Assemble frames: put reference images first to increase influence; if fewer than 3 total, duplicate the first reference to fill.
+      let combinedFrames: string[] = [];
+      if (refB64.length > 0) {
+        const primary = frames.map((f) => f.b64);
+        const ordered = [...refB64, ...primary];
+        while (ordered.length < 3) ordered.push(refB64[0]);
+        combinedFrames = ordered.slice(0, 3);
+      } else {
+        combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+      }
+
       const body = {
         prompt: finalPrompt,
         frames: combinedFrames,
