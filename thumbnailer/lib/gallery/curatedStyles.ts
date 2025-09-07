@@ -41,13 +41,16 @@ function svgDataUrl(label: string, bg: string, fg = "#ffffff"): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-const builtinCards: StyleCard[] = Object.entries(profiles).map(([id, p], i) => ({
-  id,
-  title: p.title,
-  prompt: p.prompt,
-  previewUrl: svgDataUrl(p.title, palette[i % palette.length]),
-  builtin: true,
-}));
+const builtinCards: StyleCard[] = Object.entries(profiles)
+  // Exclude certain built-in profiles from the gallery (still available elsewhere)
+  .filter(([id]) => id !== "interview")
+  .map(([id, p], i) => ({
+    id,
+    title: p.title,
+    prompt: p.prompt,
+    previewUrl: svgDataUrl(p.title, palette[i % palette.length]),
+    builtin: true,
+  }));
 
 const extras: StyleCard[] = [
   {
@@ -72,20 +75,8 @@ const extras: StyleCard[] = [
     previewUrl: svgDataUrl("Minimal Mono", palette[11]),
   },
   // Reference-image-based templates
-  {
-    id: "ref-vlog",
-    title: "Ref: Vlog",
-    prompt: "Vlog style thumbnail. Keep text large and expressive; strong face presence; high contrast.",
-    previewUrl: "/references/vlog.jpg",
-    referenceImages: ["/references/vlog.jpg"],
-  },
-  {
-    id: "ref-studio",
-    title: "Ref: Studio",
-    prompt: "Studio style: clean lighting, subtle background, strong subject separation.",
-    previewUrl: "/references/studio.jpg",
-    referenceImages: ["/references/studio.jpg"],
-  },
+
+
   {
     id: "ref-product",
     title: "Ref: Product",
@@ -114,20 +105,8 @@ const extras: StyleCard[] = [
     previewUrl: "/references/aicoding.jpg",
     referenceImages: ["/references/aicoding.jpg"],
   },
-  {
-    id: "ref-interview",
-    title: "Ref: Interview",
-    prompt: "Interview style: two-person framing or presenter focus, strong headline bar, clear hierarchy, high contrast and legibility.",
-    previewUrl: "/references/interview.jpg",
-    referenceImages: ["/references/interview.jpg"],
-  },
-  {
-    id: "ref-showcase",
-    title: "Ref: Showcase",
-    prompt: "Showcase layout: featured subject/product centered, supporting accents, balanced whitespace, bold readable title.",
-    previewUrl: "/references/showcase.jpg",
-    referenceImages: ["/references/showcase.jpg"],
-  }
+
+
 ];
 
 export const curatedStyles: StyleCard[] = [...builtinCards, ...extras];
