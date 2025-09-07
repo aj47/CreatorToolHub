@@ -42,11 +42,20 @@ export default function TemplateGallery(props: {
       const raw = raw2 || raw1;
       if (raw) setFavorites(JSON.parse(raw));
     } catch {}
+    // Load "Favorites only" preference
+    try {
+      const so = localStorage.getItem("cg_gallery_only_favs_v1");
+      if (so != null) setShowOnlyFavs(so === "1" || so === "true");
+    } catch {}
   }, []);
 
   useEffect(() => {
     try { localStorage.setItem("cg_style_favs_v2", JSON.stringify(favorites)); } catch {}
   }, [favorites]);
+
+  useEffect(() => {
+    try { localStorage.setItem("cg_gallery_only_favs_v1", showOnlyFavs ? "1" : "0"); } catch {}
+  }, [showOnlyFavs]);
 
   const combined = useMemo(() => {
     const curated = curatedStyles.map((s) => ({ ...s, source: isBuiltinProfileId(s.id) ? "builtin" as const : "curated" as const }));
@@ -122,7 +131,7 @@ export default function TemplateGallery(props: {
                 <strong>{s.title}</strong>
                 {isBuiltinProfileId(s.id) && <span style={{ fontSize: 10, opacity: 0.6 }}>Built-in</span>}
               </div>
-              <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3 }}>{s.prompt}</p>
+              <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" } as any}>{s.prompt}</p>
               <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
                 <button onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); }}>Duplicate</button>
                 {customPresets[s.id] && (
