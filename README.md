@@ -1,99 +1,71 @@
-# CreatorToolHub
+# Creator Tool Hub
 
-A collection of creator tools. The `thumbnailer/` app is a Next.js project that generates YouTube-style thumbnails with AI.
+A single Next.js app that hosts multiple creator tools. The first tool is the Thumbnail Creator at `/thumbnails`.
 
-## Thumbnailer overview
-- Framework: Next.js (App Router)
-- Model Client: `@google/genai`
-- Main page: `thumbnailer/app/page.tsx`
-- API route: `thumbnailer/app/api/generate/route.ts`
-- Template gallery: `thumbnailer/components/TemplateGallery.tsx`
-- Curated styles: `thumbnailer/lib/gallery/curatedStyles.ts`
-- Prompt builder: `thumbnailer/lib/prompt/builder.ts`
-- Built-in profiles: `thumbnailer/lib/prompt/profiles.ts`
+## Tech
+- Next.js 15 (App Router)
+- React 19, TypeScript
+- Tailwind (via `@tailwindcss/postcss`), autoprefixer, `tailwindcss-animate`
+- API uses Google Gemini via `@google/genai`
 
-## Template model (refactored)
-Templates now consist of exactly these fields:
+## Getting started
 
-```ts
-export type Template = {
-  title: string;            // human-readable card name
-  prompt: string;           // exact prompt text sent to the model (no auto-expansion)
-  colors: string[];         // suggested hex colors (optional)
-  referenceImages: string[];// optional URLs or data URLs to append as image inputs
-};
-```
-
-Where they are used:
-- UI type alias: `type Preset` in `thumbnailer/app/page.tsx` and `components/TemplateGallery.tsx`
-- Curated cards: `thumbnailer/lib/gallery/curatedStyles.ts`
-- Built-ins (profiles): `thumbnailer/lib/prompt/profiles.ts` use `{ title, prompt }`
-
-## Reference images
-- Optional per-template
-- Appended (up to 3) to the frames captured from video and sent to the model
-- Samples live under `thumbnailer/public/references`
-  - `vlog.jpg`, `studio.jpg`, `product.jpg`, `contrast.jpg`, `comparison.jpg`
-- Curated entries were added to display these reference images as the card preview
-
-## Local storage keys (v2)
-- Custom templates: `cg_custom_presets_v2`
-  - Migrates from `cg_custom_presets_v1` automatically (label/template → title/prompt)
-- Favorites: `cg_style_favs_v2`
-
-## Running locally
-From the repository root:
+1) Install deps
 
 ```bash
-cd thumbnailer
 npm install
+```
+
+2) Env vars (choose one key)
+
+Create `.env.local` at the repo root with either:
+
+```bash
+GOOGLE_API_KEY=your_api_key_here
+# or
+GEMINI_API_KEY=your_api_key_here
+```
+
+3) Run dev server
+
+```bash
 npm run dev
 ```
 
-Then open http://localhost:3000
+Open http://localhost:3000
 
-Build for production:
+- Home (/) shows a minimal landing page
+- Thumbnails (/thumbnails) opens the Thumbnail Creator
 
-```bash
-cd thumbnailer
-npm run build
-npm start
-```
+## API runtime
 
-Note: Next.js may warn about multiple lockfiles. The app will still build/run.
-
-## API: /api/generate
-- Method: POST
-- Body fields:
-  - `prompt: string` (final composed prompt)
-  - `frames: string[]` (base64 PNGs, max 3; may include reference images)
-  - `variants?: number` (1–8)
-- Returns: `{ images: string[] }` with base64 PNGs
-
-## Adding curated templates that use reference images
-1) Place your images under `thumbnailer/public/references` (or a subfolder)
-2) Add a new entry to `thumbnailer/lib/gallery/curatedStyles.ts` with:
+- The generation endpoint runs on the Node.js runtime for better compatibility and time/memory limits:
 
 ```ts
-{
-  id: "ref-my-style",
-  title: "Ref: My Style",
-  prompt: "Describe the style succinctly…",
-  previewUrl: "/references/my-style.jpg",
-  referenceImages: ["/references/my-style.jpg"],
-}
+// app/api/generate/route.ts
+export const runtime = "nodejs";
 ```
 
-These will show up in the Template Gallery with the image as the preview.
+If you later want Edge (fast, globally distributed, but with more limits), change to `"edge"` and validate payload sizes and timeouts.
 
-## Notes & limitations
-- We cap total image inputs to 3 for the model request (captured frames + reference images)
-- The prompt builder now uses your template prompt as-is, plus optional headline/colors/notes
+## Structure
 
-## Contributing
-- Small changes: branch off `main`, open a PR
-- Please keep template edits consistent with the schema above
-- Consider adding reference images when appropriate to make templates visually discoverable
+```
+app/
+  page.tsx                # Landing page
+  api/generate/route.ts   # Thumbnail generation (Node runtime)
+  thumbnails/             # Thumbnail Creator UI
+components/
+lib/
+public/
+```
 
-## License
-MIT (unless otherwise noted in subfolders)
+## Notes
+- Minimal styling by design to keep the hub clean and focused.
+- Turbopack warning suppression: `next.config.ts` sets `turbopack.root = __dirname`.
+- When adding more tools, create routes like `/captions`, `/watermark`, etc., and link them from the header and landing page.
+
+## Next steps
+- Add CI and lint rules as needed
+- Add e2e smoke tests for the /thumbnails workflow
+- Optionally delete the old `thumbnailer/` folder if no longer needed (all logic has been moved)
