@@ -6,7 +6,7 @@ import { profiles } from "../lib/prompt/profiles";
 import TemplateGallery from "../components/TemplateGallery";
 import { curatedMap } from "../lib/gallery/curatedStyles";
 
-type Frame = { dataUrl: string; b64: string };
+type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
 
 const DEFAULT_PROMPT = "";
 
@@ -27,6 +27,14 @@ export default function Home() {
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
+
+  // Image import controls and limits
+  const [importing, setImporting] = useState<{ total: number; done: number; errors: string[] } | null>(null);
+  const [cancelImport, setCancelImport] = useState(false);
+  const MAX_ITEMS = 300;
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+  const ALLOWED_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".tif", ".tiff"] as const;
+  const [dedupeWarn, setDedupeWarn] = useState<string[]>([]);
 
 
 
@@ -115,6 +123,22 @@ export default function Home() {
     setProfile(newId);
     setColors([]);
   };
+  // Persist frames (including imported images) and restore on load
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("cg_frames_v1");
+      if (raw) {
+        const arr = JSON.parse(raw) as Frame[];
+        if (Array.isArray(arr)) setFrames(arr);
+      }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("cg_frames_v1", JSON.stringify(frames));
+    } catch {}
+  }, [frames]);
+
 
 
 
@@ -130,9 +154,123 @@ export default function Home() {
     const url = URL.createObjectURL(f);
     setVideoUrl(url);
     setVideoReady(false);
-    setFrames([]);
+
+    // Preserve any imported images when a new video is selected; drop only prior captured frames
+    setFrames((prev) => prev.filter((f) => f.kind === "image"));
     setResults([]);
   };
+
+  const moveFrame = (from: number, to: number) => {
+    setFrames((prev) => {
+      const arr = [...prev];
+      if (to < 0 || to >= arr.length) return arr;
+      const [it] = arr.splice(from, 1);
+      arr.splice(to, 0, it);
+      return arr;
+    });
+  };
+
+  const getExt = (name: string) => (name.match(/\.[^.]+$/)?.[0] || "").toLowerCase();
+  const isAllowed = (file: File) => ALLOWED_EXT.includes(getExt(file.name) as typeof ALLOWED_EXT[number]);
+
+  const bufToHex = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hashFile = async (file: File) => {
+    const buf = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", buf);
+    return bufToHex(digest);
+  };
+
+  const fileToPngDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("read"));
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext("2d");
+          if (!ctx) return reject(new Error("ctx"));
+          ctx.drawImage(img, 0, 0);
+          resolve(c.toDataURL("image/png"));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => reject(new Error("img"));
+      img.src = String(fr.result || "");
+    };
+    fr.readAsDataURL(file);
+  });
+
+  const importImages = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    const allowed = list.filter((f) => isAllowed(f));
+    const errors: string[] = [];
+    if (allowed.length !== list.length) {
+      errors.push("Some files were skipped due to unsupported format.");
+    }
+    if (frames.length + allowed.length > MAX_ITEMS) {
+      errors.push(`Import would exceed max items (${MAX_ITEMS}).`);
+    }
+    setDedupeWarn([]);
+    setCancelImport(false);
+    setImporting({ total: allowed.length, done: 0, errors: [] });
+
+    const existingHashes = new Set(frames.map((f) => f.hash).filter(Boolean) as string[]);
+
+    for (let i = 0; i < allowed.length; i++) {
+      if (cancelImport) break;
+      const file = allowed[i];
+      if (file.size > MAX_FILE_SIZE) {
+        errors.push(`${file.name}: exceeds ${Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB.`);
+        setImporting((s) => (s ? { ...s, done: s.done + 1 } : s));
+        continue;
+      }
+      try {
+        const hash = await hashFile(file);
+        if (existingHashes.has(hash)) {
+          setDedupeWarn((w) => [...w, `${file.name}: duplicate skipped`]);
+          setImporting((s) => (s ? { ...s, done: s.done + 1 } : s));
+          continue;
+        }
+        const dataUrl = await fileToPngDataUrl(file);
+        const b64 = (dataUrl.split(",")[1] || "");
+        setFrames((prev) => [...prev, { dataUrl, b64, kind: "image", filename: file.name, hash, importedAt: Date.now() }]);
+        existingHashes.add(hash);
+      } catch (e) {
+        errors.push(`${file.name}: failed to import`);
+      } finally {
+        setImporting((s) => (s ? { ...s, done: s.done + 1, errors } : s));
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    }
+    setImporting((s) => (s ? { ...s, errors } : s));
+  };
+
+  const onAddImages: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const input = e.currentTarget;
+    const files = input.files;
+    if (!files || files.length === 0) return;
+    await importImages(files);
+    input.value = ""; // clear after await; we cached the element
+  };
+
+  const onDropImages: React.DragEventHandler<HTMLDivElement> = async (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    await importImages(files);
+  };
+
+  const onDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
+    if (Array.from(e.dataTransfer?.items || []).some((it) => it.kind === "file")) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  };
+
 
   const captureFrame = () => {
     const video = videoRef.current;
@@ -148,7 +286,7 @@ export default function Home() {
     ctx.drawImage(video, 0, 0, w, h);
     const dataUrl = canvas.toDataURL("image/png");
     const b64 = dataUrl.split(",")[1] || "";
-    setFrames((prev) => [...prev, { dataUrl, b64 }]);
+    setFrames((prev) => [...prev, { dataUrl, b64, kind: "frame" }]);
   };
 
   const removeFrame = (idx: number) => {
@@ -243,6 +381,7 @@ export default function Home() {
   const copyToClipboard = async (src: string) => {
     try {
       const resp = await fetch(src);
+
       const blob = await resp.blob();
       await navigator.clipboard.write([
         new ClipboardItem({ [blob.type]: blob }),
@@ -252,13 +391,67 @@ export default function Home() {
     }
   };
 
+  // Dev-only helper to import sample images from URLs
+  const importTestImagesFromUrls = async (urls: string[]) => {
+    try {
+      const blobs = await Promise.all(urls.map(async (u) => {
+        const res = await fetch(u);
+        if (!res.ok) throw new Error(`fetch failed: ${u}`);
+        const blob = await res.blob();
+        const name = u.split("/").pop() || `image-${Date.now()}.png`;
+        return new File([blob], name, { type: blob.type || "image/png" });
+      }));
+      await importImages(blobs);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to import test images");
+    }
+  };
+
   return (
     <div className={styles.page}>
-      <main className={styles.main}>
+      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
         <div className={styles.hero}>
           <h1 className={styles.title}>nana thumbnail creator</h1>
-          <p className={styles.subtitle}>Upload a short video, scrub to the moment, and capture frames.</p>
-          <input className={styles.fileInput} type="file" accept="video/*" onChange={onFile} />
+          <p className={styles.subtitle}>Upload a short video, scrub to the moment, and capture frames. Or add standalone images.</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label className={styles.fileInput} aria-label="Add Video(s)">
+              <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
+              <span>Add Video(s)</span>
+            </label>
+            <label className={styles.fileInput} aria-label="Add Images">
+              <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} />
+              <span>Add Images</span>
+            </label>
+            {(process.env.NODE_ENV !== "production" || (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname))) && (
+              <button
+                type="button"
+                data-test="dev-add-sample-images"
+                onClick={() => importTestImagesFromUrls([
+                  "/references/aicoding.jpg",
+                  "/references/comparison.jpg",
+                  "/references/contrast.jpg",
+                  "/references/product.jpg",
+                ])}
+                style={{ padding: "6px 10px", border: "1px solid #ccc", borderRadius: 6 }}
+              >
+                Add sample images (dev)
+              </button>
+            )}
+
+
+          </div>
+          {importing && (
+            <div role="status" aria-live="polite" style={{ marginTop: 8, fontSize: 12 }}>
+              Importing images… {importing.done}/{importing.total}
+              <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
+            </div>
+          )}
+          {dedupeWarn.length > 0 && (
+            <div style={{ marginTop: 6, color: "#555", fontSize: 12 }}>
+              {dedupeWarn.slice(-3).map((w, i) => (<div key={i}>{w}</div>))}
+            </div>
+          )}
+          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>Tip: Drag and drop images anywhere on the gallery below.</div>
         </div>
 
         <div style={{ display: "grid", gap: 12 }}>
@@ -285,9 +478,14 @@ export default function Home() {
               <h3>Selected frames ({frames.length})</h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {frames.map((f, i) => (
-                  <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
-                    <img src={f.dataUrl} alt={`frame-${i}`} style={{ width: 220 }} />
-                    <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
+                    <span title={f.kind === "image" ? "Imported image" : "Captured frame"} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}>
+                      {f.kind === "image" ? "image" : "frame"}
+                    </span>
+                    <img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />
+                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                      <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
+                      <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
                       <button onClick={() => removeFrame(i)}>Remove</button>
                     </div>
                   </div>
