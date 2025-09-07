@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import styles from "./page.module.css";
-import { buildPrompt } from "../lib/prompt/builder";
-import { profiles } from "../lib/prompt/profiles";
-import TemplateGallery from "../components/TemplateGallery";
-import { curatedMap } from "../lib/gallery/curatedStyles";
+import { buildPrompt } from "@/lib/prompt/builder";
+import { profiles } from "@/lib/prompt/profiles";
+import TemplateGallery from "@/components/TemplateGallery";
+import { curatedMap } from "@/lib/gallery/curatedStyles";
 
 type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
 
@@ -429,7 +429,7 @@ export default function Home() {
     <div className={styles.page}>
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
         <div className={styles.hero}>
-          <h1 className={styles.title}>nana thumbnail creator</h1>
+          <h1 className={styles.title}>Thumbnail Creator</h1>
           <p className={styles.subtitle}>Upload a short video, scrub to the moment, and capture frames. Or add standalone images.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <label className={styles.fileInput} aria-label="Add Video(s)">
