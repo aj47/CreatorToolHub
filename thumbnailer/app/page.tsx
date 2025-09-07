@@ -378,6 +378,24 @@ export default function Home() {
     a.click();
   };
 
+  const downloadAll = async () => {
+    for (let i = 0; i < results.length; i++) {
+      try {
+        const resp = await fetch(results[i]);
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `thumbnail_${i + 1}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        await new Promise((r) => setTimeout(r, 75));
+      } catch (e) {
+        console.warn("Failed to download", i + 1, e);
+      }
+    }
+  };
+
   const copyToClipboard = async (src: string) => {
     try {
       const resp = await fetch(src);
@@ -579,7 +597,10 @@ export default function Home() {
 
         {results.length > 0 && (
           <section style={{ marginTop: 24 }}>
-            <h3>Results ({results.length})</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
+              <button onClick={downloadAll}>Download all</button>
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {results.map((src, i) => (
                 <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
