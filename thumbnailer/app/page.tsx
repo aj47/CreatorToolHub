@@ -254,11 +254,13 @@ export default function Home() {
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <h1>AI Thumbnail Generator</h1>
-        <p>Select a local video, scrub to a moment, and capture frames.</p>
+        <div className={styles.hero}>
+          <h1 className={styles.title}>nana thumbnail creator</h1>
+          <p className={styles.subtitle}>Upload a short video, scrub to the moment, and capture frames.</p>
+          <input className={styles.fileInput} type="file" accept="video/*" onChange={onFile} />
+        </div>
 
         <div style={{ display: "grid", gap: 12 }}>
-          <input type="file" accept="video/*" onChange={onFile} />
 
           {videoUrl && (
             <div style={{ display: "grid", gap: 8 }}>
@@ -330,14 +332,14 @@ export default function Home() {
             />
 
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Headline</span>
+            <label className={styles.formGroup}>
+              <span className={styles.label}>Headline</span>
               <input
                 type="text"
                 placeholder="3–5 word hook (optional)"
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
-                style={{ width: "100%" }}
+                className={styles.input}
               />
             </label>
 
@@ -347,29 +349,30 @@ export default function Home() {
 
 
           {/* Custom prompt mode removed; keep only Additional notes */}
-          <label style={{ display: "grid", gap: 6 }}>
-            <span>Additional notes (optional)</span>
+          <label className={styles.formGroup}>
+            <span className={styles.label}>Additional notes (optional)</span>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={6}
-              style={{ width: "100%", fontFamily: "inherit" }}
+              className={styles.textarea}
             />
           </label>
 
-          <label>
-            Variants:&nbsp;
+          <div className={styles.inlineGroup}>
+            <label className={styles.label} htmlFor="variants">Variants</label>
             <input
+              id="variants"
               type="number"
               min={1}
               max={8}
               value={count}
               onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-              style={{ width: 64 }}
+              className={styles.number}
             />
-          </label>
+          </div>
 
-          <button onClick={generate} disabled={loading || frames.length === 0}>
+          <button className={styles.primary} onClick={generate} disabled={loading || frames.length === 0}>
             {loading ? "Generating..." : "Generate thumbnails"}
           </button>
           {error && <p style={{ color: "crimson" }}>{error}</p>}
