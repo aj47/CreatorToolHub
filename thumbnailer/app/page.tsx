@@ -23,6 +23,7 @@ export default function Home() {
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<string>("vlog");
+  const [selectedIds, setSelectedIds] = useState<string[]>(["vlog"]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
@@ -158,27 +159,29 @@ export default function Home() {
     setLoading(true);
     setResults([]);
     try {
-      const promptOverride = customPresets[profile]?.prompt ?? curatedMap[profile]?.prompt;
-      // Determine any template reference images up front
-      const refUrls: string[] = (customPresets[profile]?.referenceImages
-        ?? curatedMap[profile]?.referenceImages
-        ?? []) as string[];
+      const ids = selectedIds.length > 0 ? selectedIds : [profile];
 
-      // If references are present, add an automatic note to strongly copy them (incl. text)
-      const autoRefNote = refUrls.length > 0
-        ? "Use the attached reference image(s) as the primary style and layout guide. Copy the reference closely: composition, color palette, typography, and the text style and placement. Keep all text extremely legible."
-        : undefined;
+      const allImagesAgg: string[] = [];
 
-      const finalPrompt = buildPrompt({
-            profile,
-            promptOverride,
-            headline,
-            colors,
-            aspect,
-            notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
-          });
+      // Shared headline/colors/aspect/notes; but promptOverride and references depend on template id
+      for (const tid of ids) {
+        const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
 
-      // Fetch reference images as base64
+        const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
+        const autoRefNote = refUrls.length > 0
+          ? "Use the attached reference image(s) as the primary style and layout guide. Copy the reference closely: composition, color palette, typography, and the text style and placement. Keep all text extremely legible."
+          : undefined;
+
+        const finalPrompt = buildPrompt({
+          profile: tid,
+          promptOverride,
+          headline,
+          colors,
+          aspect,
+          notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
+        });
+
+      // Fetch reference images as base64 for this template
       const refB64: string[] = [];
       for (const u of refUrls.slice(0, 3)) {
         try {
@@ -219,7 +222,9 @@ export default function Home() {
       const images: string[] = (data?.images || []).map(
         (b64: string) => `data:image/png;base64,${b64}`
       );
-      setResults(images);
+      allImagesAgg.push(...images);
+      }
+      setResults(allImagesAgg);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {
@@ -293,14 +298,15 @@ export default function Home() {
 
             {/* Template Gallery */}
             <TemplateGallery
-              currentId={profile}
-              onApply={(id) => {
+              selectedIds={selectedIds}
+              onToggleSelect={(id) => {
+                setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                // keep last selected as active profile for editing fields like colors/headline
                 setProfile(id);
                 const p = customPresets[id];
                 if (p) {
                   setColors(p.colors || []);
                 } else {
-                  // applying built-in/curated resets to defaults unless a custom preset is selected later
                   setColors([]);
                 }
               }}
