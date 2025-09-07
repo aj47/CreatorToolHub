@@ -107,6 +107,27 @@ const extras: StyleCard[] = [
     previewUrl: "/references/comparison.jpg",
     referenceImages: ["/references/comparison.jpg"],
   },
+  {
+    id: "ref-aicoding",
+    title: "Ref: AI Coding",
+    prompt: "Follow this reference closely: composition, color palette, typography, and text placement. Keep all text highly legible.",
+    previewUrl: "/references/aicoding.jpg",
+    referenceImages: ["/references/aicoding.jpg"],
+  },
+  {
+    id: "ref-interview",
+    title: "Ref: Interview",
+    prompt: "Interview style: two-person framing or presenter focus, strong headline bar, clear hierarchy, high contrast and legibility.",
+    previewUrl: "/references/interview.jpg",
+    referenceImages: ["/references/interview.jpg"],
+  },
+  {
+    id: "ref-showcase",
+    title: "Ref: Showcase",
+    prompt: "Showcase layout: featured subject/product centered, supporting accents, balanced whitespace, bold readable title.",
+    previewUrl: "/references/showcase.jpg",
+    referenceImages: ["/references/showcase.jpg"],
+  }
 ];
 
 export const curatedStyles: StyleCard[] = [...builtinCards, ...extras];
