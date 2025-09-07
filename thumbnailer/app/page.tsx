@@ -76,7 +76,8 @@ export default function Home() {
 
   const persistCustomPresets = (obj: Record<string, Preset>) => {
     setCustomPresets(obj);
-    try { localStorage.setItem("cg_custom_presets_v1", JSON.stringify(obj)); } catch {}
+    // Persist to v2 key to match loader and README
+    try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(obj)); } catch {}
   };
 
 
