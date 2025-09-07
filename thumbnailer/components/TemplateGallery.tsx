@@ -10,15 +10,15 @@ type Preset = {
 };
 
 export default function TemplateGallery(props: {
-  currentId: string;
-  onApply: (id: string) => void;
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
   customPresets: Record<string, Preset>;
   onDuplicate: (id: string) => void;
   onDeletePreset: (id: string) => void;
   onUpdatePreset: (id: string, update: Partial<Preset>) => void;
   onCreatePreset: (p: Preset) => void;
 }) {
-  const { currentId, onApply, customPresets, onDuplicate, onDeletePreset, onUpdatePreset, onCreatePreset } = props;
+  const { selectedIds, onToggleSelect, customPresets, onDuplicate, onDeletePreset, onUpdatePreset, onCreatePreset } = props;
 
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [showOnlyFavs, setShowOnlyFavs] = useState(false);
@@ -75,12 +75,22 @@ export default function TemplateGallery(props: {
         </label>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
-        {list.map((s) => (
-          <article key={s.id} style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
+        {list.map((s) => { const selected = selectedIds.includes(s.id); return (
+          <article
+            key={s.id}
+            onClick={() => onToggleSelect(s.id)}
+            style={{
+              border: selected ? "2px solid #3b82f6" : "1px solid #ddd",
+              boxShadow: selected ? "0 0 0 2px rgba(59,130,246,0.2)" : undefined,
+              borderRadius: 8,
+              overflow: "hidden",
+              cursor: "pointer",
+            }}
+          >
             <div style={{ position: "relative" }}>
               <img src={s.previewUrl} alt={s.title} style={{ display: "block", width: "100%" }} />
               <button
-                onClick={() => toggleFav(s.id)}
+                onClick={(e) => { e.stopPropagation(); toggleFav(s.id); }}
                 title={favorites[s.id] ? "Unfavorite" : "Favorite"}
                 style={{
                   position: "absolute",
@@ -114,17 +124,11 @@ export default function TemplateGallery(props: {
               </div>
               <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3 }}>{s.prompt}</p>
               <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                <button
-                  onClick={() => onApply(s.id)}
-                  disabled={currentId === s.id}
-                  style={{ cursor: currentId === s.id ? "default" : "pointer" }}
-                >
-                  {currentId === s.id ? "Active" : "Apply"}
-                </button>
-                <button onClick={() => onDuplicate(s.id)}>Duplicate</button>
+                <button onClick={(e) => { e.stopPropagation(); onDuplicate(s.id); }}>Duplicate</button>
                 {customPresets[s.id] && (
                   <>
-                    <button onClick={() => {
+                    <button onClick={(e) => {
+                      e.stopPropagation();
                       setEditingId(s.id);
                       const p = customPresets[s.id];
                       setDraftTitle(p.title);
@@ -132,7 +136,7 @@ export default function TemplateGallery(props: {
                       setDraftColors((p.colors || []).join(", "));
                       setDraftRefs((p.referenceImages || []).join(", "));
                     }}>Edit</button>
-                    <button onClick={() => onDeletePreset(s.id)} title="Delete">×</button>
+                    <button onClick={(e) => { e.stopPropagation(); onDeletePreset(s.id); }} title="Delete">×</button>
                   </>
                 )}
               </div>
@@ -189,7 +193,7 @@ export default function TemplateGallery(props: {
               )}
             </div>
           </article>
-        ))}
+        ); })}
         {/* New template placeholder card */}
         <article key="__new__" style={{ border: "2px dashed #cbd5e1", borderRadius: 8, padding: 12, display: "grid", gap: 8, alignItems: "start" }}>
           {!newOpen ? (
