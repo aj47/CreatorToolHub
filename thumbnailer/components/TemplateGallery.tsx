@@ -64,13 +64,18 @@ export default function TemplateGallery(props: {
       const prompt = p.prompt || "";
       const safeTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const previewUrl = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='480' height='270'><rect width='100%' height='100%' fill='%2364748B'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-family='Inter, ui-sans-serif, system-ui' font-size='28' font-weight='700' fill='#ffffff'>${safeTitle}</text></svg>`)}`;
-      return { id, title, prompt, previewUrl, source: "custom" as const };
+      const referenceImages = p.referenceImages || [];
+      return { id, title, prompt, previewUrl, referenceImages, source: "custom" as const };
     });
     return [...curated, ...customs];
   }, [customPresets]);
 
   const list = useMemo(() => {
-    return combined.filter((s) => (showOnlyFavs ? favorites[s.id] : true));
+    const filtered = combined.filter((s) => (showOnlyFavs ? favorites[s.id] : true));
+    // Sort: items with reference images first, preserve relative order otherwise
+    const withRef = filtered.filter((s: any) => Array.isArray((s as any).referenceImages) && (s as any).referenceImages.length > 0);
+    const withoutRef = filtered.filter((s: any) => !Array.isArray((s as any).referenceImages) || (s as any).referenceImages.length === 0);
+    return [...withRef, ...withoutRef];
   }, [combined, favorites, showOnlyFavs]);
 
   const toggleFav = (id: string) => setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -83,7 +88,11 @@ export default function TemplateGallery(props: {
           <input type="checkbox" checked={showOnlyFavs} onChange={(e) => setShowOnlyFavs(e.target.checked)} /> Favorites only
         </label>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+      <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
+        Templates with example reference images are shown first. Use Favorites to curate your own list.
+      </p>
+      <div style={{ maxHeight: 600, overflowY: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
         {list.map((s) => { const selected = selectedIds.includes(s.id); return (
           <article
             key={s.id}
@@ -249,6 +258,7 @@ export default function TemplateGallery(props: {
             </div>
           )}
         </article>
+        </div>
       </div>
     </section>
   );
