@@ -15,8 +15,8 @@ This app runs entirely on Cloudflare Pages with NextAuth for authentication and 
 4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client IDs"
 5. Set application type to "Web application"
 6. Add authorized redirect URIs:
-   - For development: `http://localhost:3000/api/auth/callback/google`
-   - For production: `https://creatortoolhub.com/api/auth/callback/google`
+   - For development: `http://localhost:3000/api/auth/callback`
+   - For production: `https://creatortoolhub.com/api/auth/callback`
 7. Save the Client ID and Client Secret
 
 ## 2) Environment Variables
@@ -92,7 +92,7 @@ npm run dev
 - **Authentication**: NextAuth with Google OAuth, JWT sessions (no database)
 - **Generation**: Direct Gemini API calls in `/api/generate` route
 - **Storage**: None - images returned as data URLs to client
-- **Runtime**: Node.js runtime for `/api/generate` (Gemini compatibility)
+- **Runtime**: Edge runtime for all API routes (Cloudflare Pages compatibility)
 - **Hosting**: Cloudflare Pages with Pages Functions for API routes
 
 ## Troubleshooting
@@ -105,7 +105,7 @@ npm run dev
 ### Generation Issues  
 - Verify `GEMINI_API_KEY` is set correctly
 - Check Cloudflare Pages function logs for errors
-- Ensure `/api/generate` uses `runtime = "nodejs"`
+- Ensure `/api/generate` uses `runtime = "edge"`
 
 ### Build Issues
 - Run `npm run pages:setup` if first time deploying

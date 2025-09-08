@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import AuthButton from "@/components/AuthButton";
+import AuthDebug from "@/components/AuthDebug";
 
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
           <AuthButton />
         </header>
         {children}
+        <AuthDebug />
       </body>
     </html>
   );
