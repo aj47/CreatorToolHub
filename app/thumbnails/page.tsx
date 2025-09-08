@@ -109,6 +109,39 @@ export default function Home() {
   };
 
 
+  // Helpers for robust conversions without fetch() to avoid CSP connect-src issues
+  const toDataUrlString = (u: string, mime: string = "image/png") =>
+    u && u.startsWith("data:") ? u : `data:${mime};base64,${(u || "").trim()}`;
+
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [head, b64raw] = (dataUrl || "").split(",");
+    const mime = /^data:([^;]+);base64$/i.exec(head || "")?.[1] || "image/png";
+    const b64 = (b64raw || "").replace(/\s+/g, "");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  };
+
+  const blobFromBlobUrlViaCanvas = (blobUrl: string) =>
+    new Promise<Blob>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth || 1;
+          c.height = img.naturalHeight || 1;
+          const ctx = c.getContext("2d");
+          if (!ctx) return reject(new Error("ctx"));
+          ctx.drawImage(img, 0, 0);
+          c.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/png");
+        } catch (e) { reject(e as any); }
+      };
+      img.onerror = () => reject(new Error("img"));
+      img.src = blobUrl;
+    });
+
+
 
   // Template consists of: title, exact prompt, colors, reference images
   type Preset = {
@@ -433,22 +466,15 @@ export default function Home() {
         allUrlsAgg.push(...images);
       }
 
-      // Convert to blob URLs robustly by fetching each data/base64 URL
-      // Handle cases where API might return raw base64 without data: prefix
-      const toDataUrl = (u: string) => u.startsWith("data:") ? u : `data:image/png;base64,${u}`;
+      // Convert to blob URLs without using fetch() to avoid CSP connect-src blocks
       try {
         // Revoke any previous blob URLs before replacing
         try { results.forEach((u) => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); } catch {}
-        const blobUrls = await Promise.all(allUrlsAgg.map(async (u) => {
-          try {
-            const res = await fetch(toDataUrl(u));
-            const b = await res.blob();
-            return URL.createObjectURL(b);
-          } catch {
-            // Fallback to original URL if conversion fails
-            return u;
-          }
-        }));
+        const blobUrls = allUrlsAgg.map((u) => {
+          const dataUrl = toDataUrlString(u);
+          const blob = dataUrlToBlob(dataUrl);
+          return URL.createObjectURL(blob);
+        });
         setResults(blobUrls);
       } catch {
         setResults(allUrlsAgg);
@@ -470,14 +496,19 @@ export default function Home() {
   const downloadAll = async () => {
     for (let i = 0; i < results.length; i++) {
       try {
-        const resp = await fetch(results[i]);
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
+        const src = results[i];
+        let href = src;
+        let revokeTemp: string | null = null;
+        if (src.startsWith('data:')) {
+          const blob = dataUrlToBlob(src);
+          href = URL.createObjectURL(blob);
+          revokeTemp = href;
+        }
         const a = document.createElement("a");
-        a.href = url;
+        a.href = href;
         a.download = `thumbnail_${i + 1}.png`;
         a.click();
-        URL.revokeObjectURL(url);
+        if (revokeTemp) URL.revokeObjectURL(revokeTemp);
         await new Promise((r) => setTimeout(r, 75));
       } catch (e) {
         console.warn("Failed to download", i + 1, e);
@@ -487,11 +518,20 @@ export default function Home() {
 
   const copyToClipboard = async (src: string) => {
     try {
-      const resp = await fetch(src);
-
-      const blob = await resp.blob();
+      let blob: Blob;
+      if (src.startsWith('blob:')) {
+        blob = await blobFromBlobUrlViaCanvas(src);
+      } else if (src.startsWith('data:')) {
+        blob = dataUrlToBlob(src);
+      } else if (/^https?:/i.test(src)) {
+        const resp = await fetch(src);
+        blob = await resp.blob();
+      } else {
+        // Assume raw base64
+        blob = dataUrlToBlob(toDataUrlString(src));
+      }
       await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
+        new ClipboardItem({ [blob.type || 'image/png']: blob }),
       ]);
     } catch {
       await navigator.clipboard.writeText(src);
