@@ -155,8 +155,7 @@ export default function Home() {
     setVideoUrl(url);
     setVideoReady(false);
 
-    // Preserve any imported images when a new video is selected; drop only prior captured frames
-    setFrames((prev) => prev.filter((f) => f.kind === "image"));
+    // Do not clear previously captured frames; allow accumulating frames across videos
     setResults([]);
   };
 
@@ -307,7 +306,7 @@ export default function Home() {
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
         const autoRefNote = refUrls.length > 0
-          ? "Use the attached reference image(s) as the primary style and layout guide. Copy the reference closely: composition, color palette, typography, and the text style and placement. Keep all text extremely legible."
+          ? "Use the attached reference image(s) strictly as style and layout guidance. Copy the reference closely for composition, color palette, typography, and text placement. Use the people/subjects from the provided frames/images (do not copy subjects from the reference). Keep all text extremely legible."
           : undefined;
 
         const finalPrompt = buildPrompt({

@@ -4,7 +4,8 @@ export const runtime = "edge";
 import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 
-const MODEL_ID = "gemini-2.0-flash-exp";
+// Use Gemini 2.5 Flash Image via generateContent (lightweight, "Nano/Banana" family)
+const MODEL_ID = "gemini-2.5-flash-image-preview";
 
 async function generateImagesWithGemini(
   apiKey: string,
@@ -15,27 +16,27 @@ async function generateImagesWithGemini(
   const genAI = new GoogleGenAI({ apiKey });
 
   try {
-    // For now, use just the text prompt - image input may need different API
-    const result = await genAI.models.generateImages({
+    // Build request parts: inlineData frames first (up to 3), then the text prompt
+    const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
+    for (const b64 of (_frames ?? []).slice(0, 3)) {
+      if (typeof b64 === "string" && b64.length > 0) {
+        reqParts.push({ inlineData: { mimeType: "image/png", data: b64 } });
+      }
+    }
+    reqParts.push({ text: prompt });
+
+    const result = await genAI.models.generateContent({
       model: MODEL_ID,
-      prompt: prompt
+      contents: [{ parts: reqParts }],
     });
 
-    // Extract base64 image data from response
+    // Extract base64 image data from inlineData parts
     const images: string[] = [];
-
-    // Handle different possible response structures
-    if ((result as any).images) {
-      for (const image of (result as any).images) {
-        if (image.data) {
-          images.push(image.data);
-        }
-      }
-    } else if ((result as any).generatedImages) {
-      for (const image of (result as any).generatedImages) {
-        if (image.data) {
-          images.push(image.data);
-        }
+    const resParts: any[] = (result as any)?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of resParts) {
+      const b64 = part?.inlineData?.data as string | undefined;
+      if (typeof b64 === 'string' && b64.length > 0) {
+        images.push(b64);
       }
     }
 
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage } = await req.json();
+    const { prompt, frames = [], layoutImage, variants } = await req.json();
 
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
       return Response.json(
@@ -71,11 +72,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Note: Current Gemini API doesn't support specifying count, generates 1 image
-    // const count = Math.max(1, Math.min(Number(variants) || 4, 8));
-    const images = await generateImagesWithGemini(apiKey, prompt, frames, layoutImage);
+    // Run multiple variant calls in parallel (one image per call)
+    const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+    const tasks = Array.from({ length: count }, () =>
+      generateImagesWithGemini(apiKey, prompt, frames, layoutImage)
+    );
+    const settled = await Promise.allSettled(tasks);
+    const imagesAll: string[] = settled.flatMap((s) => s.status === "fulfilled" ? s.value : []);
 
-    if (images.length === 0) {
+    if (imagesAll.length === 0) {
       return Response.json(
         { error: "Failed to generate any images" },
         { status: 500 }
@@ -83,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     // Return images as data URLs for direct client use
-    const dataUrls = images.map(base64 => `data:image/png;base64,${base64}`);
+    const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);
 
     return Response.json({ images: dataUrls });
   } catch (err: unknown) {
