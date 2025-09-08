@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://oauth2.googleapis.com https://www.googleapis.com https://generativelanguage.googleapis.com; frame-src 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; media-src 'self' blob: data:; connect-src 'self' https://oauth2.googleapis.com https://www.googleapis.com https://generativelanguage.googleapis.com; frame-src 'none';",
           },
         ],
       },
