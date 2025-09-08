@@ -37,6 +37,58 @@ export default function Home() {
   const [dedupeWarn, setDedupeWarn] = useState<string[]>([]);
 
 
+  // Client-side image downscaling/compression to reduce payload sizes
+  const MAX_DIMENSION = 768; // limit max width/height in pixels
+  const TARGET_MIME: "image/jpeg" | "image/png" = "image/jpeg";
+  const JPEG_QUALITY = 0.82; // 0..1
+
+  const computeTargetSize = (w: number, h: number) => {
+    const maxD = Math.max(w, h);
+    if (maxD <= MAX_DIMENSION) return { tw: w, th: h };
+    const scale = MAX_DIMENSION / maxD;
+    return { tw: Math.round(w * scale), th: Math.round(h * scale) };
+  };
+
+  const downscaleDataUrl = (dataUrl: string, mime: string = TARGET_MIME, quality = JPEG_QUALITY) => new Promise<string>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const { naturalWidth: w, naturalHeight: h } = img;
+        const { tw, th } = computeTargetSize(w, h);
+        const c = document.createElement("canvas");
+        c.width = tw; c.height = th;
+        const ctx = c.getContext("2d");
+        if (!ctx) return reject(new Error("ctx"));
+        ctx.drawImage(img, 0, 0, w, h, 0, 0, tw, th);
+        if (mime === "image/jpeg") {
+          resolve(c.toDataURL("image/jpeg", quality));
+        } else {
+          resolve(c.toDataURL("image/png"));
+        }
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.onerror = () => reject(new Error("img"));
+    img.src = dataUrl;
+  });
+
+  const fileToResizedDataUrl = (file: File, mime: string = TARGET_MIME, quality = JPEG_QUALITY) => new Promise<string>((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("read"));
+    fr.onload = async () => {
+      try {
+        const base = String(fr.result || "");
+        const out = await downscaleDataUrl(base, mime, quality);
+        resolve(out);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    fr.readAsDataURL(file);
+  });
+
+
 
   // Template consists of: title, exact prompt, colors, reference images
   type Preset = {
@@ -179,29 +231,8 @@ export default function Home() {
     return bufToHex(digest);
   };
 
-  const fileToPngDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onerror = () => reject(new Error("read"));
-    fr.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const c = document.createElement("canvas");
-          c.width = img.naturalWidth;
-          c.height = img.naturalHeight;
-          const ctx = c.getContext("2d");
-          if (!ctx) return reject(new Error("ctx"));
-          ctx.drawImage(img, 0, 0);
-          resolve(c.toDataURL("image/png"));
-        } catch (e) {
-          reject(e);
-        }
-      };
-      img.onerror = () => reject(new Error("img"));
-      img.src = String(fr.result || "");
-    };
-    fr.readAsDataURL(file);
-  });
+  // Back-compat name: now resizes and outputs JPEG by default
+  const fileToPngDataUrl = (file: File) => fileToResizedDataUrl(file, TARGET_MIME, JPEG_QUALITY);
 
   const importImages = async (files: FileList | File[]) => {
     const list = Array.from(files);
@@ -278,12 +309,15 @@ export default function Home() {
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) return;
-    canvas.width = w;
-    canvas.height = h;
+    const { tw, th } = computeTargetSize(w, h);
+    canvas.width = tw;
+    canvas.height = th;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, w, h);
-    const dataUrl = canvas.toDataURL("image/png");
+    ctx.drawImage(video, 0, 0, w, h, 0, 0, tw, th);
+    const dataUrl = TARGET_MIME === "image/jpeg"
+      ? canvas.toDataURL("image/jpeg", JPEG_QUALITY)
+      : canvas.toDataURL("image/png");
     const b64 = dataUrl.split(",")[1] || "";
     setFrames((prev) => [...prev, { dataUrl, b64, kind: "frame" }]);
   };
@@ -330,7 +364,8 @@ export default function Home() {
                 fr.onload = () => resolve(String(fr.result || ""));
                 fr.readAsDataURL(blob);
               }));
-            const b64 = dataUrl.split(",")[1] || "";
+            const resized = await downscaleDataUrl(dataUrl, TARGET_MIME, JPEG_QUALITY);
+            const b64 = resized.split(",")[1] || "";
             if (b64) refB64.push(b64);
           } catch {}
         }
@@ -346,7 +381,7 @@ export default function Home() {
           combinedFrames = frames.map((f) => f.b64).slice(0, 3);
         }
 
-        const body = { prompt: finalPrompt, frames: combinedFrames, variants: count };
+        const body = { prompt: finalPrompt, frames: combinedFrames, framesMime: TARGET_MIME, variants: count };
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

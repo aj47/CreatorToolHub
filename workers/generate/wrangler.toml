@@ -1,0 +1,14 @@
+name = "thumbnail-generate"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+usage_model = "unbound"
+
+# Set your environment variable in Cloudflare dashboard or via `wrangler secret put GEMINI_API_KEY`
+# [vars]
+# MODEL_ID = "gemini-2.5-flash-image-preview"
+
+# Routes are environment-specific. Production route:
+routes = [
+  { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" }
+]
+
