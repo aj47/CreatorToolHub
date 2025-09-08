@@ -293,20 +293,7 @@ export default function Home() {
     setFrames((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-  const pollStatus = async (jobId: string, timeoutMs = 120_000) => {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      const r = await fetch(`/api/status?id=${encodeURIComponent(jobId)}`);
-      const d = await r.json();
-      if (!r.ok) throw new Error(d?.error || `Status ${r.status}`);
-      if (d.status === "done") return d.resultUrls as string[];
-      if (d.status === "error") throw new Error(d?.error || "Job failed");
-      await sleep(1500);
-    }
-    throw new Error("Timed out waiting for results");
-  };
+  // No longer need polling - direct generation
 
   const generate = async () => {
     setError(null);
@@ -366,13 +353,20 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (res.status === 401) {
+          setError("Please sign in to generate thumbnails.");
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || "Unexpected error");
-        const jobId = String(data?.jobId || "");
-        if (!jobId) throw new Error("No jobId returned");
 
-        const urls = await pollStatus(jobId);
-        allUrlsAgg.push(...urls);
+        const images = data?.images;
+        if (!Array.isArray(images) || images.length === 0) {
+          throw new Error("No images returned");
+        }
+
+        allUrlsAgg.push(...images);
       }
 
       setResults(allUrlsAgg);

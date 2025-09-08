@@ -1,10 +1,61 @@
-export const runtime = "edge";
+// Use nodejs runtime for @google/genai compatibility
+export const runtime = "nodejs";
 
-// This endpoint now enqueues a job in Supabase via an Edge Function and returns a jobId immediately.
-// It avoids long-running requests on Cloudflare Pages.
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { GoogleGenAI } from "@google/genai";
+
+const MODEL_ID = "gemini-2.0-flash-exp";
+
+async function generateImagesWithGemini(
+  apiKey: string,
+  prompt: string,
+  _frames: string[],
+  _layoutImage?: string
+): Promise<string[]> {
+  const genAI = new GoogleGenAI({ apiKey });
+
+  try {
+    // For now, use just the text prompt - image input may need different API
+    const result = await genAI.models.generateImages({
+      model: MODEL_ID,
+      prompt: prompt
+    });
+
+    // Extract base64 image data from response
+    const images: string[] = [];
+
+    // Handle different possible response structures
+    if ((result as any).images) {
+      for (const image of (result as any).images) {
+        if (image.data) {
+          images.push(image.data);
+        }
+      }
+    } else if ((result as any).generatedImages) {
+      for (const image of (result as any).generatedImages) {
+        if (image.data) {
+          images.push(image.data);
+        }
+      }
+    }
+
+    return images;
+  } catch (error) {
+    console.error("Error generating images:", error);
+    return [];
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const { prompt, frames = [], variants = 4, layoutImage } = await req.json();
+    // Require authentication
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { prompt, frames = [], layoutImage } = await req.json();
 
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
       return Response.json(
@@ -13,65 +64,31 @@ export async function POST(req: Request) {
       );
     }
 
-    const enqueueUrlRaw = process.env.SUPABASE_ENQUEUE_URL || "";
-    const enqueueUrl = enqueueUrlRaw.trim().replace(/^=/, "");
-    const webhookSecret = (process.env.SUPABASE_WEBHOOK_SECRET || "").trim();
-
-    if (!enqueueUrl || !webhookSecret) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
       return Response.json(
-        { error: "Missing SUPABASE_ENQUEUE_URL or SUPABASE_WEBHOOK_SECRET" },
+        { error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
         { status: 500 }
       );
     }
 
-    const cfTimeoutMs = 25_000; // keep this under Cloudflare's limits for safety
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort("timeout"), cfTimeoutMs);
+    // Note: Current Gemini API doesn't support specifying count, generates 1 image
+    // const count = Math.max(1, Math.min(Number(variants) || 4, 8));
+    const images = await generateImagesWithGemini(apiKey, prompt, frames, layoutImage);
 
-    try {
-      const resp = await fetch(enqueueUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Shared secret header expected by the Supabase Edge Function
-          Authorization: `Bearer ${webhookSecret}`,
-        },
-        body: JSON.stringify({ prompt, frames, variants, layoutImage }),
-        signal: ac.signal,
-      });
-
-      clearTimeout(timer);
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        return Response.json(
-          { error: `Enqueue failed (${resp.status}): ${text}` },
-          { status: 502 }
-        );
-      }
-
-      const data = await resp.json();
-      // Expected shape from the Supabase function: { jobId: string }
-      if (!data?.jobId) {
-        return Response.json(
-          { error: "Malformed response from enqueue function" },
-          { status: 502 }
-        );
-      }
-
-      return Response.json({ jobId: data.jobId });
-    } catch (e) {
-      clearTimeout(timer);
-      if ((e as any)?.name === "AbortError") {
-        return Response.json(
-          { error: "Timed out enqueuing job" },
-          { status: 504 }
-        );
-      }
-      throw e;
+    if (images.length === 0) {
+      return Response.json(
+        { error: "Failed to generate any images" },
+        { status: 500 }
+      );
     }
+
+    // Return images as data URLs for direct client use
+    const dataUrls = images.map(base64 => `data:image/png;base64,${base64}`);
+
+    return Response.json({ images: dataUrls });
   } catch (err: unknown) {
-    console.error("/api/generate enqueue error", err);
+    console.error("/api/generate error", err);
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }

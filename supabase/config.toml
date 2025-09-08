@@ -1,9 +1,0 @@
-[functions.process-generate]
-verify_jwt = false
-
-[functions.run-job]
-verify_jwt = false
-
-[functions.job-status]
-verify_jwt = false
-
