@@ -4,7 +4,34 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const MODEL_ID = "gemini-2.5-flash-image-preview"; // keep consistent with your app
+const MODEL_ID = "gemini-2.5-flash-image-preview"; // supports image generation with inlineData
+
+async function toBase64FromUrl(url: string): Promise<string> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to fetch frame: ${resp.status}`);
+  const ab = await resp.arrayBuffer();
+  const bytes = new Uint8Array(ab);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function extractBase64FromDataUrl(dataUrl: string): string {
+  const i = dataUrl.indexOf(",");
+  return i >= 0 ? dataUrl.slice(i + 1) : dataUrl;
+}
+
+async function normalizeFrames(frames: string[], max = 3): Promise<string[]> {
+  const pick = frames.slice(0, max);
+  const out: string[] = [];
+  for (const f of pick) {
+    if (!f) continue;
+    if (f.startsWith("data:")) out.push(extractBase64FromDataUrl(f));
+    else if (/^https?:\/\//i.test(f)) out.push(await toBase64FromUrl(f));
+    else out.push(f); // assume already base64
+  }
+  return out;
+}
 
 async function generateImagesREST(
   apiKey: string,
@@ -15,10 +42,17 @@ async function generateImagesREST(
 ): Promise<string[]> {
   const images: string[] = [];
 
-  const contents: any[] = [
+  const normFrames = await normalizeFrames(frames, 3);
+  const normLayout = layoutImage
+    ? (layoutImage.startsWith("data:")
+        ? extractBase64FromDataUrl(layoutImage)
+        : (/^https?:\/\//i.test(layoutImage) ? await toBase64FromUrl(layoutImage) : layoutImage))
+    : undefined;
+
+  const parts: any[] = [
     { text: String(prompt) },
-    ...frames.slice(0, 3).map((b64) => ({ inlineData: { data: b64, mimeType: "image/png" } })),
-    ...(layoutImage ? [{ inlineData: { data: String(layoutImage), mimeType: "image/png" } }] : []),
+    ...normFrames.map((b64) => ({ inlineData: { data: b64, mimeType: "image/png" } })),
+    ...(normLayout ? [{ inlineData: { data: normLayout, mimeType: "image/png" } }] : []),
   ];
 
   for (let i = 0; i < count; i++) {
@@ -27,7 +61,7 @@ async function generateImagesREST(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents }),
+        body: JSON.stringify({ contents: [{ role: "user", parts }] }),
       }
     );
 
@@ -37,12 +71,10 @@ async function generateImagesREST(
     }
 
     const data = await res.json();
-    const parts = data?.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
+    const partsOut = data?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of partsOut) {
       const dataB64 = part?.inlineData?.data;
-      if (typeof dataB64 === "string" && dataB64.length > 0) {
-        images.push(dataB64);
-      }
+      if (typeof dataB64 === "string" && dataB64.length > 0) images.push(dataB64);
     }
   }
 

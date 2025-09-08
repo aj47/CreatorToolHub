@@ -38,8 +38,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Optionally: you can trigger the runner via HTTP here if you want immediate processing.
-    // For simplicity, rely on a cron hitting the run-job function every minute.
+    // Optional immediate runner trigger (fire-and-forget)
+    try {
+      const projectHost = new URL(Deno.env.get("PROJECT_URL")!).host; // e.g., fcbymd....supabase.co
+      const functionsHost = projectHost.replace(".supabase.co", ".functions.supabase.co");
+      const runUrl = `https://${functionsHost}/run-job`;
+      fetch(runUrl, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${Deno.env.get("WEBHOOK_SECRET")}` },
+      }).catch(() => {});
+    } catch (_) {}
 
     return new Response(JSON.stringify({ jobId: data.id }), {
       headers: { "Content-Type": "application/json" },

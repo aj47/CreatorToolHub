@@ -9,8 +9,9 @@ export async function GET(req: Request) {
       return Response.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const statusUrl = process.env.SUPABASE_STATUS_URL;
-    const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET;
+    const statusUrlRaw = process.env.SUPABASE_STATUS_URL || "";
+    const statusUrl = statusUrlRaw.trim().replace(/^=/, "");
+    const webhookSecret = (process.env.SUPABASE_WEBHOOK_SECRET || "").trim();
     if (!statusUrl || !webhookSecret) {
       return Response.json(
         { error: "Missing SUPABASE_STATUS_URL or SUPABASE_WEBHOOK_SECRET" },
