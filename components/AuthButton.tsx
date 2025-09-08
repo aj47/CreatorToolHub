@@ -13,30 +13,24 @@ export default function AuthButton() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated by looking for auth cookie
-    const checkAuth = () => {
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
-        acc[key] = value;
-        return acc;
-      }, {} as Record<string, string>);
+    // Check authentication status via session endpoint
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/session');
+        const data = await response.json();
 
-      const token = cookies['auth-token'];
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token));
-          if (payload.exp && payload.exp > Math.floor(Date.now() / 1000)) {
-            setUser({
-              email: payload.email,
-              name: payload.name || '',
-              picture: payload.picture || '',
-            });
-          }
-        } catch (error) {
-          // Invalid token
+        if (data.authenticated && data.user) {
+          setUser({
+            email: data.user.email,
+            name: data.user.name || '',
+            picture: data.user.picture || '',
+          });
         }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkAuth();
