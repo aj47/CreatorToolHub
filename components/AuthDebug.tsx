@@ -10,6 +10,7 @@ interface DebugInfo {
   userAgent: string;
   url: string;
   timestamp: string;
+  sessionData: any;
 }
 
 export default function AuthDebug() {
@@ -20,7 +21,7 @@ export default function AuthDebug() {
   useEffect(() => {
     setIsClient(true);
 
-    const gatherDebugInfo = () => {
+    const gatherDebugInfo = async () => {
       const cookies = document.cookie;
       const authToken = cookies.split(';').find(c => c.trim().startsWith('auth-token='));
       const hasAuthToken = !!authToken;
@@ -38,6 +39,15 @@ export default function AuthDebug() {
         }
       }
 
+      // Get session data from server
+      let sessionData = null;
+      try {
+        const response = await fetch('/api/auth/session');
+        sessionData = await response.json();
+      } catch (error) {
+        sessionData = { error: 'Failed to fetch session' };
+      }
+
       setDebugInfo({
         cookies,
         hasAuthToken,
@@ -46,6 +56,7 @@ export default function AuthDebug() {
         userAgent: navigator.userAgent,
         url: window.location.href,
         timestamp: new Date().toISOString(),
+        sessionData,
       });
     };
 
@@ -120,9 +131,16 @@ export default function AuthDebug() {
         <div style={{ lineHeight: '1.4' }}>
           <div style={{ marginBottom: '8px' }}>
             <strong>Status:</strong>{' '}
-            <span style={{ color: debugInfo.tokenValid ? 'green' : 'red' }}>
-              {debugInfo.tokenValid ? '✅ Authenticated' : '❌ Not authenticated'}
+            <span style={{ color: debugInfo.sessionData?.authenticated ? 'green' : 'red' }}>
+              {debugInfo.sessionData?.authenticated ? '✅ Authenticated' : '❌ Not authenticated'}
             </span>
+          </div>
+
+          <div style={{ marginBottom: '8px' }}>
+            <strong>Session Data:</strong>
+            <div style={{ background: '#f5f5f5', padding: '4px', borderRadius: '4px', wordBreak: 'break-all', fontSize: '10px' }}>
+              {JSON.stringify(debugInfo.sessionData, null, 2)}
+            </div>
           </div>
           
           <div style={{ marginBottom: '8px' }}>
