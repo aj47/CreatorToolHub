@@ -6,6 +6,7 @@ A single Next.js app that hosts multiple creator tools. The first tool is the Th
 - Next.js 15 (App Router)
 - React 19, TypeScript
 - Tailwind (via `@tailwindcss/postcss`), autoprefixer, `tailwindcss-animate`
+- NextAuth (Auth.js) with Google OAuth
 - API uses Google Gemini via `@google/genai`
 
 ## Getting started
@@ -16,15 +17,25 @@ A single Next.js app that hosts multiple creator tools. The first tool is the Th
 npm install
 ```
 
-2) Env vars (choose one key)
+2) Env vars
 
-Create `.env.local` at the repo root with either:
+Create `.env.local` at the repo root:
 
 ```bash
-GOOGLE_API_KEY=your_api_key_here
+# Gemini API (choose one)
+GEMINI_API_KEY=your_gemini_api_key_here
 # or
-GEMINI_API_KEY=your_api_key_here
+GOOGLE_API_KEY=your_google_api_key_here
+
+# NextAuth
+NEXTAUTH_SECRET=your_random_secret_here
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 ```
+
+Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/).
+Generate NEXTAUTH_SECRET with: `openssl rand -base64 32`
 
 3) Run dev server
 
