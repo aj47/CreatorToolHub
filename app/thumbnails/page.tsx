@@ -293,19 +293,31 @@ export default function Home() {
     setFrames((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const pollStatus = async (jobId: string, timeoutMs = 120_000) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const r = await fetch(`/api/status?id=${encodeURIComponent(jobId)}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d?.error || `Status ${r.status}`);
+      if (d.status === "done") return d.resultUrls as string[];
+      if (d.status === "error") throw new Error(d?.error || "Job failed");
+      await sleep(1500);
+    }
+    throw new Error("Timed out waiting for results");
+  };
+
   const generate = async () => {
     setError(null);
     setLoading(true);
     setResults([]);
     try {
       const ids = selectedIds.length > 0 ? selectedIds : [profile];
+      const allUrlsAgg: string[] = [];
 
-      const allImagesAgg: string[] = [];
-
-      // Shared headline/colors/aspect/notes; but promptOverride and references depend on template id
       for (const tid of ids) {
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
-
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
         const autoRefNote = refUrls.length > 0
           ? "Use the attached reference image(s) as the primary style and layout guide. Copy the reference closely: composition, color palette, typography, and the text style and placement. Keep all text extremely legible."
@@ -320,50 +332,50 @@ export default function Home() {
           notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
         });
 
-      // Fetch reference images as base64 for this template
-      const refB64: string[] = [];
-      for (const u of refUrls.slice(0, 3)) {
-        try {
-          const dataUrl = await fetch(u).then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref"))).then(blob => new Promise<string>((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onerror = () => reject(new Error("reader"));
-            fr.onload = () => resolve(String(fr.result || ""));
-            fr.readAsDataURL(blob);
-          }));
-          const b64 = dataUrl.split(",")[1] || "";
-          if (b64) refB64.push(b64);
-        } catch {}
+        // Fetch reference images as base64 for this template
+        const refB64: string[] = [];
+        for (const u of refUrls.slice(0, 3)) {
+          try {
+            const dataUrl = await fetch(u)
+              .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
+              .then(blob => new Promise<string>((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onerror = () => reject(new Error("reader"));
+                fr.onload = () => resolve(String(fr.result || ""));
+                fr.readAsDataURL(blob);
+              }));
+            const b64 = dataUrl.split(",")[1] || "";
+            if (b64) refB64.push(b64);
+          } catch {}
+        }
+
+        // Assemble frames: put reference images first
+        let combinedFrames: string[] = [];
+        if (refB64.length > 0) {
+          const primary = frames.map((f) => f.b64);
+          const ordered = [...refB64, ...primary];
+          while (ordered.length < 3) ordered.push(refB64[0]);
+          combinedFrames = ordered.slice(0, 3);
+        } else {
+          combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+        }
+
+        const body = { prompt: finalPrompt, frames: combinedFrames, variants: count };
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Unexpected error");
+        const jobId = String(data?.jobId || "");
+        if (!jobId) throw new Error("No jobId returned");
+
+        const urls = await pollStatus(jobId);
+        allUrlsAgg.push(...urls);
       }
 
-      // Assemble frames: put reference images first to increase influence; if fewer than 3 total, duplicate the first reference to fill.
-      let combinedFrames: string[] = [];
-      if (refB64.length > 0) {
-        const primary = frames.map((f) => f.b64);
-        const ordered = [...refB64, ...primary];
-        while (ordered.length < 3) ordered.push(refB64[0]);
-        combinedFrames = ordered.slice(0, 3);
-      } else {
-        combinedFrames = frames.map((f) => f.b64).slice(0, 3);
-      }
-
-      const body = {
-        prompt: finalPrompt,
-        frames: combinedFrames,
-        variants: count,
-      };
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Unexpected error");
-      const images: string[] = (data?.images || []).map(
-        (b64: string) => `data:image/png;base64,${b64}`
-      );
-      allImagesAgg.push(...images);
-      }
-      setResults(allImagesAgg);
+      setResults(allUrlsAgg);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {

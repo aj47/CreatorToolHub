@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
+    "pages:build": "npx @cloudflare/next-on-pages@latest",
+    "pages:dev": "wrangler pages dev .vercel/output/static --functions .vercel/output/functions"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",

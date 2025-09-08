@@ -1,13 +1,9 @@
-export const runtime = "nodejs";
+export const runtime = "edge";
 
-const MODEL_ID = "gemini-2.5-flash-image-preview";
-
-type InlineDataPart = { inlineData?: { data?: string; mimeType?: string } };
-type Candidate = { content?: { parts?: InlineDataPart[] } };
-
+// This endpoint now enqueues a job in Supabase via an Edge Function and returns a jobId immediately.
+// It avoids long-running requests on Cloudflare Pages.
 export async function POST(req: Request) {
   try {
-    const { GoogleGenAI, Modality } = await import("@google/genai");
     const { prompt, frames = [], variants = 4, layoutImage } = await req.json();
 
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
@@ -17,60 +13,67 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "";
-    if (!apiKey) {
+    const enqueueUrl = process.env.SUPABASE_ENQUEUE_URL;
+    const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET;
+
+    if (!enqueueUrl || !webhookSecret) {
       return Response.json(
-        { error: "Missing GOOGLE_API_KEY or GEMINI_API_KEY" },
+        { error: "Missing SUPABASE_ENQUEUE_URL or SUPABASE_WEBHOOK_SECRET" },
         { status: 500 }
       );
     }
 
-    // Initialize with API key from environment (inside handler to avoid module-scope initialization issues)
-    const ai = new GoogleGenAI({ apiKey });
+    const cfTimeoutMs = 25_000; // keep this under Cloudflare's limits for safety
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort("timeout"), cfTimeoutMs);
 
-    if (!prompt || !Array.isArray(frames) || frames.length === 0) {
-      return Response.json(
-        { error: "Missing prompt or frames" },
-        { status: 400 }
-      );
-    }
-
-    type GenAIPart = { text?: string; inlineData?: { data: string; mimeType: string } };
-    const inputParts: GenAIPart[] = [
-      { text: String(prompt) },
-      ...frames.slice(0, 3).map((b64: string) => ({
-        inlineData: { data: b64, mimeType: "image/png" },
-      })),
-      ...(layoutImage ? [{ inlineData: { data: String(layoutImage), mimeType: "image/png" } }] : []),
-    ];
-
-    const count = Math.max(1, Math.min(Number(variants) || 4, 8));
-    const allImages: string[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const res = await ai.models.generateContent({
-        model: MODEL_ID,
-        contents: inputParts,
-        config: { responseModalities: [Modality.TEXT, Modality.IMAGE] },
+    try {
+      const resp = await fetch(enqueueUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Shared secret header expected by the Supabase Edge Function
+          Authorization: `Bearer ${webhookSecret}`,
+        },
+        body: JSON.stringify({ prompt, frames, variants, layoutImage }),
+        signal: ac.signal,
       });
 
-      const cand = (res.candidates?.[0] ?? undefined) as Candidate | undefined;
-      const parts = cand?.content?.parts ?? [];
-      for (const part of parts) {
-        const data = part.inlineData?.data;
-        if (typeof data === "string" && data.length > 0) {
-          allImages.push(data);
-        }
-      }
-    }
+      clearTimeout(timer);
 
-    return Response.json({ images: allImages });
+      if (!resp.ok) {
+        const text = await resp.text();
+        return Response.json(
+          { error: `Enqueue failed (${resp.status}): ${text}` },
+          { status: 502 }
+        );
+      }
+
+      const data = await resp.json();
+      // Expected shape from the Supabase function: { jobId: string }
+      if (!data?.jobId) {
+        return Response.json(
+          { error: "Malformed response from enqueue function" },
+          { status: 502 }
+        );
+      }
+
+      return Response.json({ jobId: data.jobId });
+    } catch (e) {
+      clearTimeout(timer);
+      if ((e as any)?.name === "AbortError") {
+        return Response.json(
+          { error: "Timed out enqueuing job" },
+          { status: 504 }
+        );
+      }
+      throw e;
+    }
   } catch (err: unknown) {
-    console.error("/api/generate error", err);
+    console.error("/api/generate enqueue error", err);
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
     );
   }
 }
-
