@@ -433,9 +433,26 @@ export default function Home() {
         allUrlsAgg.push(...images);
       }
 
-      // Convert to blob URLs to avoid extremely long data: URLs in <img src>
-      const blobUrls = allUrlsAgg.map((u) => dataUrlToObjectUrl(u));
-      setResults(blobUrls);
+      // Convert to blob URLs robustly by fetching each data/base64 URL
+      // Handle cases where API might return raw base64 without data: prefix
+      const toDataUrl = (u: string) => u.startsWith("data:") ? u : `data:image/png;base64,${u}`;
+      try {
+        // Revoke any previous blob URLs before replacing
+        try { results.forEach((u) => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); } catch {}
+        const blobUrls = await Promise.all(allUrlsAgg.map(async (u) => {
+          try {
+            const res = await fetch(toDataUrl(u));
+            const b = await res.blob();
+            return URL.createObjectURL(b);
+          } catch {
+            // Fallback to original URL if conversion fails
+            return u;
+          }
+        }));
+        setResults(blobUrls);
+      } catch {
+        setResults(allUrlsAgg);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {
