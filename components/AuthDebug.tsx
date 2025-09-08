@@ -15,16 +15,19 @@ interface DebugInfo {
 export default function AuthDebug() {
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
+
     const gatherDebugInfo = () => {
       const cookies = document.cookie;
       const authToken = cookies.split(';').find(c => c.trim().startsWith('auth-token='));
       const hasAuthToken = !!authToken;
-      
+
       let tokenValid = false;
       let tokenPayload = null;
-      
+
       if (hasAuthToken) {
         try {
           const token = authToken.split('=')[1];
@@ -49,10 +52,15 @@ export default function AuthDebug() {
     gatherDebugInfo();
   }, []);
 
+  // Only render on client side
+  if (!isClient) {
+    return null;
+  }
+
   // Only show in development or when explicitly enabled
   const isDev = process.env.NODE_ENV === 'development';
   const showDebugParam = new URLSearchParams(window.location.search).has('debug');
-  
+
   if (!isDev && !showDebugParam) {
     return null;
   }
