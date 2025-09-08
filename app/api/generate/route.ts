@@ -1,8 +1,7 @@
-// Use nodejs runtime for @google/genai compatibility
-export const runtime = "nodejs";
+// Use edge runtime for Cloudflare Pages compatibility
+export const runtime = "edge";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 
 const MODEL_ID = "gemini-2.0-flash-exp";
@@ -50,8 +49,8 @@ async function generateImagesWithGemini(
 export async function POST(req: Request) {
   try {
     // Require authentication
-    const session = await getServerSession(authOptions);
-    if (!session) {
+    const user = getUser(req);
+    if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
