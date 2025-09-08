@@ -88,6 +88,26 @@ export default function Home() {
     fr.readAsDataURL(file);
   });
 
+  // Convert potentially huge data URLs into short-lived blob: URLs
+  // This avoids "ERR_INVALID_URL" in some browsers for very long data URIs
+  const dataUrlToObjectUrl = (dataUrl: string): string => {
+    try {
+      if (!dataUrl.startsWith("data:")) return dataUrl; // pass-through
+      const [head, b64raw] = dataUrl.split(",");
+      const mimeMatch = /^data:([^;]+);base64$/i.exec(head || "");
+      const mime = mimeMatch?.[1] || "image/png";
+      const b64 = (b64raw || "").replace(/\s+/g, "");
+      const binary = atob(b64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      return URL.createObjectURL(blob);
+    } catch {
+      return dataUrl;
+    }
+  };
+
 
 
   // Template consists of: title, exact prompt, colors, reference images
@@ -199,6 +219,16 @@ export default function Home() {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, [videoUrl]);
+
+  // Revoke blob URLs created for results to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      try {
+        results.forEach((u) => { if (typeof u === 'string' && u.startsWith('blob:')) URL.revokeObjectURL(u); });
+      } catch {}
+    };
+  }, [results]);
+
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -403,7 +433,9 @@ export default function Home() {
         allUrlsAgg.push(...images);
       }
 
-      setResults(allUrlsAgg);
+      // Convert to blob URLs to avoid extremely long data: URLs in <img src>
+      const blobUrls = allUrlsAgg.map((u) => dataUrlToObjectUrl(u));
+      setResults(blobUrls);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {

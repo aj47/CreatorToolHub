@@ -29,7 +29,6 @@ async function generateImagesWithGemini(
     const result = await genAI.models.generateContent({
       model: MODEL_ID,
       contents: [{ parts: reqParts }],
-      generationConfig: { responseMimeType: "image/png" }
     });
 
     // Extract base64 image data from inlineData parts
