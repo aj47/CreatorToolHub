@@ -32,7 +32,7 @@ export default function AuthButton() {
               picture: payload.picture || '',
             });
           }
-        } catch {
+        } catch (error) {
           // Invalid token
         }
       }
