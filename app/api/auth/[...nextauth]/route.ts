@@ -18,6 +18,21 @@ export async function GET(request: Request) {
     });
   }
 
+  // Handle signin route - redirect to Google OAuth
+  if (pathname.includes('/signin')) {
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID!);
+    authUrl.searchParams.set('redirect_uri', `${process.env.NEXTAUTH_URL}/api/auth/callback`);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('state', 'signin');
+
+    return new Response(null, {
+      status: 302,
+      headers: { 'Location': authUrl.toString() },
+    });
+  }
+
   if (code && pathname.includes('/callback')) {
     // Handle OAuth callback
     try {
@@ -69,17 +84,10 @@ export async function GET(request: Request) {
     }
   }
 
-  // Redirect to Google OAuth
-  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  authUrl.searchParams.set('client_id', process.env.GOOGLE_CLIENT_ID!);
-  authUrl.searchParams.set('redirect_uri', `${process.env.NEXTAUTH_URL}/api/auth/callback`);
-  authUrl.searchParams.set('response_type', 'code');
-  authUrl.searchParams.set('scope', 'openid email profile');
-  authUrl.searchParams.set('state', 'signin');
-
+  // Default fallback - redirect to home
   return new Response(null, {
     status: 302,
-    headers: { 'Location': authUrl.toString() },
+    headers: { 'Location': process.env.NEXTAUTH_URL || '/' },
   });
 }
 
