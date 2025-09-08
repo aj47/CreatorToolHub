@@ -13,8 +13,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const enqueueUrl = process.env.SUPABASE_ENQUEUE_URL;
-    const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET;
+    const enqueueUrlRaw = process.env.SUPABASE_ENQUEUE_URL || "";
+    const enqueueUrl = enqueueUrlRaw.trim().replace(/^=/, "");
+    const webhookSecret = (process.env.SUPABASE_WEBHOOK_SECRET || "").trim();
 
     if (!enqueueUrl || !webhookSecret) {
       return Response.json(
