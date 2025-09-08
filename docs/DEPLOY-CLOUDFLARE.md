@@ -90,10 +90,38 @@ npm run dev
 ## Architecture Notes
 
 - **Authentication**: NextAuth with Google OAuth, JWT sessions (no database)
-- **Generation**: Direct Gemini API calls in `/api/generate` route
+- **Generation**: Unbound Worker handles `/api/generate` for higher CPU headroom; the rest of the app runs on Cloudflare Pages
 - **Storage**: None - images returned as data URLs to client
-- **Runtime**: Edge runtime for all API routes (Cloudflare Pages compatibility)
-- **Hosting**: Cloudflare Pages with Pages Functions for API routes
+- **Runtime**: Edge runtime for Next.js Pages functions; Unbound usage model for the Worker
+- **Hosting**: Cloudflare Pages + Cloudflare Workers (routed for `/api/generate`)
+
+
+## 6) Unbound Worker for generation (recommended for CPU limits)
+
+We route `/api/generate` to a dedicated Cloudflare Worker set to the Unbound usage model. This gives the generation endpoint higher CPU/time limits, while the rest of the site stays on Pages.
+
+Files:
+- `workers/generate/wrangler.toml`
+- `workers/generate/src/index.ts`
+
+Steps:
+1. Configure secrets and variables
+   ```bash
+   cd workers/generate
+   wrangler secret put GEMINI_API_KEY   # paste your key
+   # optional: wrangler kv:namespace create ... (not needed here)
+   ```
+2. Deploy the worker
+   ```bash
+   wrangler deploy
+   ```
+3. Route your domain path to the worker (Cloudflare Dashboard → Workers → Triggers → Routes)
+   - Pattern: `creatortoolhub.com/api/generate`
+   - Or use the `wrangler.toml` routes block (environment-specific).
+
+Notes
+- The Next.js route `/api/generate` remains available for local dev. In production, the route is served by the Worker based on the path rule above.
+- Ensure the same environment variables (Gemini API key) are set for the Worker.
 
 ## Troubleshooting
 
@@ -102,7 +130,7 @@ npm run dev
 - Check that Google+ API is enabled
 - Ensure `NEXTAUTH_URL` matches your domain
 
-### Generation Issues  
+### Generation Issues
 - Verify `GEMINI_API_KEY` is set correctly
 - Check Cloudflare Pages function logs for errors
 - Ensure `/api/generate` uses `runtime = "edge"`

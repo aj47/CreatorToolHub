@@ -11,6 +11,7 @@ async function generateImagesWithGemini(
   apiKey: string,
   prompt: string,
   _frames: string[],
+  imageMime: string = "image/png",
   _layoutImage?: string
 ): Promise<string[]> {
   const genAI = new GoogleGenAI({ apiKey });
@@ -20,7 +21,7 @@ async function generateImagesWithGemini(
     const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
     for (const b64 of (_frames ?? []).slice(0, 3)) {
       if (typeof b64 === "string" && b64.length > 0) {
-        reqParts.push({ inlineData: { mimeType: "image/png", data: b64 } });
+        reqParts.push({ inlineData: { mimeType: imageMime || "image/png", data: b64 } });
       }
     }
     reqParts.push({ text: prompt });
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage, variants } = await req.json();
+    const { prompt, frames = [], layoutImage, variants, framesMime } = await req.json();
 
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
       return Response.json(
@@ -72,13 +73,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // Run multiple variant calls in parallel (one image per call)
+    // Run multiple variant calls with limited concurrency to avoid CPU spikes
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
-    const tasks = Array.from({ length: count }, () =>
-      generateImagesWithGemini(apiKey, prompt, frames, layoutImage)
-    );
-    const settled = await Promise.allSettled(tasks);
-    const imagesAll: string[] = settled.flatMap((s) => s.status === "fulfilled" ? s.value : []);
+    const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
+    const CONCURRENCY = 2; // limit fan-out to reduce CPU time per request
+
+    const imagesAll: string[] = [];
+    for (let i = 0; i < count; i += CONCURRENCY) {
+      const batchSize = Math.min(CONCURRENCY, count - i);
+      const batch = Array.from({ length: batchSize }, () =>
+        generateImagesWithGemini(apiKey, prompt, frames, imageMime, layoutImage)
+      );
+      const settled = await Promise.allSettled(batch);
+      imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+    }
 
     if (imagesAll.length === 0) {
       return Response.json(
