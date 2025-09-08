@@ -10,10 +10,19 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts }] }),
+    body: JSON.stringify({
+      contents: [{ parts }],
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+      ]
+    }),
   });
   if (!resp.ok) {
     const text = await resp.text();
+    console.error(`Gemini API error: ${resp.status} ${resp.statusText}`, text.substring(0, 1000));
     throw new Error(`Gemini error ${resp.status}: ${text}`);
   }
   return resp.json();
@@ -59,11 +68,36 @@ export default {
         const batchSize = Math.min(CONCURRENCY, count - i);
         const batch = Array.from({ length: batchSize }, async () => {
           const json = await callGeminiGenerate(apiKey, model, reqParts);
-          const parts = json?.candidates?.[0]?.content?.parts ?? [];
+          console.log("Gemini response:", JSON.stringify(json, null, 2).substring(0, 2000));
+          const cand = json?.candidates?.[0];
+          const parts = cand?.content?.parts ?? [];
           const imgs: string[] = [];
+
+          // Look for inlineData in parts (this is where Gemini puts generated images)
           for (const p of parts) {
-            const b64 = p?.inlineData?.data as string | undefined;
-            if (typeof b64 === "string" && b64.length > 0) imgs.push(b64);
+            if (p?.inlineData?.data && p?.inlineData?.mimeType) {
+              const { data, mimeType } = p.inlineData;
+              // Convert to data URL format
+              const dataUrl = `data:${mimeType};base64,${data}`;
+              imgs.push(dataUrl);
+            }
+          }
+
+          if (imgs.length === 0) {
+            // Log helpful diagnostics
+            const safety = cand?.safetyRatings || cand?.safetyRatingsV2;
+            const finish = cand?.finishReason;
+            const firstPart = Array.isArray(parts) && parts[0] ? Object.keys(parts[0]) : [];
+            console.error("Gemini returned no images", {
+              model,
+              finish,
+              partsCount: Array.isArray(parts) ? parts.length : 0,
+              firstPart,
+              safety,
+              promptLen: (typeof prompt === 'string' ? prompt.length : 0),
+              framesCount: Array.isArray(frames) ? frames.length : 0,
+              imageMime,
+            });
           }
           return imgs;
         });
@@ -74,6 +108,12 @@ export default {
       }
 
       if (imagesAll.length === 0) {
+        console.error("No images generated in final aggregation", {
+          count,
+          imageMime,
+          framesLen: Array.isArray(frames) ? frames.length : 0,
+          promptLen: typeof prompt === 'string' ? prompt.length : 0,
+        });
         return Response.json({ error: "Failed to generate any images" }, { status: 500 });
       }
 
