@@ -36,6 +36,12 @@ export default function RootLayout({
           <AuthButton />
         </header>
         {children}
+        <footer className="nb-footer">
+          <span>Open source on </span>
+          <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <span> • Made with love by </span>
+          <a href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
+        </footer>
       </body>
     </html>
   );

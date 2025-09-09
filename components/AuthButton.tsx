@@ -54,7 +54,6 @@ export default function AuthButton() {
     <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
       {user ? (
         <>
-          <span style={{ fontSize: 12, color: "#333" }}>{user.email}</span>
           <button onClick={signOut} className="nb-btn">Sign out</button>
         </>
       ) : (
