@@ -1,9 +1,54 @@
+import { Autumn } from "autumn-js";
+
 export interface Env {
   GEMINI_API_KEY: string;
   MODEL_ID?: string; // optional override via Wrangler vars
+  AUTUMN_SECRET_KEY?: string;
+  FEATURE_ID?: string;
 }
 
 const DEFAULT_MODEL = "gemini-2.5-flash-image-preview";
+// Auth helpers (mirrored from app/lib/auth.ts)
+function getAuthToken(request: Request): string | null {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return null;
+  const cookies = cookieHeader.split(";").reduce((acc, cookie) => {
+    const [key, ...rest] = cookie.trim().split("=");
+    acc[key] = rest.join("=");
+    return acc;
+  }, {} as Record<string, string>);
+  return cookies["auth-token"] || null;
+}
+
+function verifyAuthToken(token: string): { email: string; name?: string; picture?: string } | null {
+  try {
+    const payload = JSON.parse(atob(token));
+    if (payload?.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (payload?.email) {
+      return { email: payload.email, name: payload.name || "", picture: payload.picture || "" };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getUser(request: Request): { email: string; name?: string; picture?: string } | null {
+  const token = getAuthToken(request);
+  if (!token) return null;
+  return verifyAuthToken(token);
+}
+
+function deriveCustomerId(email: string): string {
+  const raw = email.toLowerCase();
+  const cleaned = raw
+    .replace(/[^a-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-_]+/, "")
+    .replace(/[-_]+$/, "");
+  return ("u-" + cleaned).slice(0, 40);
+}
+
 
 async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -61,6 +106,25 @@ export default {
       // layoutImage is not used currently; left for future extension
 
       const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+      // Autumn credit check/gate
+      const user = getUser(request);
+      if (!user) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const FEATURE_ID = env.FEATURE_ID || "credits";
+      if (!env.AUTUMN_SECRET_KEY) {
+        return Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 });
+      }
+      const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
+      const customer_id = deriveCustomerId(user.email);
+      const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+      if (!checkRes?.data?.allowed) {
+        return Response.json(
+          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+          { status: 402 }
+        );
+      }
+
       const CONCURRENCY = 3; // generous but bounded
 
       const imagesAll: string[] = [];
@@ -117,8 +181,8 @@ export default {
         return Response.json({ error: "Failed to generate any images" }, { status: 500 });
       }
 
-      const dataUrls = imagesAll.map((b64) => `data:image/png;base64,${b64}`);
-      return Response.json({ images: dataUrls });
+      await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+      return Response.json({ images: imagesAll });
     } catch (err: any) {
       return Response.json({ error: err?.message || "Unknown error" }, { status: 500 });
     }

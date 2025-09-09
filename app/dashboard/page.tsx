@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { useCustomer } from "autumn-js/react";
 
-const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "thumbnail_generations";
+const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
 export default function DashboardPage() {
   const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });

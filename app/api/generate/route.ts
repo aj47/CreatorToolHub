@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     // Autumn credit check: gate by feature balance
-    const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "thumbnail_generations";
+    const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
     const deriveCustomerId = (email: string) => {
       const raw = email.toLowerCase();
       const cleaned = raw
