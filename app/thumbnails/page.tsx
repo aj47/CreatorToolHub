@@ -46,10 +46,12 @@ export default function Home() {
   // Image import controls and limits
   const [importing, setImporting] = useState<{ total: number; done: number; errors: string[] } | null>(null);
   const [cancelImport, setCancelImport] = useState(false);
-  const MAX_ITEMS = 300;
+  const MAX_ITEMS = 3;
   const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
   const ALLOWED_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".tif", ".tiff"] as const;
   const [dedupeWarn, setDedupeWarn] = useState<string[]>([]);
+  const framesFull = frames.length >= MAX_ITEMS;
+  const refsFull = refFrames.length >= MAX_ITEMS;
 
 
   // Client-side image downscaling/compression to reduce payload sizes
@@ -339,7 +341,12 @@ export default function Home() {
     }
     const existingTarget = target === "frames" ? frames : refFrames;
     if (existingTarget.length + allowed.length > MAX_ITEMS) {
-      errors.push(`Import would exceed max items (${MAX_ITEMS}).`);
+      errors.push(`Import would exceed max ${target === "frames" ? "subject images" : "reference images"} (${MAX_ITEMS}).`);
+      const remaining = Math.max(0, MAX_ITEMS - existingTarget.length);
+      if (remaining < allowed.length) {
+        // Trim to fit available slots
+        allowed.splice(remaining);
+      }
     }
     setDedupeWarn([]);
     setCancelImport(false);
@@ -416,6 +423,8 @@ export default function Home() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
+    if (framesFull) return;
+
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) return;
@@ -644,8 +653,13 @@ export default function Home() {
               <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
               <span>Add Video(s)</span>
             </label>
-            <label className={styles.fileInput} aria-label="Add Images">
-              <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} />
+            <label
+              className={styles.fileInput}
+              aria-label="Add Images"
+              style={{ opacity: framesFull ? 0.6 : undefined, pointerEvents: framesFull ? "none" : undefined }}
+              title={framesFull ? "Limit reached (3 subject images)" : undefined}
+            >
+              <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} disabled={framesFull} />
               <span>Add Images</span>
             </label>
             {(process.env.NODE_ENV !== "production" || (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname))) && (
@@ -665,12 +679,22 @@ export default function Home() {
             )}
 
           </div>
+          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
+            We send at most 3 images per generation. If reference images are added, they are used first, then subject images (total of 3).
+          </div>
+
           {importing && (
             <div role="status" aria-live="polite" style={{ marginTop: 8, fontSize: 12 }}>
               Importing images… {importing.done}/{importing.total}
               <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
             </div>
           )}
+          {importing?.errors?.length ? (
+            <div style={{ marginTop: 6, color: "crimson", fontSize: 12 }}>
+              {importing.errors.slice(-3).map((msg, i) => (<div key={i}>{msg}</div>))}
+            </div>
+          ) : null}
+
           {dedupeWarn.length > 0 && (
             <div style={{ marginTop: 6, color: "#555", fontSize: 12 }}>
               {dedupeWarn.slice(-3).map((w, i) => (<div key={i}>{w}</div>))}
@@ -690,7 +714,7 @@ export default function Home() {
                 onLoadedMetadata={() => setVideoReady(true)}
                 style={{ maxWidth: "100%", background: "#000" }}
               />
-              <button onClick={captureFrame} disabled={!videoReady}>
+              <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
                 Capture frame at current time
               </button>
             </div>
@@ -700,18 +724,27 @@ export default function Home() {
 
           {/* Reference images section */}
           <section>
-            <h3>Reference image(s) for style/layout (optional)</h3>
+            <h3>Reference image(s) for style/layout (optional) ({refFrames.length}/3)</h3>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <label className={styles.fileInput} aria-label="Add Reference Images">
+              <label
+                className={styles.fileInput}
+                aria-label="Add Reference Images"
+                style={{ opacity: refsFull ? 0.6 : undefined, pointerEvents: refsFull ? "none" : undefined }}
+                title={refsFull ? "Limit reached (3 reference images)" : undefined}
+              >
                 <input
                   style={{ display: "none" }}
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/gif,image/tiff"
                   multiple
                   onChange={onAddRefImages}
+                  disabled={refsFull}
                 />
                 <span>Add Reference Images</span>
               </label>
+              {refsFull && (
+                <span style={{ fontSize: 12, color: "#c00" }}>Limit reached (3)</span>
+              )}
               <span style={{ fontSize: 12, color: "#666" }}>
                 These are used only for style/layout. Subjects are taken from your frames/images below.
               </span>
@@ -739,7 +772,7 @@ export default function Home() {
 
           {frames.length > 0 && (
             <section>
-              <h3>Subject frames/images ({frames.length})</h3>
+              <h3>Subject frames/images ({frames.length}/3)</h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {frames.map((f, i) => (
                   <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>

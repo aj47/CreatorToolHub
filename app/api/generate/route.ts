@@ -87,17 +87,35 @@ export async function POST(req: Request) {
     };
     const customer_id = deriveCustomerId(user.email);
 
-    const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY });
+    const secretKey = process.env.AUTUMN_SECRET_KEY;
+    const autumnEnabled = !!secretKey;
 
     // Each request consumes credits equal to the variant count
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
-    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
-    if (!checkRes?.data?.allowed) {
-      return Response.json(
-        { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
-        { status: 402 }
-      );
+    let allowed = true;
+    let autumn: Autumn | null = null;
+    if (autumnEnabled) {
+      autumn = new Autumn({ secretKey: secretKey as string });
+      try {
+        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+        allowed = !!checkRes?.data?.allowed;
+      } catch (e) {
+        if (process.env.NODE_ENV === "production") {
+          return Response.json(
+            { error: "Billing service unavailable. Please try again.", code: "billing_unavailable" },
+            { status: 503 }
+          );
+        } else {
+          console.warn("Autumn check failed in development; bypassing credit gate:", e);
+        }
+      }
+      if (!allowed) {
+        return Response.json(
+          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+          { status: 402 }
+        );
+      }
     }
 
     // Run multiple variant calls with limited concurrency to avoid CPU spikes
@@ -122,7 +140,13 @@ export async function POST(req: Request) {
     }
 
     // Track credit usage equal to the variant count after a successful generation
-    await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+    if (autumn) {
+      try {
+        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+      } catch (e) {
+        console.warn("Autumn track failed; continuing without failing request", e);
+      }
+    }
 
     // Return images as data URLs for direct client use
     const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);
