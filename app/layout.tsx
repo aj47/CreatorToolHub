@@ -28,10 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <header style={{ padding: "12px 16px", borderBottom: "1px solid #eee", display: "flex", gap: 12, alignItems: "center" }}>
-          <Link href="/" style={{ fontWeight: 600 }}>Creator Tool Hub</Link>
-          <nav style={{ display: "flex", gap: 12 }}>
-            <Link href="/thumbnails">Thumbnail Creator</Link>
+        <header className="nb-header">
+          <Link href="/" className="nb-brand">Creator Tool Hub</Link>
+          <nav className="nb-nav">
+            <Link href="/thumbnails" className="nb-navlink">Thumbnail Creator</Link>
           </nav>
           <AuthButton />
         </header>

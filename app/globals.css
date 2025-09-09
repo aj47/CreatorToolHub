@@ -17,8 +17,8 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--nb-fg);
+  background: var(--nb-bg);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -40,3 +40,108 @@ a {
     color-scheme: dark;
   }
 }
+
+
+/* Neobrutalism theme (YouTube-red palette) */
+:root {
+  --nb-bg: #ffcece;
+  --nb-fg: #111111;
+  --nb-accent: #ff0000;
+  --nb-accent-hover: #e60000;
+  --nb-accent-press: #cc0000;
+  --nb-card: #ffffff;
+  --nb-border: #000000;
+  --nb-shadow: 6px 6px 0 var(--nb-border);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --nb-bg: #ffcece;
+    --nb-fg: #111111;
+    --nb-card: #ffffff;
+  }
+}
+
+/* Header */
+.nb-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 4px solid var(--nb-border);
+  background: var(--nb-card);
+  box-shadow: var(--nb-shadow);
+}
+
+.nb-brand {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-accent);
+  color: #fff;
+  padding: 6px 10px;
+  font-weight: 800;
+  box-shadow: 4px 4px 0 var(--nb-border);
+}
+
+.nb-brand:hover { background: var(--nb-accent-hover); }
+
+.nb-nav { display: flex; gap: 12px; margin-left: 8px; }
+.nb-navlink {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-bg);
+  color: var(--nb-fg);
+  padding: 6px 10px;
+  font-weight: 700;
+  box-shadow: 4px 4px 0 var(--nb-border);
+}
+.nb-navlink:hover { background: #ffe5e5; }
+
+/* Generic NB button */
+.nb-btn {
+  border: 3px solid var(--nb-border);
+  border-radius: 8px;
+  background: var(--nb-bg);
+  color: var(--nb-fg);
+  padding: 8px 12px;
+  font-weight: 700;
+  box-shadow: 4px 4px 0 var(--nb-border);
+  cursor: pointer;
+}
+.nb-btn:hover { background: #ffe5e5; }
+.nb-btn--accent {
+  background: var(--nb-accent);
+  color: #fff;
+}
+.nb-btn--accent:hover { background: var(--nb-accent-hover); }
+
+/* Home main helper */
+.nb-main { padding: 24px; }
+
+/* Text helpers */
+.nb-text { color: var(--nb-fg) !important; }
+.nb-muted { color: #222 !important; }
+
+
+/* Generic neobrutalist card */
+.nb-card {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-card);
+  box-shadow: var(--nb-shadow);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+/* Hero section */
+.nb-hero { padding: 48px 0; }
+.nb-hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: center; }
+@media (max-width: 900px) { .nb-hero-grid { grid-template-columns: 1fr; } }
+.nb-kicker { display:inline-block; border:3px solid var(--nb-border); background:#fff; color:#111; padding:4px 8px; font-weight:800; box-shadow:3px 3px 0 var(--nb-border); margin-bottom:10px; }
+.nb-hero-title { color: var(--nb-fg); font-size: clamp(28px, 5vw, 56px); font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
+.nb-hero-sub { max-width: 60ch; color: #222; }
+.nb-hero-ctas { display:flex; gap:12px; margin-top: 14px; flex-wrap: wrap; }
+.nb-hero-preview { padding: 0; }
+.nb-thumb-demo { aspect-ratio: 16/9; border-top:3px solid var(--nb-border); border-left:3px solid var(--nb-border); border-right:3px solid var(--nb-border); border-bottom:6px solid var(--nb-border); background: linear-gradient(135deg, #ffffff 55%, #ffecec 55%); display:grid; place-items:center; }
+.nb-thumb-demo span { font-weight: 800; color: var(--nb-fg); }
+
+/* Features section */
+.nb-features { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.nb-feature-title { font-weight: 800; margin-bottom: 6px; }
+

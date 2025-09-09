@@ -98,11 +98,12 @@ export default function TemplateGallery(props: {
             key={s.id}
             onClick={() => onToggleSelect(s.id)}
             style={{
-              border: selected ? "2px solid #3b82f6" : "1px solid #ddd",
-              boxShadow: selected ? "0 0 0 2px rgba(59,130,246,0.2)" : undefined,
+              border: selected ? "3px solid var(--nb-accent)" : "3px solid #000",
+              boxShadow: "6px 6px 0 #000",
               borderRadius: 8,
               overflow: "hidden",
               cursor: "pointer",
+              background: "var(--nb-card)",
             }}
           >
             <div style={{ position: "relative" }}>

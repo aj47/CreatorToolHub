@@ -608,7 +608,7 @@ export default function Home() {
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
         <div className={styles.hero}>
           <h1 className={styles.title}>Thumbnail Creator</h1>
-          <p className={styles.subtitle}>Upload a short video, scrub to the moment, and capture frames. Or add standalone images.</p>
+          <p className={`${styles.subtitle} nb-muted`}>Upload a short video, scrub to the moment, and capture frames. Or add standalone images.</p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <label className={styles.fileInput} aria-label="Add Video(s)">
               <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />

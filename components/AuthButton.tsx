@@ -55,10 +55,10 @@ export default function AuthButton() {
       {user ? (
         <>
           <span style={{ fontSize: 12, color: "#333" }}>{user.email}</span>
-          <button onClick={signOut} style={{ padding: "4px 8px", border: "1px solid #ccc", borderRadius: 6 }}>Sign out</button>
+          <button onClick={signOut} className="nb-btn">Sign out</button>
         </>
       ) : (
-        <button onClick={signIn} style={{ padding: "4px 8px", border: "1px solid #ccc", borderRadius: 6 }}>Sign in with Google</button>
+        <button onClick={signIn} className="nb-btn nb-btn--accent">Sign in with Google</button>
       )}
     </div>
   );
