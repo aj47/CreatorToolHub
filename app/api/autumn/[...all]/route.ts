@@ -1,3 +1,6 @@
+export const runtime = "edge";
+
+
 import { autumnHandler } from "autumn-js/next";
 import { getUser } from "@/lib/auth";
 
