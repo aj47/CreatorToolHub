@@ -22,8 +22,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [profile, setProfile] = useState<string>("vlog");
-  const [selectedIds, setSelectedIds] = useState<string[]>(["vlog"]);
+  const [profile, setProfile] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
@@ -218,7 +218,7 @@ export default function Home() {
     delete next[id];
     persistCustomPresets(next);
     if (profile === id) {
-      setProfile("vlog");
+      setProfile("");
       setColors([]);
     }
   };
@@ -414,7 +414,12 @@ export default function Home() {
     setLoading(true);
     setResults([]);
     try {
-      const ids = selectedIds.length > 0 ? selectedIds : [profile];
+      const ids = selectedIds;
+      if (ids.length === 0) {
+        setLoading(false);
+        setError("Please select at least one template.");
+        return;
+      }
       const allUrlsAgg: string[] = [];
 
       for (const tid of ids) {
