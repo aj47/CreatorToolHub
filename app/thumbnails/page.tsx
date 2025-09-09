@@ -110,13 +110,31 @@ export default function Home() {
 
 
   // Helpers for robust conversions without fetch() to avoid CSP connect-src issues
-  const toDataUrlString = (u: string, mime: string = "image/png") =>
-    u && u.startsWith("data:") ? u : `data:${mime};base64,${(u || "").trim()}`;
+  // Normalize: ensure a single data:<mime>;base64,<clean-b64> and strip any nested data: prefixes
+  const toDataUrlString = (u: string, mime: string = "image/png") => {
+    const s = (u || "").trim();
+    if (s.startsWith("data:")) {
+      const i = s.indexOf(",");
+      if (i === -1) return s;
+      const head = s.slice(0, i);
+      let payload = s.slice(i + 1).trim();
+      // Remove any nested data:* prefixes inside payload
+      while (payload.startsWith("data:")) {
+        const j = payload.indexOf(",");
+        if (j === -1) break;
+        payload = payload.slice(j + 1).trim();
+      }
+      const clean = payload.replace(/[^A-Za-z0-9+/=]/g, "");
+      return `${head},${clean}`;
+    }
+    const clean = s.replace(/[^A-Za-z0-9+/=]/g, "");
+    return `data:${mime};base64,${clean}`;
+  };
 
   const dataUrlToBlob = (dataUrl: string): Blob => {
     const [head, b64raw] = (dataUrl || "").split(",");
     const mime = /^data:([^;]+);base64$/i.exec(head || "")?.[1] || "image/png";
-    const b64 = (b64raw || "").replace(/\s+/g, "");
+    const b64 = (b64raw || "").replace(/[^A-Za-z0-9+/=]/g, "");
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
