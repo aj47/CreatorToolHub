@@ -89,7 +89,7 @@ export default function TemplateGallery(props: {
         </label>
       </div>
       <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
-        Templates with example reference images are shown first. Use Favorites to curate your own list.
+        Templates with example reference images (style/layout only) are shown first. Subjects come from your frames/images below. Use Favorites to curate your list.
       </p>
       <div style={{ maxHeight: 600, overflowY: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>

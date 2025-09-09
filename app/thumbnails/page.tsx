@@ -18,6 +18,8 @@ export default function Home() {
   const [videoReady, setVideoReady] = useState(false);
   const [frames, setFrames] = useState<Frame[]>([]);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  const [refFrames, setRefFrames] = useState<Frame[]>([]);
+
   const [count, setCount] = useState(4);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
@@ -315,21 +317,22 @@ export default function Home() {
   // Back-compat name: now resizes and outputs JPEG by default
   const fileToPngDataUrl = (file: File) => fileToResizedDataUrl(file, TARGET_MIME, JPEG_QUALITY);
 
-  const importImages = async (files: FileList | File[]) => {
+  const importImages = async (files: FileList | File[], target: "frames" | "refs" = "frames") => {
     const list = Array.from(files);
     const allowed = list.filter((f) => isAllowed(f));
     const errors: string[] = [];
     if (allowed.length !== list.length) {
       errors.push("Some files were skipped due to unsupported format.");
     }
-    if (frames.length + allowed.length > MAX_ITEMS) {
+    const existingTarget = target === "frames" ? frames : refFrames;
+    if (existingTarget.length + allowed.length > MAX_ITEMS) {
       errors.push(`Import would exceed max items (${MAX_ITEMS}).`);
     }
     setDedupeWarn([]);
     setCancelImport(false);
     setImporting({ total: allowed.length, done: 0, errors: [] });
 
-    const existingHashes = new Set(frames.map((f) => f.hash).filter(Boolean) as string[]);
+    const existingHashes = new Set(existingTarget.map((f) => f.hash).filter(Boolean) as string[]);
 
     for (let i = 0; i < allowed.length; i++) {
       if (cancelImport) break;
@@ -348,7 +351,12 @@ export default function Home() {
         }
         const dataUrl = await fileToPngDataUrl(file);
         const b64 = (dataUrl.split(",")[1] || "");
-        setFrames((prev) => [...prev, { dataUrl, b64, kind: "image", filename: file.name, hash, importedAt: Date.now() }]);
+        const nextItem: Frame = { dataUrl, b64, kind: "image", filename: file.name, hash, importedAt: Date.now() };
+        if (target === "frames") {
+          setFrames((prev) => [...prev, nextItem]);
+        } else {
+          setRefFrames((prev) => [...prev, nextItem]);
+        }
         existingHashes.add(hash);
       } catch (e) {
         errors.push(`${file.name}: failed to import`);
@@ -358,6 +366,14 @@ export default function Home() {
       }
     }
     setImporting((s) => (s ? { ...s, errors } : s));
+  };
+
+  const onAddRefImages: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const input = e.currentTarget;
+    const files = input.files;
+    if (!files || files.length === 0) return;
+    await importImages(files, "refs");
+    input.value = ""; // clear after await; we cached the element
   };
 
   const onAddImages: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
@@ -390,6 +406,7 @@ export default function Home() {
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) return;
+
     const { tw, th } = computeTargetSize(w, h);
     canvas.width = tw;
     canvas.height = th;
@@ -409,6 +426,10 @@ export default function Home() {
 
   // No longer need polling - direct generation
 
+  const removeRefFrame = (idx: number) => {
+    setRefFrames((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const generate = async () => {
     setError(null);
     setLoading(true);
@@ -425,7 +446,8 @@ export default function Home() {
       for (const tid of ids) {
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
-        const autoRefNote = refUrls.length > 0
+        const useUserRefs = refFrames.length > 0;
+        const autoRefNote = (useUserRefs || refUrls.length > 0)
           ? "Use the attached reference image(s) strictly as style and layout guidance. Copy the reference closely for composition, color palette, typography, and text placement. Use the people/subjects from the provided frames/images (do not copy subjects from the reference). Keep all text extremely legible."
           : undefined;
 
@@ -438,22 +460,26 @@ export default function Home() {
           notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
         });
 
-        // Fetch reference images as base64 for this template
-        const refB64: string[] = [];
-        for (const u of refUrls.slice(0, 3)) {
-          try {
-            const dataUrl = await fetch(u)
-              .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
-              .then(blob => new Promise<string>((resolve, reject) => {
-                const fr = new FileReader();
-                fr.onerror = () => reject(new Error("reader"));
-                fr.onload = () => resolve(String(fr.result || ""));
-                fr.readAsDataURL(blob);
-              }));
-            const resized = await downscaleDataUrl(dataUrl, TARGET_MIME, JPEG_QUALITY);
-            const b64 = resized.split(",")[1] || "";
-            if (b64) refB64.push(b64);
-          } catch {}
+        // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
+        let refB64: string[] = [];
+        if (useUserRefs) {
+          refB64 = refFrames.map((f) => f.b64).slice(0, 3);
+        } else {
+          for (const u of refUrls.slice(0, 3)) {
+            try {
+              const dataUrl = await fetch(u)
+                .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
+                .then(blob => new Promise<string>((resolve, reject) => {
+                  const fr = new FileReader();
+                  fr.onerror = () => reject(new Error("reader"));
+                  fr.onload = () => resolve(String(fr.result || ""));
+                  fr.readAsDataURL(blob);
+                }));
+              const resized = await downscaleDataUrl(dataUrl, TARGET_MIME, JPEG_QUALITY);
+              const b64 = resized.split(",")[1] || "";
+              if (b64) refB64.push(b64);
+            } catch {}
+          }
         }
 
         // Assemble frames: put reference images first
@@ -643,9 +669,48 @@ export default function Home() {
 
           <canvas ref={canvasRef} style={{ display: "none" }} />
 
+          {/* Reference images section */}
+          <section>
+            <h3>Reference image(s) for style/layout (optional)</h3>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <label className={styles.fileInput} aria-label="Add Reference Images">
+                <input
+                  style={{ display: "none" }}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/tiff"
+                  multiple
+                  onChange={onAddRefImages}
+                />
+                <span>Add Reference Images</span>
+              </label>
+              <span style={{ fontSize: 12, color: "#666" }}>
+                These are used only for style/layout. Subjects are taken from your frames/images below.
+              </span>
+            </div>
+            {refFrames.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
+                {refFrames.map((f, i) => (
+                  <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
+                    <span
+                      title="Reference image"
+                      style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}
+                    >
+                      reference
+                    </span>
+                    <img src={f.dataUrl} alt={`ref-${i}`} style={{ width: 220 }} />
+                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                      <button onClick={() => removeRefFrame(i)}>Remove</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+
           {frames.length > 0 && (
             <section>
-              <h3>Selected frames ({frames.length})</h3>
+              <h3>Subject frames/images ({frames.length})</h3>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                 {frames.map((f, i) => (
                   <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
