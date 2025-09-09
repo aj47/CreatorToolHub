@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "autumn-js": "^0.1.33",
     "class-variance-authority": "^0.7.1",
     "next": "15.5.2",
     "react": "19.1.0",

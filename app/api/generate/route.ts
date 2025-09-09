@@ -3,6 +3,7 @@ export const runtime = "edge";
 
 import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
+import { Autumn } from "autumn-js";
 
 // Use Gemini 2.5 Flash Image via generateContent (lightweight, "Nano/Banana" family)
 const MODEL_ID = "gemini-2.5-flash-image-preview";
@@ -73,8 +74,33 @@ export async function POST(req: Request) {
       );
     }
 
-    // Run multiple variant calls with limited concurrency to avoid CPU spikes
+    // Autumn credit check: gate by feature balance
+    const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "thumbnail_generations";
+    const deriveCustomerId = (email: string) => {
+      const raw = email.toLowerCase();
+      const cleaned = raw
+        .replace(/[^a-z0-9_-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^[-_]+/, "")
+        .replace(/[-_]+$/, "");
+      return ("u-" + cleaned).slice(0, 40);
+    };
+    const customer_id = deriveCustomerId(user.email);
+
+    const autumn = new Autumn({ secretKey: process.env.AUTUMN_SECRET_KEY });
+
+    // Each request consumes credits equal to the variant count
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+
+    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+    if (!checkRes?.data?.allowed) {
+      return Response.json(
+        { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+        { status: 402 }
+      );
+    }
+
+    // Run multiple variant calls with limited concurrency to avoid CPU spikes
     const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
     const CONCURRENCY = 2; // limit fan-out to reduce CPU time per request
 
@@ -94,6 +120,9 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
+
+    // Track credit usage equal to the variant count after a successful generation
+    await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
 
     // Return images as data URLs for direct client use
     const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);

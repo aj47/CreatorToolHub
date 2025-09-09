@@ -5,10 +5,13 @@ import { buildPrompt } from "@/lib/prompt/builder";
 import { profiles } from "@/lib/prompt/profiles";
 import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
+import { useCustomer } from "autumn-js/react";
 
 type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
 
 const DEFAULT_PROMPT = "";
+
+const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -24,6 +27,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Autumn: load customer and derive credits
+  const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: true });
+  const credits = (() => {
+    const f = customer?.features?.[FEATURE_ID as string] as any;
+    if (!f) return 0;
+    if (typeof f.balance === "number") return f.balance;
+    if (typeof f.included_usage === "number" && typeof f.usage === "number") return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+    return 0;
+  })();
   const [profile, setProfile] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -431,6 +444,13 @@ export default function Home() {
   };
 
   const generate = async () => {
+    // Client-side gate: block if out of credits for the number of generations requested
+    const perTemplate = Math.max(1, count);
+    const needed = perTemplate * (selectedIds.length || 0);
+    if (!loadingCustomer && credits < needed) {
+      setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
+      return;
+    }
     setError(null);
     setLoading(true);
     setResults([]);
@@ -501,6 +521,16 @@ export default function Home() {
         });
         if (res.status === 401) {
           setError("Please sign in to generate thumbnails.");
+          setLoading(false);
+          return;
+        }
+        if (res.status === 402) {
+          try {
+            const d = await res.json();
+            setError(d?.error || "Insufficient credits. Visit Pricing to add credits.");
+          } catch {
+            setError("Insufficient credits. Visit Pricing to add credits.");
+          }
           setLoading(false);
           return;
         }
@@ -633,7 +663,6 @@ export default function Home() {
                 Add sample images (dev)
               </button>
             )}
-
 
           </div>
           {importing && (
@@ -806,8 +835,10 @@ export default function Home() {
             />
           </div>
 
-          <button className={styles.primary} onClick={generate} disabled={loading || frames.length === 0}>
-            {loading ? "Generating..." : "Generate thumbnails"}
+          <button className={styles.primary} onClick={generate} disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}>
+            {loading ? "Generating..." : (
+              !loadingCustomer ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})` : "Generate thumbnails"
+            )}
           </button>
           {error && <p style={{ color: "crimson" }}>{error}</p>}
         </div>
