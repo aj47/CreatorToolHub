@@ -30,7 +30,7 @@
 .main {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 16px;
   grid-row-start: 2;
 }
 
@@ -270,3 +270,19 @@ a.secondary {
   .primary:hover:not(:disabled) { background: var(--nb-accent-hover); }
 }
 .primary:active:not(:disabled) { transform: translateY(1px); }
+
+/* Stepper */
+.stepper { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; }
+.step { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 3px solid var(--nb-border); background: var(--nb-card); color: var(--nb-fg); border-radius: 999px; box-shadow: 4px 4px 0 var(--nb-border); cursor: pointer; font-weight: 800; }
+.step:disabled { opacity: .5; cursor: not-allowed; }
+.stepActive { background: #ffe5e5; }
+.stepDone { background: #e5ffe9; }
+.stepIndex { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: var(--nb-accent); color: #fff; font-size: 12px; }
+.stepLabel { font-size: 12px; }
+.stepHeader { text-align: center; margin: 4px 0; }
+.navRow { display: flex; justify-content: center; gap: 8px; }
+
+/* Callout helper box */
+.callout { border: 3px solid var(--nb-border); background: #fff8dc; color: #111; border-radius: 10px; padding: 8px 12px; box-shadow: 4px 4px 0 var(--nb-border); text-align: center; font-size: 14px; }
+.callout strong { font-weight: 900; }
+
