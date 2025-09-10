@@ -77,115 +77,137 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method !== "POST" || url.pathname !== "/api/generate") {
+    // Only handle our route; provide a friendly GET for health
+    if (url.pathname !== "/api/generate") {
       return new Response("Not Found", { status: 404 });
     }
+    if (request.method === "GET") {
+      return Response.json({ status: "ok" }, { status: 200, headers: { "Cache-Control": "no-store" } });
+    }
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", { status: 405 });
+    }
 
+    // Parse and validate early (before streaming)
+    let body: any;
     try {
-      const { prompt, frames = [], framesMime, variants, layoutImage } = await request.json();
+      body = await request.json();
+    } catch {
+      return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const { prompt, frames = [], framesMime, variants } = body || {};
+    if (!prompt || !Array.isArray(frames) || frames.length === 0) {
+      return Response.json({ error: "Missing prompt or frames" }, { status: 400 });
+    }
 
-      if (!prompt || !Array.isArray(frames) || frames.length === 0) {
-        return Response.json({ error: "Missing prompt or frames" }, { status: 400 });
+    const apiKey = env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return Response.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
+    }
+    const model = env.MODEL_ID || DEFAULT_MODEL;
+    const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
+
+    // Build request parts once: up to 3 frames + text prompt
+    const reqParts: any[] = [];
+    for (const b64 of (frames as string[]).slice(0, 3)) {
+      if (typeof b64 === "string" && b64.length > 0) {
+        reqParts.push({ inlineData: { mimeType: imageMime, data: b64 } });
       }
+    }
+    reqParts.push({ text: prompt });
 
-      const apiKey = env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return Response.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
-      }
-      const model = env.MODEL_ID || DEFAULT_MODEL;
-      const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
+    const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
-      // Build request parts once: up to 3 frames + text prompt
-      const reqParts: any[] = [];
-      for (const b64 of (frames as string[]).slice(0, 3)) {
-        if (typeof b64 === "string" && b64.length > 0) {
-          reqParts.push({ inlineData: { mimeType: imageMime, data: b64 } });
-        }
-      }
-      reqParts.push({ text: prompt });
-      // layoutImage is not used currently; left for future extension
+    // Auth + credit gate before opening stream
+    const user = getUser(request);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const FEATURE_ID = env.FEATURE_ID || "credits";
+    if (!env.AUTUMN_SECRET_KEY) {
+      return Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 });
+    }
+    const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
+    const customer_id = deriveCustomerId(user.email);
+    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+    if (!checkRes?.data?.allowed) {
+      return Response.json(
+        { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+        { status: 402 }
+      );
+    }
 
-      const count = Math.max(1, Math.min(Number(variants) || 1, 8));
-      // Autumn credit check/gate
-      const user = getUser(request);
-      if (!user) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      const FEATURE_ID = env.FEATURE_ID || "credits";
-      if (!env.AUTUMN_SECRET_KEY) {
-        return Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 });
-      }
-      const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
-      const customer_id = deriveCustomerId(user.email);
-      const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
-      if (!checkRes?.data?.allowed) {
-        return Response.json(
-          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
-          { status: 402 }
-        );
-      }
+    // Stream NDJSON with periodic heartbeats and incremental results
+    const te = new TextEncoder();
+    let doneVariants = 0;
+    let idx = 0;
 
-      const CONCURRENCY = 3; // generous but bounded
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const write = (obj: any) => controller.enqueue(te.encode(JSON.stringify(obj) + "\n"));
+        const heartbeat = () => controller.enqueue(te.encode(":\n")); // comment line keeps H3 alive
+        const hbId = setInterval(heartbeat, 10000);
+        try {
+          write({ type: "start", total: count });
 
-      const imagesAll: string[] = [];
-      for (let i = 0; i < count; i += CONCURRENCY) {
-        const batchSize = Math.min(CONCURRENCY, count - i);
-        const batch = Array.from({ length: batchSize }, async () => {
-          const json = await callGeminiGenerate(apiKey, model, reqParts);
-          console.log("Gemini response:", JSON.stringify(json, null, 2).substring(0, 2000));
-          const cand = json?.candidates?.[0];
-          const parts = cand?.content?.parts ?? [];
-          const imgs: string[] = [];
+          const CONCURRENCY = 3; // generous but bounded
+          for (let i = 0; i < count; i += CONCURRENCY) {
+            const batchSize = Math.min(CONCURRENCY, count - i);
+            const batch = Array.from({ length: batchSize }, async () => {
+              const json = await callGeminiGenerate(apiKey, model, reqParts);
+              const cand = json?.candidates?.[0];
+              const parts = cand?.content?.parts ?? [];
+              const imgs: string[] = [];
+              for (const p of parts) {
+                if (p?.inlineData?.data && p?.inlineData?.mimeType) {
+                  const { data, mimeType } = p.inlineData;
+                  imgs.push(`data:${mimeType};base64,${data}`);
+                }
+              }
+              return imgs;
+            });
 
-          // Look for inlineData in parts (this is where Gemini puts generated images)
-          for (const p of parts) {
-            if (p?.inlineData?.data && p?.inlineData?.mimeType) {
-              const { data, mimeType } = p.inlineData;
-              // Convert to data URL format
-              const dataUrl = `data:${mimeType};base64,${data}`;
-              imgs.push(dataUrl);
+            const settled = await Promise.allSettled(batch);
+            for (const s of settled) {
+              if (s.status === "fulfilled") {
+                const imgs = s.value;
+                // Emit each image as it becomes available
+                for (const dataUrl of imgs) {
+                  write({ type: "image", index: idx++, dataUrl });
+                }
+                doneVariants += 1;
+                write({ type: "progress", done: doneVariants, total: count });
+              } else {
+                // Emit error for this variant but continue
+                write({ type: "variant_error", error: String(s.reason || "unknown") });
+                doneVariants += 1;
+                write({ type: "progress", done: doneVariants, total: count });
+              }
             }
           }
 
-          if (imgs.length === 0) {
-            // Log helpful diagnostics
-            const safety = cand?.safetyRatings || cand?.safetyRatingsV2;
-            const finish = cand?.finishReason;
-            const firstPart = Array.isArray(parts) && parts[0] ? Object.keys(parts[0]) : [];
-            console.error("Gemini returned no images", {
-              model,
-              finish,
-              partsCount: Array.isArray(parts) ? parts.length : 0,
-              firstPart,
-              safety,
-              promptLen: (typeof prompt === 'string' ? prompt.length : 0),
-              framesCount: Array.isArray(frames) ? frames.length : 0,
-              imageMime,
-            });
-          }
-          return imgs;
-        });
-        const settled = await Promise.allSettled(batch);
-        for (const s of settled) {
-          if (s.status === "fulfilled") imagesAll.push(...s.value);
+          // Track credits after success (best-effort)
+          try { await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count }); } catch {}
+
+          write({ type: "done" });
+          clearInterval(hbId);
+          controller.close();
+        } catch (err: any) {
+          clearInterval(hbId);
+          write({ type: "error", message: err?.message || "Unknown error" });
+          controller.close();
         }
       }
+    });
 
-      if (imagesAll.length === 0) {
-        console.error("No images generated in final aggregation", {
-          count,
-          imageMime,
-          framesLen: Array.isArray(frames) ? frames.length : 0,
-          promptLen: typeof prompt === 'string' ? prompt.length : 0,
-        });
-        return Response.json({ error: "Failed to generate any images" }, { status: 500 });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store, no-transform",
+        // Disable some proxies buffering if present
+        "X-Accel-Buffering": "no"
       }
-
-      await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
-      return Response.json({ images: imagesAll });
-    } catch (err: any) {
-      return Response.json({ error: err?.message || "Unknown error" }, { status: 500 });
-    }
+    });
   },
 };
 
