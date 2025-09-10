@@ -29,6 +29,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [progressDone, setProgressDone] = useState(0);
+  const [progressTotal, setProgressTotal] = useState(0);
 
   // Autumn: load customer and derive credits
   const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: true });
@@ -468,6 +470,8 @@ export default function Home() {
     setError(null);
     setLoading(true);
     setResults([]);
+    setProgressDone(0);
+    setProgressTotal(0);
     try {
       const ids = selectedIds;
       if (ids.length === 0) {
@@ -475,8 +479,8 @@ export default function Home() {
         setError("Please select at least one template.");
         return;
       }
-      const allUrlsAgg: string[] = [];
 
+      // For each selected template, we will stream NDJSON and update UI incrementally
       for (const tid of ids) {
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
@@ -516,7 +520,7 @@ export default function Home() {
           }
         }
 
-        // Assemble frames: put reference images first
+        // Assemble frames: put reference images first, ensure up to 3 total
         let combinedFrames: string[] = [];
         if (refB64.length > 0) {
           const primary = frames.map((f) => f.b64);
@@ -550,29 +554,75 @@ export default function Home() {
           setLoading(false);
           return;
         }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Unexpected error");
 
-        const images = data?.images;
-        if (!Array.isArray(images) || images.length === 0) {
-          throw new Error("No images returned");
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        const isNdjson = ct.includes('application/x-ndjson');
+        if (!isNdjson) {
+          // Fallback for local dev (Next.js API returns JSON all-at-once)
+          const data = await res.json();
+          if (!res.ok) throw new Error(data?.error || "Unexpected error");
+          const images = data?.images;
+          if (!Array.isArray(images) || images.length === 0) {
+            throw new Error("No images returned");
+          }
+          // Push all images at once
+          try {
+            const blobUrls = images.map((u: string) => {
+              const dataUrl = toDataUrlString(u);
+              const blob = dataUrlToBlob(dataUrl);
+              return URL.createObjectURL(blob);
+            });
+            setResults((prev) => [...prev, ...blobUrls]);
+          } catch {
+            setResults((prev) => [...prev, ...images]);
+          }
+          setProgressTotal(images.length);
+          setProgressDone(images.length);
+        } else {
+          // Stream NDJSON response: handle start/progress/image/done events
+          if (!res.body) throw new Error("No response body");
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split("\n");
+            buf = lines.pop() || "";
+            for (const line of lines) {
+              if (!line) continue; // skip heartbeats and empty lines
+              if (line.startsWith(":")) continue; // comment/heartbeat
+              let evt: any = null;
+              try { evt = JSON.parse(line); } catch { continue; }
+              if (evt.type === "start") {
+                setProgressTotal(Number(evt.total) || 0);
+                setProgressDone(0);
+              } else if (evt.type === "progress") {
+                if (typeof evt.done === 'number' && typeof evt.total === 'number') {
+                  setProgressDone(evt.done);
+                  setProgressTotal(evt.total);
+                }
+              } else if (evt.type === "image") {
+                try {
+                  const dataUrl = toDataUrlString(evt.dataUrl);
+                  const blob = dataUrlToBlob(dataUrl);
+                  const blobUrl = URL.createObjectURL(blob);
+                  setResults((prev) => [...prev, blobUrl]);
+                } catch {
+                  setResults((prev) => [...prev, evt.dataUrl]);
+                }
+              } else if (evt.type === "variant_error") {
+                // Could surface per-variant errors if desired
+                console.warn("Variant error:", evt.error);
+              } else if (evt.type === "error") {
+                throw new Error(evt.message || "Server error");
+              } else if (evt.type === "done") {
+                // stream end will break outer loop
+              }
+            }
+          }
         }
-
-        allUrlsAgg.push(...images);
-      }
-
-      // Convert to blob URLs without using fetch() to avoid CSP connect-src blocks
-      try {
-        // Revoke any previous blob URLs before replacing
-        try { results.forEach((u) => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }); } catch {}
-        const blobUrls = allUrlsAgg.map((u) => {
-          const dataUrl = toDataUrlString(u);
-          const blob = dataUrlToBlob(dataUrl);
-          return URL.createObjectURL(blob);
-        });
-        setResults(blobUrls);
-      } catch {
-        setResults(allUrlsAgg);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to generate");
@@ -841,6 +891,21 @@ export default function Home() {
                 type="text"
                 placeholder="3–5 word hook (optional)"
                 value={headline}
+
+          {loading && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12 }}>
+                <strong>Progress</strong>
+                <span>
+                  {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
+                </span>
+              </div>
+              <div style={{ height: 8, background: '#eee', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`, background: 'linear-gradient(90deg, #ff3b3b, #ff7f50)', transition: 'width .2s ease' }} />
+              </div>
+            </div>
+          )}
+
                 onChange={(e) => setHeadline(e.target.value)}
                 className={styles.input}
               />
