@@ -27,6 +27,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Autumn: load customer and derive credits
   const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: true });
@@ -38,6 +40,7 @@ export default function Home() {
     return 0;
   })();
   const [profile, setProfile] = useState<string>("");
+  const isAuthed = !!customer && !customerError;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
@@ -460,6 +463,8 @@ export default function Home() {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
     }
+    setAuthRequired(false);
+    setShowAuthModal(false);
     setError(null);
     setLoading(true);
     setResults([]);
@@ -529,7 +534,9 @@ export default function Home() {
           body: JSON.stringify(body),
         });
         if (res.status === 401) {
-          setError("Please sign in to generate thumbnails.");
+          setAuthRequired(true);
+          setShowAuthModal(true);
+          setError("You're not signed in. Please sign in to generate thumbnails — it's free after you sign up.");
           setLoading(false);
           return;
         }
@@ -712,7 +719,7 @@ export default function Home() {
                 src={videoUrl}
                 controls
                 onLoadedMetadata={() => setVideoReady(true)}
-                style={{ maxWidth: "100%", background: "#000" }}
+                style={{ maxWidth: "75%", background: "#000", margin: "0 auto" }}
               />
               <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
                 Capture frame at current time
@@ -868,12 +875,47 @@ export default function Home() {
             />
           </div>
 
-          <button className={styles.primary} onClick={generate} disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}>
-            {loading ? "Generating..." : (
-              !loadingCustomer ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})` : "Generate thumbnails"
-            )}
+          <button
+            className={styles.primary}
+            onClick={(e) => {
+              if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
+              generate();
+            }}
+            disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
+          >
+            {loading
+              ? "Generating..."
+              : !isAuthed
+                ? "Generate thumbnails (Free after sign-up)"
+                : (!loadingCustomer
+                    ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
+                    : "Generate thumbnails")}
           </button>
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
+          {error && !authRequired && (
+            <p style={{ color: "crimson" }}>{error}</p>
+          )}
+          {authRequired && (
+            <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
+              <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It's free after you sign up.</div>
+              <button onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
+                Sign in with Google
+              </button>
+            </div>
+          )}
+
+          {showAuthModal && (
+            <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 1000 }}>
+              <div style={{ background: '#fff', color: '#111', padding: 20, borderRadius: 10, border: '3px solid var(--nb-border)', boxShadow: '8px 8px 0 var(--nb-border)', maxWidth: 420 }}>
+                <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Sign in to generate — it’s free</div>
+                <p style={{ marginTop: 0 }}>Create thumbnails for free after you sign up. We’ll also track your credits.</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
+                  <button onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {results.length > 0 && (
