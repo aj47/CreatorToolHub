@@ -46,6 +46,25 @@ export default function Home() {
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
 
+  // Wizard/stepper state
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const step1Done = frames.length > 0; // at least one subject image/frame
+  const step2Done = selectedIds.length > 0; // at least one template selected
+  const step3Done = true; // headline/notes optional, always allow progression
+  const canGoTo = (n: number) => {
+    if (n <= 1) return true;
+    if (n === 2) return step1Done;
+    if (n === 3) return step1Done && step2Done;
+    if (n === 4) return step1Done && step2Done;
+    return true;
+  };
+  const goTo = (n: number) => {
+    if (!canGoTo(n)) return;
+    setCurrentStep(n);
+    const el = typeof document !== 'undefined' ? document.getElementById(`step${n}`) : null;
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   // Image import controls and limits
   const [importing, setImporting] = useState<{ total: number; done: number; errors: string[] } | null>(null);
   const [cancelImport, setCancelImport] = useState(false);
@@ -654,8 +673,31 @@ export default function Home() {
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
         <div className={styles.hero}>
           <h1 className={styles.title}>Thumbnail Creator</h1>
-          <p className={`${styles.subtitle} nb-muted`}>Upload a short video, scrub to the moment, and capture frames. Or add standalone images.</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        </div>
+
+        {/* Stepper */}
+        <nav className={styles.stepper} aria-label="Thumbnail creation steps">
+          {[1,2,3,4].map((n) => {
+            const unlocked = canGoTo(n);
+            const active = currentStep === n;
+            const label = n === 1 ? 'Input' : n === 2 ? 'Templates' : n === 3 ? 'Headline & notes' : 'Generate';
+            return (
+              <button key={n} type="button"
+                className={`${styles.step} ${active ? styles.stepActive : ''} ${unlocked && n < currentStep ? styles.stepDone : ''}`}
+                onClick={() => goTo(n)} disabled={!unlocked}
+                aria-current={active ? 'step' : undefined} aria-controls={`step${n}`}>
+                <span className={styles.stepIndex}>{n}</span>
+                <span className={styles.stepLabel}>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={{ display: "grid", gap: 8 }}>
+        {currentStep === 1 && (
+          <>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
             <label className={styles.fileInput} aria-label="Add Video(s)">
               <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
               <span>Add Video(s)</span>
@@ -684,220 +726,204 @@ export default function Home() {
                 Add sample images (dev)
               </button>
             )}
-
           </div>
-          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>
-            We send at most 3 images per generation. If reference images are added, they are used first, then subject images (total of 3).
+
+          <div style={{ fontSize: 12, color: "#666", textAlign: "center" }}>
+            We send at most 3 images per generation. Tip: Drag and drop images anywhere below.
           </div>
 
           {importing && (
-            <div role="status" aria-live="polite" style={{ marginTop: 8, fontSize: 12 }}>
+            <div role="status" aria-live="polite" style={{ fontSize: 12, textAlign: "center" }}>
               Importing images… {importing.done}/{importing.total}
               <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
             </div>
           )}
           {importing?.errors?.length ? (
-            <div style={{ marginTop: 6, color: "crimson", fontSize: 12 }}>
+            <div style={{ color: "crimson", fontSize: 12, textAlign: "center" }}>
               {importing.errors.slice(-3).map((msg, i) => (<div key={i}>{msg}</div>))}
             </div>
           ) : null}
 
           {dedupeWarn.length > 0 && (
-            <div style={{ marginTop: 6, color: "#555", fontSize: 12 }}>
+            <div style={{ color: "#555", fontSize: 12, textAlign: "center" }}>
               {dedupeWarn.slice(-3).map((w, i) => (<div key={i}>{w}</div>))}
             </div>
           )}
-          <div style={{ marginTop: 6, fontSize: 12, color: "#666" }}>Tip: Drag and drop images anywhere on the gallery below.</div>
+          </>
+        )}
         </div>
 
-        <div style={{ display: "grid", gap: 12 }}>
 
-          {videoUrl && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                controls
-                onLoadedMetadata={() => setVideoReady(true)}
-                style={{ maxWidth: "75%", background: "#000", margin: "0 auto" }}
-              />
-              <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
-                Capture frame at current time
-              </button>
-            </div>
-          )}
 
-          <canvas ref={canvasRef} style={{ display: "none" }} />
 
-          {/* Reference images section */}
-          <section>
-            <h3>Reference image(s) for style/layout (optional) ({refFrames.length}/3)</h3>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <label
-                className={styles.fileInput}
-                aria-label="Add Reference Images"
-                style={{ opacity: refsFull ? 0.6 : undefined, pointerEvents: refsFull ? "none" : undefined }}
-                title={refsFull ? "Limit reached (3 reference images)" : undefined}
-              >
-                <input
-                  style={{ display: "none" }}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif,image/tiff"
-                  multiple
-                  onChange={onAddRefImages}
-                  disabled={refsFull}
-                />
-                <span>Add Reference Images</span>
-              </label>
-              {refsFull && (
-                <span style={{ fontSize: 12, color: "#c00" }}>Limit reached (3)</span>
-              )}
-              <span style={{ fontSize: 12, color: "#666" }}>
-                These are used only for style/layout. Subjects are taken from your frames/images below.
-              </span>
-            </div>
-            {refFrames.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
-                {refFrames.map((f, i) => (
-                  <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
-                    <span
-                      title="Reference image"
-                      style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}
-                    >
-                      reference
-                    </span>
-                    <img src={f.dataUrl} alt={`ref-${i}`} style={{ width: 220 }} />
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                      <button onClick={() => removeRefFrame(i)}>Remove</button>
-                    </div>
+
+          {currentStep === 1 && (
+            <>
+            {videoUrl && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div className={styles.callout} style={{ maxWidth: 600, margin: '0 auto' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span role="img" aria-label="video">🎬</span>
+                    <strong>Scrub your video to find the best moment, then click</strong>
+                    <span role="img" aria-label="camera">📸</span>
+                    <strong>Capture frame</strong>
                   </div>
-                ))}
+                </div>
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  controls
+                  onLoadedMetadata={() => setVideoReady(true)}
+                  style={{ maxWidth: "75%", background: "#000", margin: "0 auto" }}
+                />
+                <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
+                  Capture frame at current time
+                </button>
               </div>
             )}
-          </section>
 
+            <canvas ref={canvasRef} style={{ display: "none" }} />
 
-          {frames.length > 0 && (
-            <section>
-              <h3>Subject frames/images ({frames.length}/3)</h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {frames.map((f, i) => (
-                  <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
-                    <span title={f.kind === "image" ? "Imported image" : "Captured frame"} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}>
-                      {f.kind === "image" ? "image" : "frame"}
-                    </span>
-                    <img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />
-                    <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                      <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
-                      <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
-                      <button onClick={() => removeFrame(i)}>Remove</button>
+            {frames.length > 0 && (
+              <section>
+                <h3>Subject frames/images ({frames.length}/3)</h3>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {frames.map((f, i) => (
+                    <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
+                      <span title={f.kind === "image" ? "Imported image" : "Captured frame"} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}>
+                        {f.kind === "image" ? "image" : "frame"}
+                      </span>
+                      <img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />
+                      <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                        <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
+                        <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
+                        <button onClick={() => removeFrame(i)}>Remove</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <div className={styles.navRow}>
+              <button onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
+            </div>
+            </>
+          )}
+
+
+
+
+          {currentStep === 2 && step1Done && (
+            <section style={{ display: "grid", gap: 8 }}>
+              {/* Template Gallery */}
+              <TemplateGallery
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => {
+                  setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                  setProfile(id);
+                  const p = customPresets[id];
+                  if (p) { setColors(p.colors || []); } else { setColors([]); }
+                }}
+                customPresets={customPresets}
+                onDuplicate={(id) => handleDuplicatePreset(id)}
+                onDeletePreset={(id) => deleteCustomPreset(id)}
+                onUpdatePreset={(id, update) => {
+                  const next = { ...customPresets, [id]: { ...customPresets[id], ...update } };
+                  persistCustomPresets(next);
+                  if (profile === id && update.colors) setColors(update.colors);
+                }}
+                onCreatePreset={(p) => {
+                  const id = `custom:${p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
+                  const next = { ...customPresets, [id]: p } as Record<string, Preset>;
+                  persistCustomPresets(next);
+                  setProfile(id);
+                  setColors(p.colors || []);
+                }}
+              />
+
+              <div className={styles.navRow}>
+                <button onClick={() => goTo(1)}>← Back</button>
+                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Headline & notes →</button>
               </div>
             </section>
           )}
 
-          <section style={{ display: "grid", gap: 10 }}>
-            {/* Aspect selection removed */}
+          {currentStep === 3 && step1Done && step2Done && (
+            <section id="step3" style={{ display: "grid", gap: 8 }}>
+              <label className={styles.formGroup}>
+                <span className={styles.label}>Headline</span>
+                <input
+                  type="text"
+                  placeholder="3–5 word hook (optional)"
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value)}
+                  className={styles.input}
+                />
+              </label>
 
-            {/* Template Gallery */}
-            <TemplateGallery
-              selectedIds={selectedIds}
-              onToggleSelect={(id) => {
-                setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-                // keep last selected as active profile for editing fields like colors/headline
-                setProfile(id);
-                const p = customPresets[id];
-                if (p) {
-                  setColors(p.colors || []);
-                } else {
-                  setColors([]);
-                }
-              }}
-              customPresets={customPresets}
-              onDuplicate={(id) => handleDuplicatePreset(id)}
-              onDeletePreset={(id) => deleteCustomPreset(id)}
-              onUpdatePreset={(id, update) => {
-                const next = { ...customPresets, [id]: { ...customPresets[id], ...update } };
-                persistCustomPresets(next);
-                if (profile === id) {
-                  if (update.colors) setColors(update.colors);
-                }
-              }}
-              onCreatePreset={(p) => {
-                const id = `custom:${p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-                const next = { ...customPresets, [id]: p } as Record<string, Preset>;
-                persistCustomPresets(next);
-                setProfile(id);
-                setColors(p.colors || []);
-              }}
-            />
+              <label className={styles.formGroup}>
+                <span className={styles.label}>Additional notes (optional)</span>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={4}
+                  className={styles.textarea}
+                />
+              </label>
 
+              <div className={styles.navRow}>
+                <button onClick={() => goTo(2)}>← Back</button>
+                <button onClick={() => goTo(4)}>Next: Generate →</button>
+              </div>
+            </section>
+          )}
 
-            <label className={styles.formGroup}>
-              <span className={styles.label}>Headline</span>
-              <input
-                type="text"
-                placeholder="3–5 word hook (optional)"
-                value={headline}
-                onChange={(e) => setHeadline(e.target.value)}
-                className={styles.input}
-              />
-            </label>
+          {currentStep === 4 && step1Done && step2Done && (
+            <section id="step4" style={{ display: "grid", gap: 8 }}>
+              <div className={styles.inlineGroup}>
+                <label className={styles.label} htmlFor="variants">Variants</label>
+                <input
+                  id="variants"
+                  type="number"
+                  min={1}
+                  max={8}
+                  value={count}
+                  onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
+                  className={styles.number}
+                />
+              </div>
 
-            {/* Colors, layout, subject, and in-parent preset management removed in favor of card-centric editing */}
+              <button
+                className={styles.primary}
+                onClick={(e) => {
+                  if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
+                  generate();
+                }}
+                disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
+              >
+                {loading
+                  ? "Generating..."
+                  : !isAuthed
+                    ? "Generate thumbnails (Free after sign-up)"
+                    : (!loadingCustomer
+                        ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
+                        : "Generate thumbnails")}
+              </button>
 
-          </section>
+              <div className={styles.navRow}>
+                <button onClick={() => goTo(3)}>← Back</button>
+              </div>
 
-
-          {/* Custom prompt mode removed; keep only Additional notes */}
-          <label className={styles.formGroup}>
-            <span className={styles.label}>Additional notes (optional)</span>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={6}
-              className={styles.textarea}
-            />
-          </label>
-
-          <div className={styles.inlineGroup}>
-            <label className={styles.label} htmlFor="variants">Variants</label>
-            <input
-              id="variants"
-              type="number"
-              min={1}
-              max={8}
-              value={count}
-              onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-              className={styles.number}
-            />
-          </div>
-
-          <button
-            className={styles.primary}
-            onClick={(e) => {
-              if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
-              generate();
-            }}
-            disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
-          >
-            {loading
-              ? "Generating..."
-              : !isAuthed
-                ? "Generate thumbnails (Free after sign-up)"
-                : (!loadingCustomer
-                    ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
-                    : "Generate thumbnails")}
-          </button>
-          {error && !authRequired && (
-            <p style={{ color: "crimson" }}>{error}</p>
+              {error && !authRequired && (
+                <p style={{ color: "crimson" }}>{error}</p>
+              )}
+            </section>
           )}
           {authRequired && (
             <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
-              <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It's free after you sign up.</div>
+              <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It’s free after you sign up.</div>
               <button onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
                 Sign in with Google
               </button>
@@ -916,7 +942,6 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
 
         {results.length > 0 && (
           <section style={{ marginTop: 24 }}>
