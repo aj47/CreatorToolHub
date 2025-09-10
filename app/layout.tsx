@@ -33,7 +33,7 @@ export default function RootLayout({
           <header className="nb-header">
             <Link href="/" className="nb-brand">Creator Tool Hub</Link>
             <nav className="nb-nav">
-              <Link href="/thumbnails" className="nb-navlink">Thumbnail Creator</Link>
+              <Link href="/thumbnails" className="nb-navlink nb-navlink--active">Thumbnail Creator</Link>
 
             </nav>
             <AuthButton />

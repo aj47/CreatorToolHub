@@ -74,14 +74,14 @@ a {
 
 .nb-brand {
   border: 3px solid var(--nb-border);
-  background: var(--nb-accent);
-  color: #fff;
+  background: #fff;
+  color: var(--nb-fg);
   padding: 6px 10px;
   font-weight: 800;
   box-shadow: 4px 4px 0 var(--nb-border);
 }
 
-.nb-brand:hover { background: var(--nb-accent-hover); }
+.nb-brand:hover { background: #f5f5f5; }
 
 .nb-nav { display: flex; gap: 12px; margin-left: 8px; }
 .nb-navlink {
@@ -93,6 +93,8 @@ a {
   box-shadow: 4px 4px 0 var(--nb-border);
 }
 .nb-navlink:hover { background: #ffe5e5; }
+.nb-navlink--active { background: var(--nb-accent); color: #fff; }
+.nb-navlink--active:hover { background: var(--nb-accent-hover); }
 
 /* Generic NB button */
 .nb-btn {
