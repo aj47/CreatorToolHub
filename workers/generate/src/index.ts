@@ -88,7 +88,7 @@ export default {
       return new Response("Method Not Allowed", { status: 405 });
     }
 
-    // Parse and validate early (before streaming)
+    // Parse and validate early
     let body: any;
     try {
       body = await request.json();
@@ -118,7 +118,7 @@ export default {
 
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
-    // Auth + credit gate before opening stream
+    // Auth + credit gate
     const user = getUser(request);
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -137,20 +137,58 @@ export default {
       );
     }
 
-    // Stream NDJSON with periodic heartbeats and incremental results
+    // Decide response mode based on client headers or query param
+    const accept = (request.headers.get("accept") || "").toLowerCase();
+    const wantsNdjson = accept.includes("application/x-ndjson") || url.searchParams.get("stream") === "1";
+
+    // Helper to run full generation and return JSON (compat mode)
+    const runFull = async () => {
+      const imagesAll: string[] = [];
+      const CONCURRENCY = 3;
+      for (let i = 0; i < count; i += CONCURRENCY) {
+        const batchSize = Math.min(CONCURRENCY, count - i);
+        const batch = Array.from({ length: batchSize }, async () => {
+          const json = await callGeminiGenerate(apiKey, model, reqParts);
+          const cand = json?.candidates?.[0];
+          const parts = cand?.content?.parts ?? [];
+          const imgs: string[] = [];
+          for (const p of parts) {
+            if (p?.inlineData?.data && p?.inlineData?.mimeType) {
+              const { data, mimeType } = p.inlineData;
+              imgs.push(`data:${mimeType};base64,${data}`);
+            }
+          }
+          return imgs;
+        });
+        const settled = await Promise.allSettled(batch);
+        for (const s of settled) {
+          if (s.status === "fulfilled") imagesAll.push(...s.value);
+        }
+      }
+      if (imagesAll.length === 0) {
+        return Response.json({ error: "Failed to generate any images" }, { status: 500 });
+      }
+      try { await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count }); } catch {}
+      return Response.json({ images: imagesAll }, { headers: { "Cache-Control": "no-store" } });
+    };
+
+    if (!wantsNdjson) {
+      // Backwards-compatible JSON response for existing clients
+      return runFull();
+    }
+
+    // NDJSON streaming mode
     const te = new TextEncoder();
     let doneVariants = 0;
     let idx = 0;
-
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const write = (obj: any) => controller.enqueue(te.encode(JSON.stringify(obj) + "\n"));
-        const heartbeat = () => controller.enqueue(te.encode(":\n")); // comment line keeps H3 alive
+        const heartbeat = () => controller.enqueue(te.encode(":\n"));
         const hbId = setInterval(heartbeat, 10000);
         try {
           write({ type: "start", total: count });
-
-          const CONCURRENCY = 3; // generous but bounded
+          const CONCURRENCY = 3;
           for (let i = 0; i < count; i += CONCURRENCY) {
             const batchSize = Math.min(CONCURRENCY, count - i);
             const batch = Array.from({ length: batchSize }, async () => {
@@ -166,29 +204,21 @@ export default {
               }
               return imgs;
             });
-
             const settled = await Promise.allSettled(batch);
             for (const s of settled) {
               if (s.status === "fulfilled") {
                 const imgs = s.value;
-                // Emit each image as it becomes available
-                for (const dataUrl of imgs) {
-                  write({ type: "image", index: idx++, dataUrl });
-                }
+                for (const dataUrl of imgs) write({ type: "image", index: idx++, dataUrl });
                 doneVariants += 1;
                 write({ type: "progress", done: doneVariants, total: count });
               } else {
-                // Emit error for this variant but continue
                 write({ type: "variant_error", error: String(s.reason || "unknown") });
                 doneVariants += 1;
                 write({ type: "progress", done: doneVariants, total: count });
               }
             }
           }
-
-          // Track credits after success (best-effort)
           try { await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count }); } catch {}
-
           write({ type: "done" });
           clearInterval(hbId);
           controller.close();
@@ -199,12 +229,10 @@ export default {
         }
       }
     });
-
     return new Response(stream, {
       headers: {
         "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-store, no-transform",
-        // Disable some proxies buffering if present
         "X-Accel-Buffering": "no"
       }
     });

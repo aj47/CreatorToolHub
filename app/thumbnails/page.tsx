@@ -891,25 +891,25 @@ export default function Home() {
                 type="text"
                 placeholder="3–5 word hook (optional)"
                 value={headline}
-
-          {loading && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12 }}>
-                <strong>Progress</strong>
-                <span>
-                  {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
-                </span>
-              </div>
-              <div style={{ height: 8, background: '#eee', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`, background: 'linear-gradient(90deg, #ff3b3b, #ff7f50)', transition: 'width .2s ease' }} />
-              </div>
-            </div>
-          )}
-
                 onChange={(e) => setHeadline(e.target.value)}
                 className={styles.input}
               />
             </label>
+
+            {loading && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12 }}>
+                  <strong>Progress</strong>
+                  <span>
+                    {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
+                  </span>
+                </div>
+                <div style={{ height: 8, background: '#eee', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`, background: 'linear-gradient(90deg, #ff3b3b, #ff7f50)', transition: 'width .2s ease' }} />
+                </div>
+              </div>
+            )}
+
 
             {/* Colors, layout, subject, and in-parent preset management removed in favor of card-centric editing */}
 
