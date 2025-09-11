@@ -26,26 +26,38 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  const content = (
+    <>
+      <header className="nb-header">
+        <Link href="/" className="nb-brand">Creator Tool Hub</Link>
+        <nav className="nb-nav">
+          <Link href="/thumbnails" className="nb-navlink nb-navlink--active">Thumbnail Creator</Link>
+
+        </nav>
+        <AuthButton />
+      </header>
+      {children}
+      <footer className="nb-footer">
+        <span>Open source on </span>
+        <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <span> • Made with love by </span>
+        <a href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
+      </footer>
+    </>
+  );
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AutumnProvider>
-          <header className="nb-header">
-            <Link href="/" className="nb-brand">Creator Tool Hub</Link>
-            <nav className="nb-nav">
-              <Link href="/thumbnails" className="nb-navlink nb-navlink--active">Thumbnail Creator</Link>
-
-            </nav>
-            <AuthButton />
-          </header>
-          {children}
-          <footer className="nb-footer">
-            <span>Open source on </span>
-            <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>
-            <span> • Made with love by </span>
-            <a href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
-          </footer>
-        </AutumnProvider>
+        {isDevelopment ? (
+          <div>{content}</div>
+        ) : (
+          <AutumnProvider includeCredentials={true}>
+            {content}
+          </AutumnProvider>
+        )}
       </body>
     </html>
   );

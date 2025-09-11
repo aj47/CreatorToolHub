@@ -32,9 +32,13 @@ export default function Home() {
   const [progressDone, setProgressDone] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
 
-  // Autumn: load customer and derive credits
-  const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: true });
+  // Autumn: load customer and derive credits - bypass in development
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const { customer, isLoading: loadingCustomer, error: customerError } = isDevelopment
+    ? { customer: null, isLoading: false, error: null }
+    : useCustomer({ errorOnNotFound: false });
   const credits = (() => {
+    if (isDevelopment) return 999; // Mock credits in development
     const f = customer?.features?.[FEATURE_ID as string] as any;
     if (!f) return 0;
     if (typeof f.balance === "number") return f.balance;
@@ -42,7 +46,7 @@ export default function Home() {
     return 0;
   })();
   const [profile, setProfile] = useState<string>("");
-  const isAuthed = !!customer && !customerError;
+  const isAuthed = isDevelopment ? true : (!!customer && !customerError);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");

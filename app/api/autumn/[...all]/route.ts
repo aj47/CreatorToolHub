@@ -7,7 +7,17 @@ import { getUser } from "@/lib/auth";
 export const { GET, POST } = autumnHandler({
   secretKey: process.env.AUTUMN_SECRET_KEY,
   identify: async (request) => {
-    const user = getUser(request);
+    let user = getUser(request);
+
+    // In development, use mock user if no real user found
+    if (!user && process.env.NODE_ENV === 'development') {
+      user = {
+        email: 'dev@example.com',
+        name: 'Dev User',
+        picture: '',
+      };
+    }
+
     if (!user) {
       // Return null to let handler treat as unauthenticated; clients can send { errorOnNotFound: false }
       return null;
