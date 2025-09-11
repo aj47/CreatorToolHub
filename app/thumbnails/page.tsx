@@ -26,6 +26,10 @@ export default function Home() {
   const [count, setCount] = useState(4);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
+  const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
+  const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -319,11 +323,9 @@ export default function Home() {
   // Revoke blob URLs created for results to prevent memory leaks
   useEffect(() => {
     return () => {
-      try {
-        results.forEach((u) => { if (typeof u === 'string' && u.startsWith('blob:')) URL.revokeObjectURL(u); });
-      } catch {}
+      cleanupBlobUrls();
     };
-  }, [results]);
+  }, [blobUrls]);
 
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -480,6 +482,16 @@ export default function Home() {
     setRefFrames((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // Cleanup function for blob URLs
+  const cleanupBlobUrls = () => {
+    blobUrls.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    setBlobUrls([]);
+  };
+
   const generate = async () => {
     // Client-side gate: block if out of credits for the number of generations requested
     const perTemplate = Math.max(1, count);
@@ -492,6 +504,8 @@ export default function Home() {
     setShowAuthModal(false);
     setError(null);
     setLoading(true);
+    // Clean up previous blob URLs before generating new ones
+    cleanupBlobUrls();
     setResults([]);
     setProgressDone(0);
     setProgressTotal(0);
@@ -590,12 +604,13 @@ export default function Home() {
           }
           // Push all images at once
           try {
-            const blobUrls = images.map((u: string) => {
+            const newBlobUrls = images.map((u: string) => {
               const dataUrl = toDataUrlString(u);
               const blob = dataUrlToBlob(dataUrl);
               return URL.createObjectURL(blob);
             });
-            setResults((prev) => [...prev, ...blobUrls]);
+            setResults((prev) => [...prev, ...newBlobUrls]);
+            setBlobUrls((prev) => [...prev, ...newBlobUrls]);
           } catch {
             setResults((prev) => [...prev, ...images]);
           }
@@ -632,6 +647,7 @@ export default function Home() {
                   const blob = dataUrlToBlob(dataUrl);
                   const blobUrl = URL.createObjectURL(blob);
                   setResults((prev) => [...prev, blobUrl]);
+                  setBlobUrls((prev) => [...prev, blobUrl]);
                 } catch {
                   setResults((prev) => [...prev, evt.dataUrl]);
                 }
@@ -654,38 +670,71 @@ export default function Home() {
     }
   };
 
-  const download = (src: string, i: number) => {
-    const a = document.createElement("a");
-    a.href = src;
-    a.download = `thumbnail_${i + 1}.png`;
-    a.click();
-  };
+  const download = async (src: string, i: number) => {
+    setDownloadingIndex(i);
+    try {
+      let href = src;
+      let revokeTemp: string | null = null;
 
-  const downloadAll = async () => {
-    for (let i = 0; i < results.length; i++) {
-      try {
-        const src = results[i];
-        let href = src;
-        let revokeTemp: string | null = null;
-        if (src.startsWith('data:')) {
-          const blob = dataUrlToBlob(src);
-          href = URL.createObjectURL(blob);
-          revokeTemp = href;
-        }
-        const a = document.createElement("a");
-        a.href = href;
-        a.download = `thumbnail_${i + 1}.png`;
-        a.click();
-        if (revokeTemp) URL.revokeObjectURL(revokeTemp);
-        await new Promise((r) => setTimeout(r, 75));
-      } catch (e) {
-        console.warn("Failed to download", i + 1, e);
+      // Handle different source types
+      if (src.startsWith('data:')) {
+        const blob = dataUrlToBlob(src);
+        href = URL.createObjectURL(blob);
+        revokeTemp = href;
+      } else if (src.startsWith('blob:')) {
+        // Use blob URL directly
+        href = src;
       }
+
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `thumbnail_${i + 1}.png`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Clean up temporary blob URL
+      if (revokeTemp) {
+        setTimeout(() => URL.revokeObjectURL(revokeTemp!), 100);
+      }
+    } catch (e) {
+      console.error("Failed to download image", i + 1, e);
+      // Fallback: try simple download
+      const a = document.createElement("a");
+      a.href = src;
+      a.download = `thumbnail_${i + 1}.png`;
+      a.click();
+    } finally {
+      setDownloadingIndex(null);
     }
   };
 
-  const copyToClipboard = async (src: string) => {
+  const downloadAll = async () => {
+    setDownloadingAll(true);
     try {
+      for (let i = 0; i < results.length; i++) {
+        try {
+          await download(results[i], i);
+          // Add delay between downloads to prevent browser blocking
+          await new Promise((r) => setTimeout(r, 100));
+        } catch (e) {
+          console.warn("Failed to download", i + 1, e);
+        }
+      }
+    } finally {
+      setDownloadingAll(false);
+    }
+  };
+
+  const copyToClipboard = async (src: string, index: number) => {
+    setCopyingIndex(index);
+    try {
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !navigator.clipboard.write) {
+        throw new Error('Clipboard API not available');
+      }
+
       let blob: Blob;
       if (src.startsWith('blob:')) {
         blob = await blobFromBlobUrlViaCanvas(src);
@@ -693,16 +742,44 @@ export default function Home() {
         blob = dataUrlToBlob(src);
       } else if (/^https?:/i.test(src)) {
         const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
         blob = await resp.blob();
       } else {
         // Assume raw base64
         blob = dataUrlToBlob(toDataUrlString(src));
       }
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type || 'image/png']: blob }),
-      ]);
-    } catch {
-      await navigator.clipboard.writeText(src);
+
+      // Ensure blob is valid
+      if (!blob || blob.size === 0) {
+        throw new Error('Invalid image data');
+      }
+
+      // Create clipboard item with proper MIME type
+      const mimeType = blob.type || 'image/png';
+      const clipboardItem = new ClipboardItem({ [mimeType]: blob });
+
+      await navigator.clipboard.write([clipboardItem]);
+
+      // Optional: Show success feedback
+      console.log('Image copied to clipboard successfully');
+
+    } catch (error) {
+      console.error('Failed to copy image to clipboard:', error);
+
+      // Fallback: try to copy as text (data URL)
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(src);
+          console.log('Copied image URL as text fallback');
+        } else {
+          throw new Error('No clipboard access available');
+        }
+      } catch (fallbackError) {
+        console.error('Clipboard fallback also failed:', fallbackError);
+        // Could show user notification here
+      }
+    } finally {
+      setCopyingIndex(null);
     }
   };
 
@@ -1016,15 +1093,27 @@ export default function Home() {
           <section style={{ marginTop: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
               <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
-              <button onClick={downloadAll}>Download all</button>
+              <button onClick={downloadAll} disabled={downloadingAll}>
+                {downloadingAll ? "Downloading..." : "Download all"}
+              </button>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {results.map((src, i) => (
                 <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
                   <img src={src} alt={`result-${i}`} style={{ width: 320 }} />
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button onClick={() => download(src, i)}>Download</button>
-                    <button onClick={() => copyToClipboard(src)}>Copy</button>
+                    <button
+                      onClick={() => download(src, i)}
+                      disabled={downloadingIndex === i}
+                    >
+                      {downloadingIndex === i ? "Downloading..." : "Download"}
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(src, i)}
+                      disabled={copyingIndex === i}
+                    >
+                      {copyingIndex === i ? "Copying..." : "Copy"}
+                    </button>
                   </div>
                 </div>
               ))}

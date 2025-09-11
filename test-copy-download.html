@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Copy/Download with Multiple Images</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .image-container { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+        .image-item { border: 1px solid #ddd; padding: 8px; }
+        .image-item img { width: 200px; height: auto; }
+        .buttons { display: flex; gap: 8px; margin-top: 8px; }
+        button { padding: 8px 16px; cursor: pointer; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Test Copy/Download with Multiple Images</h1>
+    <p>This test simulates the copy/download functionality with 4+ images to verify the production fix.</p>
+    
+    <button onclick="generateTestImages()">Generate 6 Test Images</button>
+    <button onclick="downloadAll()">Download All</button>
+    <button onclick="clearImages()">Clear</button>
+    
+    <div class="status" id="status">Click "Generate 6 Test Images" to start the test</div>
+    
+    <div class="image-container" id="imageContainer"></div>
+
+    <script>
+        let testImages = [];
+        let blobUrls = [];
+        let copyingIndex = null;
+        let downloadingIndex = null;
+        let downloadingAll = false;
+
+        // Generate test images (colored rectangles)
+        function generateTestImages() {
+            clearImages();
+            updateStatus('Generating 6 test images...');
+            
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+            
+            for (let i = 0; i < 6; i++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = 300;
+                const ctx = canvas.getContext('2d');
+                
+                // Fill with color
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(0, 0, 400, 300);
+                
+                // Add text
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Test Image ${i + 1}`, 200, 150);
+                
+                // Convert to blob URL
+                canvas.toBlob(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    testImages.push(blobUrl);
+                    blobUrls.push(blobUrl);
+                    
+                    if (testImages.length === 6) {
+                        renderImages();
+                        updateStatus('Generated 6 test images. Try copying and downloading!');
+                    }
+                }, 'image/png');
+            }
+        }
+
+        function renderImages() {
+            const container = document.getElementById('imageContainer');
+            container.innerHTML = '';
+            
+            testImages.forEach((src, i) => {
+                const div = document.createElement('div');
+                div.className = 'image-item';
+                div.innerHTML = `
+                    <img src="${src}" alt="Test image ${i + 1}">
+                    <div class="buttons">
+                        <button onclick="downloadImage('${src}', ${i})" ${downloadingIndex === i ? 'disabled' : ''}>
+                            ${downloadingIndex === i ? 'Downloading...' : 'Download'}
+                        </button>
+                        <button onclick="copyImage('${src}', ${i})" ${copyingIndex === i ? 'disabled' : ''}>
+                            ${copyingIndex === i ? 'Copying...' : 'Copy'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function copyImage(src, index) {
+            copyingIndex = index;
+            renderImages();
+            updateStatus(`Copying image ${index + 1}...`);
+            
+            try {
+                // Convert blob URL to blob via canvas (same as production code)
+                const blob = await blobFromBlobUrlViaCanvas(src);
+                await navigator.clipboard.write([
+                    new ClipboardItem({ [blob.type || 'image/png']: blob })
+                ]);
+                updateStatus(`✅ Image ${index + 1} copied to clipboard successfully!`);
+            } catch (error) {
+                console.error('Copy failed:', error);
+                updateStatus(`❌ Failed to copy image ${index + 1}: ${error.message}`);
+            } finally {
+                copyingIndex = null;
+                renderImages();
+            }
+        }
+
+        async function downloadImage(src, index) {
+            downloadingIndex = index;
+            renderImages();
+            updateStatus(`Downloading image ${index + 1}...`);
+            
+            try {
+                const a = document.createElement('a');
+                a.href = src;
+                a.download = `test_image_${index + 1}.png`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                updateStatus(`✅ Image ${index + 1} download started!`);
+            } catch (error) {
+                console.error('Download failed:', error);
+                updateStatus(`❌ Failed to download image ${index + 1}: ${error.message}`);
+            } finally {
+                downloadingIndex = null;
+                renderImages();
+            }
+        }
+
+        async function downloadAll() {
+            if (testImages.length === 0) {
+                updateStatus('❌ No images to download. Generate test images first.');
+                return;
+            }
+            
+            downloadingAll = true;
+            updateStatus('Downloading all images...');
+            
+            for (let i = 0; i < testImages.length; i++) {
+                try {
+                    await downloadImage(testImages[i], i);
+                    await new Promise(r => setTimeout(r, 100)); // Delay between downloads
+                } catch (e) {
+                    console.warn('Failed to download', i + 1, e);
+                }
+            }
+            
+            downloadingAll = false;
+            updateStatus('✅ All downloads completed!');
+        }
+
+        function clearImages() {
+            // Clean up blob URLs
+            blobUrls.forEach(url => URL.revokeObjectURL(url));
+            testImages = [];
+            blobUrls = [];
+            document.getElementById('imageContainer').innerHTML = '';
+            updateStatus('Images cleared.');
+        }
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Helper function from production code
+        function blobFromBlobUrlViaCanvas(blobUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth || 1;
+                        canvas.height = img.naturalHeight || 1;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return reject(new Error('ctx'));
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('toBlob')), 'image/png');
+                    } catch (e) { 
+                        reject(e); 
+                    }
+                };
+                img.onerror = () => reject(new Error('img'));
+                img.src = blobUrl;
+            });
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', clearImages);
+    </script>
+</body>
+</html>
