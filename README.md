@@ -19,19 +19,34 @@ npm install
 
 2) Env vars
 
-Create `.env.local` at the repo root:
+**For Development (Simplified Setup):**
+
+Create `.env.local` with just the Gemini API key:
 
 ```bash
-# Gemini API (choose one)
+# Only required for development
 GEMINI_API_KEY=your_gemini_api_key_here
-# or
-GOOGLE_API_KEY=your_google_api_key_here
+```
 
-# NextAuth
+**Development Mode Features:**
+- 🚫 **No Google OAuth setup required** - authentication is automatically bypassed
+- 🚫 **No Autumn billing setup required** - credits are mocked (999 credits)
+- ✅ **Mock user**: `dev@example.com` with full access
+- ✅ **All features work** without external service dependencies
+
+**For Production:**
+
+Copy `.env.local.example` to `.env.local` and fill in all values:
+
+```bash
+# Required for production
 NEXTAUTH_SECRET=your_random_secret_here
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://your-domain.com
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+AUTUMN_SECRET_KEY=your_autumn_secret_key
+NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID=credits
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/).

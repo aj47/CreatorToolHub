@@ -51,8 +51,16 @@ async function generateImagesWithGemini(
 
 export async function POST(req: Request) {
   try {
-    // Require authentication
-    const user = getUser(req);
+    // Require authentication - bypass in development
+    let user = getUser(req);
+    if (!user && process.env.NODE_ENV === 'development') {
+      // Use mock user in development
+      user = {
+        email: 'dev@example.com',
+        name: 'Dev User',
+        picture: '',
+      };
+    }
     if (!user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }

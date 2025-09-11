@@ -15,8 +15,20 @@ const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credi
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
   useEffect(() => {
+    // In development, use a mock user to bypass authentication
+    if (isDevelopment) {
+      setUser({
+        email: 'dev@example.com',
+        name: 'Dev User',
+        picture: '',
+      });
+      setLoading(false);
+      return;
+    }
+
     // Check authentication status via session endpoint
     const checkAuth = async () => {
       try {
@@ -38,15 +50,17 @@ export default function AuthButton() {
     };
 
     checkAuth();
-  }, []);
+  }, [isDevelopment]);
 
   const signIn = () => {
     window.location.href = '/api/auth/signin';
   };
 
   // Load Autumn customer to show credits badge when signed in
-  const { customer } = useCustomer({ errorOnNotFound: true });
+  // In development, skip Autumn and use mock credits
+  const { customer } = isDevelopment ? { customer: null } : useCustomer({ errorOnNotFound: false });
   const credits = useMemo(() => {
+    if (isDevelopment) return 999; // Mock credits in development
     if (!customer?.features) return 0;
     const f: any = customer.features[FEATURE_ID as string];
     if (!f) return 0;
@@ -55,7 +69,7 @@ export default function AuthButton() {
       return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
     }
     return 0;
-  }, [customer]);
+  }, [customer, isDevelopment]);
 
   if (loading) {
     return <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>Loading…</span>;
