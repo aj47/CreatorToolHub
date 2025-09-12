@@ -91,7 +91,8 @@ export default function TemplateGallery(props: {
       <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
         Templates with example reference images (style/layout only) are shown first. Subjects come from your frames/images below. Use Favorites to curate your list.
       </p>
-      <div style={{ maxHeight: 600, overflowY: "auto" }}>
+      {/* Container height set to 1.5x card height (~256px per card = ~384px for 1.5 cards) */}
+      <div style={{ maxHeight: 384, overflowY: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
         {list.map((s) => { const selected = selectedIds.includes(s.id); return (
           <article
