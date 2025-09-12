@@ -11,7 +11,7 @@
   align-items: center;
   justify-items: center;
   min-height: 100svh;
-  padding: 80px;
+  padding: 40px 80px 80px 80px; /* Reduced top padding from 80px to 40px (half) */
   gap: 64px;
   font-family: var(--font-geist-sans);
 }
@@ -127,8 +127,7 @@ a.secondary {
 
 @media (max-width: 600px) {
   .page {
-    padding: 32px;
-    padding-bottom: 80px;
+    padding: 16px 32px 80px 32px; /* Reduced top padding from 32px to 16px (half) */
   }
 
   .main {
