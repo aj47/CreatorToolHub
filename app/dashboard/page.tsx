@@ -5,9 +5,15 @@ import { useCustomer } from "autumn-js/react";
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
 export default function DashboardPage() {
-  const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  // In development, use mock data instead of Autumn
+  const { customer, isLoading, error, openBillingPortal, refetch } = isDevelopment
+    ? { customer: null, isLoading: false, error: null, openBillingPortal: () => Promise.resolve({}), refetch: () => {} }
+    : useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
 
   const credits = useMemo(() => {
+    if (isDevelopment) return 999; // Mock credits in development
     if (!customer?.features) return 0;
     const f = customer.features[FEATURE_ID];
     // Prefer balance; if null/undefined, fall back to included_usage - usage
@@ -16,7 +22,7 @@ export default function DashboardPage() {
       return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
     }
     return 0;
-  }, [customer]);
+  }, [customer, isDevelopment]);
 
   return (
     <main className="nb-main">
@@ -25,7 +31,28 @@ export default function DashboardPage() {
           <h2 className="nb-feature-title">Your account</h2>
           {isLoading && <p className="nb-muted">Loading…</p>}
           {error && <p className="nb-error">{error.message}</p>}
-          {customer && (
+          {isDevelopment && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <div className="nb-muted">Development Mode</div>
+                <div>Dev User (dev@example.com)</div>
+              </div>
+
+              <div className="nb-card" style={{ background: "#fff" }}>
+                <div className="nb-feature-title">Thumbnail credits</div>
+                <div className="nb-kpis">
+                  <div className="nb-kpi">
+                    <div className="nb-kpi-value">{credits}</div>
+                    <div className="nb-kpi-label">Credits remaining (mock)</div>
+                  </div>
+                </div>
+                <div className="nb-actions" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <span className="nb-muted">Development mode - billing disabled</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {!isDevelopment && customer && (
             <div style={{ display: "grid", gap: 12 }}>
               <div>
                 <div className="nb-muted">Signed in as</div>
