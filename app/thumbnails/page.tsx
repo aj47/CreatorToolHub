@@ -6,6 +6,8 @@ import { profiles } from "@/lib/prompt/profiles";
 import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
 import { useCustomer } from "autumn-js/react";
+import { useHybridStorage } from "@/lib/storage/useHybridStorage";
+
 
 type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
 
@@ -24,6 +26,39 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [refFrames, setRefFrames] = useState<Frame[]>([]);
+
+  // Cloud storage integration
+  const hybridStorage = useHybridStorage();
+
+  // Sync cloud storage frames to local state
+  useEffect(() => {
+    if (hybridStorage.isCloudEnabled && !hybridStorage.isLoading) {
+      // Convert cloud frames to local format
+      const cloudFrames = hybridStorage.frames.map(img => ({
+        dataUrl: img.url || '',
+        b64: '', // Will be populated when needed
+        kind: 'image' as const,
+        filename: img.filename,
+        hash: img.hash,
+        importedAt: new Date(img.created_at).getTime()
+      }));
+
+      const cloudRefFrames = hybridStorage.refFrames.map(img => ({
+        dataUrl: img.url || '',
+        b64: '', // Will be populated when needed
+        kind: 'image' as const,
+        filename: img.filename,
+        hash: img.hash,
+        importedAt: new Date(img.created_at).getTime()
+      }));
+
+      // Only update if different to avoid infinite loops
+      if (cloudFrames.length !== frames.length || cloudRefFrames.length !== refFrames.length) {
+        setFrames(cloudFrames);
+        setRefFrames(cloudRefFrames);
+      }
+    }
+  }, [hybridStorage.frames, hybridStorage.refFrames, hybridStorage.isCloudEnabled, hybridStorage.isLoading]);
 
   const [count, setCount] = useState(4);
   const [loading, setLoading] = useState(false);
@@ -218,7 +253,8 @@ export default function Home() {
     colors: string[];
     referenceImages: string[];
   };
-  const [customPresets, setCustomPresets] = useState<Record<string, Preset>>({});
+  // Use hybrid storage for templates instead of local state
+  const customPresets = hybridStorage.templates;
 
 
 
@@ -255,46 +291,52 @@ export default function Home() {
     } catch {}
   }, []);
 
-  const persistCustomPresets = (obj: Record<string, Preset>) => {
-    setCustomPresets(obj);
-    // Persist to v2 key to match loader and README
-    try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(obj)); } catch {}
+  const persistCustomPresets = async (obj: Record<string, Preset>) => {
+    // This function is now handled by hybrid storage
+    // Keep for backward compatibility but operations are async now
   };
 
-
-
-  const deleteCustomPreset = (id: string) => {
-    const next = { ...customPresets };
-    delete next[id];
-    persistCustomPresets(next);
-    if (profile === id) {
-      setProfile("");
-      setColors([]);
+  const deleteCustomPreset = async (id: string) => {
+    try {
+      await hybridStorage.deleteTemplate(id);
+      if (profile === id) {
+        setProfile("");
+        setColors([]);
+      }
+    } catch (error) {
+      console.error('Failed to delete template:', error);
     }
   };
 
-  const handleDuplicatePreset = (id: string) => {
-    // If built-in/curated: seed from curatedMap/profiles; if custom: copy existing
-    let baseLabel = "Preset";
-    let baseTemplate = "";
-    if (customPresets[id]) {
-      baseLabel = customPresets[id].title;
-      baseTemplate = customPresets[id].prompt;
-    } else if (curatedMap[id]) {
-      baseLabel = curatedMap[id].title;
-      baseTemplate = curatedMap[id].prompt;
-    } else {
-      // built-in from profiles
-      const p = profiles[id as keyof typeof profiles] as { title: string; prompt: string } | undefined;
-      if (p) { baseLabel = p.title; baseTemplate = p.prompt; }
+  const handleDuplicatePreset = async (id: string) => {
+    try {
+      // If built-in/curated: seed from curatedMap/profiles; if custom: copy existing
+      let baseLabel = "Preset";
+      let baseTemplate = "";
+      let baseColors: string[] = [];
+
+      if (customPresets[id]) {
+        baseLabel = customPresets[id].title;
+        baseTemplate = customPresets[id].prompt;
+        baseColors = customPresets[id].colors || [];
+      } else if (curatedMap[id]) {
+        baseLabel = curatedMap[id].title;
+        baseTemplate = curatedMap[id].prompt;
+      } else {
+        // built-in from profiles
+        const p = profiles[id as keyof typeof profiles] as { title: string; prompt: string } | undefined;
+        if (p) { baseLabel = p.title; baseTemplate = p.prompt; }
+      }
+
+      const label = `${baseLabel} Copy`;
+      const newPreset: Preset = { title: label, prompt: baseTemplate, colors: baseColors, referenceImages: [] };
+
+      const newId = await hybridStorage.createTemplate(newPreset);
+      setProfile(newId);
+      setColors(baseColors);
+    } catch (error) {
+      console.error('Failed to duplicate template:', error);
     }
-    const label = `${baseLabel} Copy`;
-    const newId = `custom:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-    const newPreset: Preset = { title: label, prompt: baseTemplate, colors: [], referenceImages: [] };
-    const next: Record<string, Preset> = { ...customPresets, [newId]: newPreset };
-    persistCustomPresets(next);
-    setProfile(newId);
-    setColors([]);
   };
   // Persist frames (including imported images) and restore on load
   useEffect(() => {
@@ -311,6 +353,22 @@ export default function Home() {
       localStorage.setItem("cg_frames_v1", JSON.stringify(frames));
     } catch {}
   }, [frames]);
+
+  // Persist reference frames (previously missing!)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("cg_ref_frames_v1");
+      if (raw) {
+        const arr = JSON.parse(raw) as Frame[];
+        if (Array.isArray(arr)) setRefFrames(arr);
+      }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("cg_ref_frames_v1", JSON.stringify(refFrames));
+    } catch {}
+  }, [refFrames]);
 
 
 
@@ -410,8 +468,24 @@ export default function Home() {
         const nextItem: Frame = { dataUrl, b64, kind: "image", filename: file.name, hash, importedAt: Date.now() };
         if (target === "frames") {
           setFrames((prev) => [...prev, nextItem]);
+          // Sync to cloud storage if available
+          if (hybridStorage.isCloudEnabled) {
+            try {
+              await hybridStorage.addFrame(nextItem);
+            } catch (error) {
+              console.error('Failed to sync frame to cloud:', error);
+            }
+          }
         } else {
           setRefFrames((prev) => [...prev, nextItem]);
+          // Sync to cloud storage if available
+          if (hybridStorage.isCloudEnabled) {
+            try {
+              await hybridStorage.addRefFrame(nextItem);
+            } catch (error) {
+              console.error('Failed to sync reference frame to cloud:', error);
+            }
+          }
         }
         existingHashes.add(hash);
       } catch (e) {
@@ -510,8 +584,18 @@ export default function Home() {
 
   // No longer need polling - direct generation
 
-  const removeRefFrame = (idx: number) => {
+  const removeRefFrame = async (idx: number) => {
+    const frameToRemove = refFrames[idx];
     setRefFrames((prev) => prev.filter((_, i) => i !== idx));
+
+    // Also remove from cloud storage if available
+    if (hybridStorage.isCloudEnabled && frameToRemove) {
+      try {
+        await hybridStorage.removeRefFrame(idx);
+      } catch (error) {
+        console.error('Failed to remove reference frame from cloud:', error);
+      }
+    }
   };
 
   // Cleanup function for blob URLs
@@ -833,6 +917,8 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
+
+
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
         <div className={styles.hero}>
           <h1 className={styles.title}>Thumbnail Creator</h1>
@@ -1018,6 +1104,34 @@ export default function Home() {
 
           {currentStep === 2 && step1Done && (
             <section style={{ display: "grid", gap: 8 }}>
+              {/* Cloud Storage Status */}
+              {hybridStorage.isCloudEnabled && (
+                <div style={{
+                  padding: "8px 12px",
+                  backgroundColor: hybridStorage.isOnline ? "#e6f7ff" : "#fff2e6",
+                  border: `1px solid ${hybridStorage.isOnline ? "#91d5ff" : "#ffd591"}`,
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
+                }}>
+                  <span style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: hybridStorage.isOnline ? "#52c41a" : "#fa8c16"
+                  }}></span>
+                  {hybridStorage.isOnline ? "Cloud sync enabled" : "Offline - using local storage"}
+                  {hybridStorage.isLoading && " (syncing...)"}
+                  {hybridStorage.error && (
+                    <span style={{ color: "#ff4d4f", marginLeft: "8px" }}>
+                      Error: {hybridStorage.error}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Template Gallery */}
               <TemplateGallery
                 selectedIds={selectedIds}
@@ -1030,18 +1144,24 @@ export default function Home() {
                 customPresets={customPresets}
                 onDuplicate={(id) => handleDuplicatePreset(id)}
                 onDeletePreset={(id) => deleteCustomPreset(id)}
-                onUpdatePreset={(id, update) => {
-                  const next = { ...customPresets, [id]: { ...customPresets[id], ...update } };
-                  persistCustomPresets(next);
-                  if (profile === id && update.colors) setColors(update.colors);
+                onUpdatePreset={async (id, update) => {
+                  try {
+                    await hybridStorage.updateTemplate(id, update);
+                    if (profile === id && update.colors) setColors(update.colors);
+                  } catch (error) {
+                    console.error('Failed to update template:', error);
+                  }
                 }}
-                onCreatePreset={(p) => {
-                  const id = `custom:${p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`;
-                  const next = { ...customPresets, [id]: p } as Record<string, Preset>;
-                  persistCustomPresets(next);
-                  setProfile(id);
-                  setColors(p.colors || []);
+                onCreatePreset={async (p) => {
+                  try {
+                    const id = await hybridStorage.createTemplate(p);
+                    setProfile(id);
+                    setColors(p.colors || []);
+                  } catch (error) {
+                    console.error('Failed to create template:', error);
+                  }
                 }}
+                hybridStorage={hybridStorage}
               />
 
               <div className={styles.navRow}>
