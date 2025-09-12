@@ -324,7 +324,12 @@ export default function Home() {
   // Revoke blob URLs created for results to prevent memory leaks
   useEffect(() => {
     return () => {
-      cleanupBlobUrls();
+      // Only revoke URLs on unmount, don't modify state
+      blobUrls.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
     };
   }, [blobUrls]);
 
