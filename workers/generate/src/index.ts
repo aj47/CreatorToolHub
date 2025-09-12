@@ -13,6 +13,44 @@ export interface Env {
   NODE_ENV?: string;
 }
 
+
+// CORS utilities
+function parseAllowedOrigins(env: any): string[] {
+  const list: string[] = [];
+  const envList = (env && (env.ALLOWED_ORIGINS || env.ALLOWED_ORIGIN)) as string | undefined;
+  if (envList) {
+    for (const o of envList.split(/[ ,]/).map((s: string) => s.trim()).filter(Boolean)) {
+      list.push(o);
+    }
+  }
+  // Sensible defaults
+  list.push('http://localhost:3000', 'http://127.0.0.1:3000');
+  list.push('https://creatortoolhub.com', 'https://www.creatortoolhub.com');
+  return Array.from(new Set(list));
+}
+
+function buildCorsHeaders(request: Request, env: any): HeadersInit {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = parseAllowedOrigins(env);
+  const allowOrigin = origin && allowed.includes(origin) ? origin : '';
+  const headers: Record<string, string> = {
+    'Vary': 'Origin',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Cookie',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+  };
+  if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
+  return headers;
+}
+
+function withCors(resp: Response, request: Request, env: any): Response {
+  const cors = buildCorsHeaders(request, env);
+  const headers = new Headers(resp.headers);
+  for (const [k, v] of Object.entries(cors)) headers.set(k, v);
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+}
+
 const DEFAULT_MODEL = "gemini-2.5-flash-image-preview";
 // Auth helpers (mirrored from app/lib/auth.ts)
 function getAuthToken(request: Request): string | null {
@@ -83,23 +121,29 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // Preflight for CORS
+    if (request.method === "OPTIONS") {
+      return withCors(new Response(null, { status: 204 }), request, env);
+    }
+
     // Handle user data API routes
     if (url.pathname.startsWith("/api/user")) {
       const db = new DatabaseService(env.DB);
       const r2 = new R2StorageService(env.R2);
       const userAPI = new UserAPI(db, r2, env);
-      return await userAPI.handleRequest(request);
+      const resp = await userAPI.handleRequest(request);
+      return withCors(resp, request, env);
     }
 
     // Handle generation route
     if (url.pathname !== "/api/generate") {
-      return new Response("Not Found", { status: 404 });
+      return withCors(new Response("Not Found", { status: 404 }), request, env);
     }
     if (request.method === "GET") {
-      return Response.json({ status: "ok" }, { status: 200, headers: { "Cache-Control": "no-store" } });
+      return withCors(Response.json({ status: "ok" }, { status: 200, headers: { "Cache-Control": "no-store" } }), request, env);
     }
     if (request.method !== "POST") {
-      return new Response("Method Not Allowed", { status: 405 });
+      return withCors(new Response("Method Not Allowed", { status: 405 }), request, env);
     }
 
     // Parse and validate early (before streaming)
@@ -107,16 +151,16 @@ export default {
     try {
       body = await request.json();
     } catch {
-      return Response.json({ error: "Invalid JSON" }, { status: 400 });
+      return withCors(Response.json({ error: "Invalid JSON" }, { status: 400 }), request, env);
     }
     const { prompt, frames = [], framesMime, variants } = body || {};
     if (!prompt || !Array.isArray(frames) || frames.length === 0) {
-      return Response.json({ error: "Missing prompt or frames" }, { status: 400 });
+      return withCors(Response.json({ error: "Missing prompt or frames" }, { status: 400 }), request, env);
     }
 
     const apiKey = env.GEMINI_API_KEY;
     if (!apiKey) {
-      return Response.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
+      return withCors(Response.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 }), request, env);
     }
     const model = env.MODEL_ID || DEFAULT_MODEL;
     const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
@@ -135,20 +179,20 @@ export default {
     // Auth + credit gate before opening stream
     const user = getUser(request);
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return withCors(Response.json({ error: "Unauthorized" }, { status: 401 }), request, env);
     }
     const FEATURE_ID = env.FEATURE_ID || "credits";
     if (!env.AUTUMN_SECRET_KEY) {
-      return Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 });
+      return withCors(Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 }), request, env);
     }
     const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
     const customer_id = deriveCustomerId(user.email);
     const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
     if (!checkRes?.data?.allowed) {
-      return Response.json(
+      return withCors(Response.json(
         { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
         { status: 402 }
-      );
+      ), request, env);
     }
 
     // Stream NDJSON with periodic heartbeats and incremental results
@@ -214,14 +258,14 @@ export default {
       }
     });
 
-    return new Response(stream, {
+    return withCors(new Response(stream, {
       headers: {
         "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-store, no-transform",
         // Disable some proxies buffering if present
         "X-Accel-Buffering": "no"
       }
-    });
+    }), request, env);
   },
 };
 
