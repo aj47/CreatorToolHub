@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     const customer_id = deriveCustomerId(user.email);
 
     const secretKey = process.env.AUTUMN_SECRET_KEY;
-    const autumnEnabled = !!secretKey;
+    const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
     // Each request consumes credits equal to the variant count
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
