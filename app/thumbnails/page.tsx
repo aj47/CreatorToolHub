@@ -1113,13 +1113,20 @@ export default function Home() {
               {loading && (
                 <div style={{ display: "grid", gap: 16, textAlign: "center", padding: "32px 16px" }}>
                   <div style={{ fontSize: "18px", fontWeight: "600" }}>Generating thumbnails...</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12, justifyContent: 'center' }}>
+                    <strong>Progress</strong>
+                    <span>
+                      {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
+                    </span>
+                  </div>
                   <div style={{ width: "100%", height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden" }}>
                     <div
                       style={{
                         height: "100%",
+                        width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`,
                         background: "linear-gradient(90deg, #3b82f6, #1d4ed8)",
                         borderRadius: "4px",
-                        animation: "progress 2s ease-in-out infinite"
+                        transition: 'width 0.3s ease'
                       }}
                     />
                   </div>
