@@ -20,6 +20,8 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [frames, setFrames] = useState<Frame[]>([]);
+  const [videoSize, setVideoSize] = useState({ width: 37.5, height: 'auto' }); // 50% of original 75%
+  const [isResizing, setIsResizing] = useState(false);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [refFrames, setRefFrames] = useState<Frame[]>([]);
 
@@ -476,6 +478,32 @@ export default function Home() {
     setFrames((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // Video resize functionality
+  const startVideoResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+
+    const startX = e.clientX;
+    const startWidth = videoSize.width;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const widthChange = (deltaX / window.innerWidth) * 100; // Convert to percentage
+      const newWidth = Math.max(20, Math.min(90, startWidth + widthChange)); // Clamp between 20% and 90%
+      setVideoSize({ width: newWidth, height: 'auto' });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   // No longer need polling - direct generation
 
   const removeRefFrame = (idx: number) => {
@@ -899,14 +927,53 @@ export default function Home() {
                     <span role="img" aria-label="camera">📸</span>
                     <strong>Capture frame</strong>
                   </div>
+                  <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '4px' }}>
+                    Video size: {Math.round(videoSize.width)}% • Drag corner to resize
+                  </div>
                 </div>
-                <video
-                  ref={videoRef}
-                  src={videoUrl}
-                  controls
-                  onLoadedMetadata={() => setVideoReady(true)}
-                  style={{ maxWidth: "75%", background: "#000", margin: "0 auto" }}
-                />
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                  <video
+                    ref={videoRef}
+                    src={videoUrl}
+                    controls
+                    onLoadedMetadata={() => setVideoReady(true)}
+                    style={{
+                      width: `${videoSize.width}%`,
+                      height: videoSize.height,
+                      background: "#000",
+                      cursor: isResizing ? 'nwse-resize' : 'default'
+                    }}
+                  />
+                  {/* Resize handle */}
+                  <div
+                    onMouseDown={startVideoResize}
+                    style={{
+                      position: 'absolute',
+                      bottom: -6,
+                      right: `${(100 - videoSize.width) / 2 - 1}%`,
+                      width: 12,
+                      height: 12,
+                      background: isResizing ? '#1d4ed8' : '#2563eb',
+                      cursor: 'nwse-resize',
+                      borderRadius: 2,
+                      border: '1px solid white',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      zIndex: 10,
+                      transition: 'background-color 0.15s ease'
+                    }}
+                    title="Drag to resize video"
+                    onMouseEnter={(e) => {
+                      if (!isResizing) {
+                        e.currentTarget.style.background = '#1d4ed8';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isResizing) {
+                        e.currentTarget.style.background = '#2563eb';
+                      }
+                    }}
+                  />
+                </div>
                 <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
                   Capture frame at current time
                 </button>
