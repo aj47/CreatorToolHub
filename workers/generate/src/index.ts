@@ -1,10 +1,16 @@
 import { Autumn } from "autumn-js";
+import { DatabaseService } from "./storage/database";
+import { R2StorageService } from "./storage/r2";
+import { UserAPI } from "./api/user";
 
 export interface Env {
   GEMINI_API_KEY: string;
   MODEL_ID?: string; // optional override via Wrangler vars
   AUTUMN_SECRET_KEY?: string;
   FEATURE_ID?: string;
+  DB: D1Database; // Cloudflare D1 database binding
+  R2: R2Bucket;   // Cloudflare R2 bucket binding
+  NODE_ENV?: string;
 }
 
 const DEFAULT_MODEL = "gemini-2.5-flash-image-preview";
@@ -77,7 +83,15 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    // Only handle our route; provide a friendly GET for health
+    // Handle user data API routes
+    if (url.pathname.startsWith("/api/user")) {
+      const db = new DatabaseService(env.DB);
+      const r2 = new R2StorageService(env.R2);
+      const userAPI = new UserAPI(db, r2, env);
+      return await userAPI.handleRequest(request);
+    }
+
+    // Handle generation route
     if (url.pathname !== "/api/generate") {
       return new Response("Not Found", { status: 404 });
     }

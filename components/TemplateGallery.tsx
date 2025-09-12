@@ -9,6 +9,12 @@ type Preset = {
   referenceImages: string[];
 };
 
+type ReferenceImage = {
+  id: string;
+  filename: string;
+  url: string;
+};
+
 export default function TemplateGallery(props: {
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
@@ -17,6 +23,7 @@ export default function TemplateGallery(props: {
   onDeletePreset: (id: string) => void;
   onUpdatePreset: (id: string, update: Partial<Preset>) => void;
   onCreatePreset: (p: Preset) => void;
+  hybridStorage?: any; // Add hybrid storage for file uploads
 }) {
   const { selectedIds, onToggleSelect, customPresets, onDuplicate, onDeletePreset, onUpdatePreset, onCreatePreset } = props;
 
@@ -34,6 +41,33 @@ export default function TemplateGallery(props: {
   const [newPrompt, setNewPrompt] = useState("");
   const [newColors, setNewColors] = useState<string[]>([]);
   const [newRefs, setNewRefs] = useState<string>("");
+  const [newRefFiles, setNewRefFiles] = useState<File[]>([]);
+  const [editRefFiles, setEditRefFiles] = useState<File[]>([]);
+  const [uploadingRefs, setUploadingRefs] = useState(false);
+
+  // Helper function to handle reference image file uploads
+  const handleRefFileUpload = (files: FileList | null, isEdit: boolean = false) => {
+    if (!files) return;
+
+    const imageFiles = Array.from(files).filter(file =>
+      file.type.startsWith('image/') && file.size <= 25 * 1024 * 1024 // 25MB limit
+    );
+
+    if (isEdit) {
+      setEditRefFiles(prev => [...prev, ...imageFiles].slice(0, 3)); // Max 3 images
+    } else {
+      setNewRefFiles(prev => [...prev, ...imageFiles].slice(0, 3)); // Max 3 images
+    }
+  };
+
+  // Helper function to remove reference image file
+  const removeRefFile = (index: number, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditRefFiles(prev => prev.filter((_, i) => i !== index));
+    } else {
+      setNewRefFiles(prev => prev.filter((_, i) => i !== index));
+    }
+  };
 
   useEffect(() => {
     try {
@@ -184,7 +218,50 @@ export default function TemplateGallery(props: {
                   <input type="text" value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} placeholder="Title" />
                   <input type="text" value={draftPrompt} onChange={(e) => setDraftPrompt(e.target.value)} placeholder="Exact prompt" />
                   <input type="text" value={draftColors} onChange={(e) => setDraftColors(e.target.value)} placeholder="Colors comma-separated" />
-                  <input type="text" value={draftRefs} onChange={(e) => setDraftRefs(e.target.value)} placeholder="Reference images (comma-separated URLs)" />
+                  <div style={{ display: "grid", gap: 4 }}>
+                    <label style={{ fontSize: 12, fontWeight: 600 }}>Reference Images (for style/layout guidance)</label>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={(e) => handleRefFileUpload(e.target.files, true)}
+                      style={{ fontSize: 12 }}
+                    />
+                    {editRefFiles.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {editRefFiles.map((file, idx) => (
+                          <div key={idx} style={{ position: "relative", display: "inline-block" }}>
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt={file.name}
+                              style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeRefFile(idx, true)}
+                              style={{
+                                position: "absolute",
+                                top: -4,
+                                right: -4,
+                                width: 16,
+                                height: 16,
+                                borderRadius: "50%",
+                                border: "none",
+                                background: "#ff4444",
+                                color: "white",
+                                fontSize: 10,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center"
+                              }}
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <input type="text" value={draftRefs} onChange={(e) => setDraftRefs(e.target.value)} placeholder="Or paste URLs (comma-separated)" style={{ fontSize: 12 }} />
+                  </div>
                   <div style={{ display: "grid", gap: 6 }}>
                     <span style={{ fontSize: 12 }}>Pick colors</span>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -219,13 +296,48 @@ export default function TemplateGallery(props: {
                   </div>
 
                   <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={async () => {
+                        if (!props.hybridStorage) {
+                          // Fallback to URL-based approach
+                          const colors = draftColors.split(',').map((s) => s.trim()).filter(Boolean);
+                          const referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                          onUpdatePreset(s.id, { title: draftTitle, prompt: draftPrompt, colors, referenceImages });
+                          setEditingId(null);
+                          return;
+                        }
+
+                        try {
+                          setUploadingRefs(true);
+                          const colors = draftColors.split(',').map((s) => s.trim()).filter(Boolean);
+                          let referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
+
+                          // Upload new reference image files
+                          for (const file of editRefFiles) {
+                            const uploadedImage = await props.hybridStorage.uploadRefFrame(file);
+                            // For now, we'll store the image ID as a reference
+                            // In a full implementation, you'd want to associate these with the template
+                            referenceImages.push(`uploaded:${uploadedImage.id}`);
+                          }
+
+                          onUpdatePreset(s.id, { title: draftTitle, prompt: draftPrompt, colors, referenceImages });
+                          setEditingId(null);
+                          setEditRefFiles([]);
+                        } catch (error) {
+                          console.error('Failed to upload reference images:', error);
+                          alert('Failed to upload reference images. Please try again.');
+                        } finally {
+                          setUploadingRefs(false);
+                        }
+                      }}
+                      disabled={uploadingRefs}
+                    >
+                      {uploadingRefs ? 'Uploading...' : 'Save'}
+                    </button>
                     <button onClick={() => {
-                      const colors = draftColors.split(',').map((s) => s.trim()).filter(Boolean);
-                      const referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
-                      onUpdatePreset(s.id, { title: draftTitle, prompt: draftPrompt, colors, referenceImages });
                       setEditingId(null);
-                    }}>Save</button>
-                    <button onClick={() => setEditingId(null)}>Cancel</button>
+                      setEditRefFiles([]);
+                    }}>Cancel</button>
                   </div>
                 </div>
               )}
@@ -259,21 +371,107 @@ export default function TemplateGallery(props: {
                   <button type="button" onClick={() => setNewColors((prev) => [...prev, "#00E5FF"]) }>+ Add color</button>
                 </div>
               </div>
-              <input type="text" value={newRefs} onChange={(e) => setNewRefs(e.target.value)} placeholder="Reference images (comma-separated URLs)" />
+              <div style={{ display: "grid", gap: 4 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>Reference Images (for style/layout guidance)</label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleRefFileUpload(e.target.files, false)}
+                  style={{ fontSize: 12 }}
+                />
+                {newRefFiles.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {newRefFiles.map((file, idx) => (
+                      <div key={idx} style={{ position: "relative", display: "inline-block" }}>
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeRefFile(idx, false)}
+                          style={{
+                            position: "absolute",
+                            top: -4,
+                            right: -4,
+                            width: 16,
+                            height: 16,
+                            borderRadius: "50%",
+                            border: "none",
+                            background: "#ff4444",
+                            color: "white",
+                            fontSize: 10,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input type="text" value={newRefs} onChange={(e) => setNewRefs(e.target.value)} placeholder="Or paste URLs (comma-separated)" style={{ fontSize: 12 }} />
+              </div>
               <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={async () => {
+                    const title = newTitle.trim();
+                    const prompt = newPrompt.trim();
+                    if (!title || !prompt) return;
+
+                    if (!props.hybridStorage) {
+                      // Fallback to URL-based approach
+                      const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
+                      setNewOpen(false);
+                      setNewTitle("");
+                      setNewPrompt("");
+                      setNewRefs("");
+                      setNewColors([]);
+                      return;
+                    }
+
+                    try {
+                      setUploadingRefs(true);
+                      let referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
+
+                      // Upload new reference image files
+                      for (const file of newRefFiles) {
+                        const uploadedImage = await props.hybridStorage.uploadRefFrame(file);
+                        // For now, we'll store the image ID as a reference
+                        // In a full implementation, you'd want to associate these with the template
+                        referenceImages.push(`uploaded:${uploadedImage.id}`);
+                      }
+
+                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
+                      setNewOpen(false);
+                      setNewTitle("");
+                      setNewPrompt("");
+                      setNewRefs("");
+                      setNewColors([]);
+                      setNewRefFiles([]);
+                    } catch (error) {
+                      console.error('Failed to upload reference images:', error);
+                      alert('Failed to upload reference images. Please try again.');
+                    } finally {
+                      setUploadingRefs(false);
+                    }
+                  }}
+                  disabled={uploadingRefs}
+                >
+                  {uploadingRefs ? 'Creating...' : 'Create'}
+                </button>
                 <button onClick={() => {
-                  const title = newTitle.trim();
-                  const prompt = newPrompt.trim();
-                  if (!title || !prompt) return;
-                  const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
-                  onCreatePreset({ title, prompt, colors: newColors, referenceImages });
                   setNewOpen(false);
                   setNewTitle("");
                   setNewPrompt("");
                   setNewRefs("");
                   setNewColors([]);
-                }}>Create</button>
-                <button onClick={() => { setNewOpen(false); setNewTitle(""); setNewPrompt(""); setNewRefs(""); setNewColors([]); }}>Cancel</button>
+                  setNewRefFiles([]);
+                }}>Cancel</button>
               </div>
             </div>
           )}

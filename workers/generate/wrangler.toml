@@ -1,14 +1,25 @@
-name = "thumbnail-generate"
+name = "creator-tool-hub"
 main = "src/index.ts"
 compatibility_date = "2025-01-15"
-usage_model = "unbound"
 
-# Set your environment variable in Cloudflare dashboard or via `wrangler secret put GEMINI_API_KEY`
-# [vars]
-# MODEL_ID = "gemini-2.5-flash-image-preview"
+# Database configuration
+[[d1_databases]]
+binding = "DB"
+database_name = "creator-tool-hub-db"
+database_id = "89b83057-3c64-489e-97de-152a7197cd91"
 
-# Routes are environment-specific. Production route:
+# R2 bucket configuration
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "creator-tool-hub-user-data"
+
+# Environment variables
+[vars]
+NODE_ENV = "development"
+
+# Routes for both generation and user data APIs
 routes = [
-  { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" }
+  { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
+  { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" }
 ]
 
