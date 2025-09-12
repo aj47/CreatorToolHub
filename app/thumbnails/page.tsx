@@ -331,7 +331,7 @@ export default function Home() {
         }
       });
     };
-  }, [blobUrls]);
+  }, []);
 
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1053,7 +1053,7 @@ export default function Home() {
 
           {currentStep === 3 && step1Done && step2Done && (
             <section id="step3" style={{ display: "grid", gap: 8 }}>
-              {!loading && (
+              {!loading && results.length === 0 && (
                 <>
                   <label className={styles.formGroup}>
                     <span className={styles.label}>Headline</span>
@@ -1134,6 +1134,43 @@ export default function Home() {
                     Creating {Math.max(1, count) * (selectedIds.length || 0)} thumbnail{(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'}...
                   </div>
                 </div>
+              )}
+
+              {!loading && results.length > 0 && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                    <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
+                    <button onClick={downloadAll} disabled={downloadingAll}>
+                      {downloadingAll ? "Downloading..." : "Download all"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    {results.map((src, i) => (
+                      <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
+                        <img src={src} alt={`result-${i}`} style={{ width: 320 }} />
+                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                          <button
+                            onClick={() => download(src, i)}
+                            disabled={downloadingIndex === i}
+                          >
+                            {downloadingIndex === i ? "Downloading..." : "Download"}
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(src, i)}
+                            disabled={copyingIndex === i}
+                          >
+                            {copyingIndex === i ? "Copying..." : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className={styles.navRow}>
+                    <button onClick={() => { setResults([]); cleanupBlobUrls(); }}>← Generate More</button>
+                    <button onClick={() => goTo(1)}>Start Over</button>
+                  </div>
+                </>
               )}
 
               {error && !authRequired && (
