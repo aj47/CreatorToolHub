@@ -67,7 +67,6 @@ export default function Home() {
     if (n <= 1) return true;
     if (n === 2) return step1Done;
     if (n === 3) return step1Done && step2Done;
-    if (n === 4) return step1Done && step2Done;
     return true;
   };
   const goTo = (n: number) => {
@@ -836,10 +835,10 @@ export default function Home() {
 
         {/* Stepper */}
         <nav className={styles.stepper} aria-label="Thumbnail creation steps">
-          {[1,2,3,4].map((n) => {
+          {[1,2,3].map((n) => {
             const unlocked = canGoTo(n);
             const active = currentStep === n;
-            const label = n === 1 ? 'Input' : n === 2 ? 'Templates' : n === 3 ? 'Headline & notes' : 'Generate';
+            const label = n === 1 ? 'Input' : n === 2 ? 'Templates' : 'Generate';
             return (
               <button key={n} type="button"
                 className={`${styles.step} ${active ? styles.stepActive : ''} ${unlocked && n < currentStep ? styles.stepDone : ''}`}
@@ -1042,97 +1041,96 @@ export default function Home() {
 
               <div className={styles.navRow}>
                 <button onClick={() => goTo(1)}>← Back</button>
-                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Headline & notes →</button>
+                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
               </div>
             </section>
           )}
 
           {currentStep === 3 && step1Done && step2Done && (
             <section id="step3" style={{ display: "grid", gap: 8 }}>
-              <label className={styles.formGroup}>
-                <span className={styles.label}>Headline</span>
-                <input
-                  type="text"
-                  placeholder="3–5 word hook (optional)"
-                  value={headline}
-                  onChange={(e) => setHeadline(e.target.value)}
-                  className={styles.input}
-                />
-              </label>
+              {!loading && (
+                <>
+                  <label className={styles.formGroup}>
+                    <span className={styles.label}>Headline</span>
+                    <input
+                      type="text"
+                      placeholder="3–5 word hook (optional)"
+                      value={headline}
+                      onChange={(e) => setHeadline(e.target.value)}
+                      className={styles.input}
+                    />
+                  </label>
 
-              <label className={styles.formGroup}>
-                <span className={styles.label}>Additional notes (optional)</span>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={4}
-                  className={styles.textarea}
-                />
-              </label>
+                  <label className={styles.formGroup}>
+                    <span className={styles.label}>Additional notes (optional)</span>
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      rows={4}
+                      className={styles.textarea}
+                    />
+                  </label>
 
-              <div className={styles.navRow}>
-                <button onClick={() => goTo(2)}>← Back</button>
-                <button onClick={() => goTo(4)}>Next: Generate →</button>
-              </div>
-            </section>
-          )}
+                  <div className={styles.inlineGroup}>
+                    <label className={styles.label} htmlFor="variants">Variants</label>
+                    <input
+                      id="variants"
+                      type="number"
+                      min={1}
+                      max={8}
+                      value={count}
+                      onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
+                      className={styles.number}
+                    />
+                  </div>
 
-          {currentStep === 4 && step1Done && step2Done && (
-            <section id="step4" style={{ display: "grid", gap: 8 }}>
-              <div className={styles.inlineGroup}>
-                <label className={styles.label} htmlFor="variants">Variants</label>
-                <input
-                  id="variants"
-                  type="number"
-                  min={1}
-                  max={8}
-                  value={count}
-                  onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-                  className={styles.number}
-                />
-              </div>
+                  <button
+                    className={styles.primary}
+                    onClick={(e) => {
+                      if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
+                      generate();
+                    }}
+                    disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
+                  >
+                    {!isAuthed
+                      ? "Generate thumbnails (Free after sign-up)"
+                      : (!loadingCustomer
+                          ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
+                          : "Generate thumbnails")}
+                  </button>
+
+                  <div className={styles.navRow}>
+                    <button onClick={() => goTo(2)}>← Back</button>
+                  </div>
+                </>
+              )}
 
               {loading && (
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12 }}>
-                    <strong>Progress</strong>
-                    <span>
-                      {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
-                    </span>
+                <div style={{ display: "grid", gap: 16, textAlign: "center", padding: "32px 16px" }}>
+                  <div style={{ fontSize: "18px", fontWeight: "600" }}>Generating thumbnails...</div>
+                  <div style={{ width: "100%", height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        background: "linear-gradient(90deg, #3b82f6, #1d4ed8)",
+                        borderRadius: "4px",
+                        animation: "progress 2s ease-in-out infinite"
+                      }}
+                    />
                   </div>
-                  <div style={{ height: 8, background: '#eee', border: '1px solid #ccc', borderRadius: 6, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`, background: 'linear-gradient(90deg, #ff3b3b, #ff7f50)', transition: 'width .2s ease' }} />
+                  <div style={{ fontSize: "14px", opacity: 0.7 }}>
+                    Creating {Math.max(1, count) * (selectedIds.length || 0)} thumbnail{(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'}...
                   </div>
                 </div>
               )}
-
-
-              <button
-                className={styles.primary}
-                onClick={(e) => {
-                  if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
-                  generate();
-                }}
-                disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
-              >
-                {loading
-                  ? "Generating..."
-                  : !isAuthed
-                    ? "Generate thumbnails (Free after sign-up)"
-                    : (!loadingCustomer
-                        ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
-                        : "Generate thumbnails")}
-              </button>
-
-              <div className={styles.navRow}>
-                <button onClick={() => goTo(3)}>← Back</button>
-              </div>
 
               {error && !authRequired && (
                 <p style={{ color: "crimson" }}>{error}</p>
               )}
             </section>
           )}
+
+
           {authRequired && (
             <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
