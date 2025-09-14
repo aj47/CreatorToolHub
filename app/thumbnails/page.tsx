@@ -1081,7 +1081,7 @@ export default function Home() {
                       <span title={f.kind === "image" ? "Imported image" : "Captured frame"} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}>
                         {f.kind === "image" ? "image" : "frame"}
                       </span>
-                      <img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />
+                      {f.dataUrl ? (<img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />) : null}
                       <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
                         <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
                         <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
@@ -1267,7 +1267,7 @@ export default function Home() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                     {results.map((src, i) => (
                       <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
-                        <img src={src} alt={`result-${i}`} style={{ width: 320 }} />
+                        {src ? (<img src={src} alt={`result-${i}`} style={{ width: 320 }} />) : null}
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <button
                             onClick={() => download(src, i)}
@@ -1334,7 +1334,7 @@ export default function Home() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
               {results.map((src, i) => (
                 <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
-                  <img src={src} alt={`result-${i}`} style={{ width: 320 }} />
+                  {src ? (<img src={src} alt={`result-${i}`} style={{ width: 320 }} />) : null}
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                     <button
                       onClick={() => download(src, i)}
