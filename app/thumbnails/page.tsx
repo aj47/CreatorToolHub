@@ -1579,38 +1579,6 @@ export default function Home() {
             </div>
           )}
 
-        {results.length > 0 && (
-          <section style={{ marginTop: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
-              <button onClick={downloadAll} disabled={downloadingAll}>
-                {downloadingAll ? "Downloading..." : "Download all"}
-              </button>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {results.map((src, i) => (
-                <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
-                  {src ? (<img src={src} alt={`result-${i}`} style={{ width: 320 }} />) : null}
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <button
-                      onClick={() => download(src, i)}
-                      disabled={downloadingIndex === i}
-                    >
-                      {downloadingIndex === i ? "Downloading..." : "Download"}
-                    </button>
-                    <button
-                      onClick={() => copyToClipboard(src, i)}
-                      disabled={copyingIndex === i}
-                    >
-                      {copyingIndex === i ? "Copying..." : "Copy"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         {/* Refinement History Browser */}
         {refinementHistory.histories.length > 0 && !refinementState.isRefinementMode && (
           <section style={{ marginTop: 24 }}>
