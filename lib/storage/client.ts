@@ -61,6 +61,10 @@ export class CloudStorageService {
   // Template operations
   async getTemplates(): Promise<CloudTemplate[]> {
     if (!this.baseUrl) {
+      // In development mode, return empty array instead of throwing
+      if (process.env.NODE_ENV === 'development') {
+        return [];
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -75,6 +79,18 @@ export class CloudStorageService {
 
   async createTemplate(title: string, prompt: string, colors: string[]): Promise<CloudTemplate> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // Return a mock template in development mode
+        return {
+          id: `dev-template-${Date.now()}`,
+          user_id: 'dev@example.com',
+          title,
+          prompt,
+          colors,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -92,6 +108,10 @@ export class CloudStorageService {
 
   async updateTemplate(id: string, updates: Partial<Pick<CloudTemplate, 'title' | 'prompt' | 'colors'>>): Promise<void> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // In development mode, silently succeed
+        return;
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -108,6 +128,10 @@ export class CloudStorageService {
 
   async deleteTemplate(id: string): Promise<void> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // In development mode, silently succeed
+        return;
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -123,6 +147,10 @@ export class CloudStorageService {
   // Image operations
   async getImages(type?: 'frame' | 'reference'): Promise<CloudUserImage[]> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // In development mode, return empty array
+        return [];
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -149,6 +177,19 @@ export class CloudStorageService {
 
   async uploadImage(file: File, imageType: 'frame' | 'reference'): Promise<CloudUserImage> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // Return a mock image in development mode
+        return {
+          id: `dev-image-${Date.now()}`,
+          user_id: 'dev@example.com',
+          filename: file.name,
+          content_type: file.type,
+          size_bytes: file.size,
+          r2_key: `dev/${file.name}`,
+          image_type: imageType,
+          created_at: new Date().toISOString(),
+        };
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -169,6 +210,10 @@ export class CloudStorageService {
 
   async deleteImage(id: string): Promise<void> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // In development mode, silently succeed
+        return;
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -184,6 +229,16 @@ export class CloudStorageService {
   // Settings operations
   async getSettings(): Promise<CloudSettings | null> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // Return mock settings in development mode
+        return {
+          user_id: 'dev@example.com',
+          favorites: {},
+          show_only_favs: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -199,6 +254,16 @@ export class CloudStorageService {
 
   async updateSettings(updates: Partial<Pick<CloudSettings, 'favorites' | 'show_only_favs'>>): Promise<CloudSettings> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // Return mock updated settings in development mode
+        return {
+          user_id: 'dev@example.com',
+          favorites: updates.favorites || {},
+          show_only_favs: updates.show_only_favs || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
@@ -222,6 +287,16 @@ export class CloudStorageService {
     settings?: any;
   }): Promise<MigrationResult> {
     if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
+        // Return mock migration result in development mode
+        return {
+          templates: Object.keys(data.templates || {}).length,
+          frames: (data.frames || []).length,
+          refFrames: (data.refFrames || []).length,
+          settings: !!data.settings,
+          errors: [],
+        };
+      }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
