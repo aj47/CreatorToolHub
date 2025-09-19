@@ -8,25 +8,14 @@ const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credi
 function DashboardContent() {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  if (isDevelopment) {
-    // Mock dashboard for development
-    return (
-      <main className="nb-main">
-        <section className="nb-section">
-          <div className="nb-card" style={{ maxWidth: 600, margin: "0 auto" }}>
-            <h1>Dashboard (Development Mode)</h1>
-            <p>Credits: 999 (mock)</p>
-            <p>Development mode - Autumn billing is disabled.</p>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
-  // Production dashboard with Autumn
-  const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
+  // Always call hooks unconditionally, even in development
+  const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({
+    errorOnNotFound: !isDevelopment, // Don't error in development
+    expand: ["invoices", "entities"]
+  });
 
   const credits = useMemo(() => {
+    if (isDevelopment) return 999; // Mock credits in development
     if (!customer?.features) return 0;
     const f = customer.features[FEATURE_ID];
     // Prefer balance; if null/undefined, fall back to included_usage - usage
@@ -35,7 +24,22 @@ function DashboardContent() {
       return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
     }
     return 0;
-  }, [customer]);
+  }, [customer, isDevelopment]);
+
+  if (isDevelopment) {
+    // Mock dashboard for development
+    return (
+      <main className="nb-main">
+        <section className="nb-section">
+          <div className="nb-card" style={{ maxWidth: 600, margin: "0 auto" }}>
+            <h1>Dashboard (Development Mode)</h1>
+            <p>Credits: {credits} (mock)</p>
+            <p>Development mode - Autumn billing is disabled.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="nb-main">
@@ -44,28 +48,7 @@ function DashboardContent() {
           <h2 className="nb-feature-title">Your account</h2>
           {isLoading && <p className="nb-muted">Loading…</p>}
           {error && <p className="nb-error">{error.message}</p>}
-          {isDevelopment && (
-            <div style={{ display: "grid", gap: 12 }}>
-              <div>
-                <div className="nb-muted">Development Mode</div>
-                <div>Dev User (dev@example.com)</div>
-              </div>
-
-              <div className="nb-card" style={{ background: "#fff" }}>
-                <div className="nb-feature-title">Thumbnail credits</div>
-                <div className="nb-kpis">
-                  <div className="nb-kpi">
-                    <div className="nb-kpi-value">{credits}</div>
-                    <div className="nb-kpi-label">Credits remaining (mock)</div>
-                  </div>
-                </div>
-                <div className="nb-actions" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <span className="nb-muted">Development mode - billing disabled</span>
-                </div>
-              </div>
-            </div>
-          )}
-          {!isDevelopment && customer && (
+          {customer && (
             <div style={{ display: "grid", gap: 12 }}>
               <div>
                 <div className="nb-muted">Signed in as</div>
