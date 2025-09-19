@@ -5,6 +5,10 @@ import { buildPrompt } from "@/lib/prompt/builder";
 import { profiles } from "@/lib/prompt/profiles";
 import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
+import ThumbnailRefinement from "@/components/ThumbnailRefinement";
+import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
+import { RefinementState, RefinementUtils } from "@/lib/types/refinement";
+import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 
@@ -29,6 +33,9 @@ export default function Home() {
 
   // Cloud storage integration
   const hybridStorage = useHybridStorage();
+
+  // Refinement history management
+  const refinementHistory = useRefinementHistory();
 
   // Sync hybrid storage frames to local state
   useEffect(() => {
@@ -63,6 +70,25 @@ export default function Home() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [progressDone, setProgressDone] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
+
+  // Refinement state
+  const [refinementState, setRefinementState] = useState<RefinementState>({
+    isRefinementMode: false,
+    histories: [],
+    isRefining: false,
+    feedbackPrompt: "",
+  });
+  const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
+
+  // Sync refinement histories from persistent storage
+  useEffect(() => {
+    if (!refinementHistory.isLoading) {
+      setRefinementState(prev => ({
+        ...prev,
+        histories: refinementHistory.histories,
+      }));
+    }
+  }, [refinementHistory.histories, refinementHistory.isLoading]);
 
   // Autumn: load customer and derive credits - bypass in development
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -906,6 +932,173 @@ export default function Home() {
     }
   };
 
+  // Refinement functions
+  const handleSelectThumbnailForRefinement = async (thumbnailIndex: number) => {
+    const thumbnailUrl = results[thumbnailIndex];
+    if (!thumbnailUrl) return;
+
+    try {
+      // Convert thumbnail URL to base64 data for API calls
+      let thumbnailData: string;
+
+      if (thumbnailUrl.startsWith('blob:')) {
+        // Convert blob URL to base64 using canvas method
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+
+        thumbnailData = await new Promise<string>((resolve, reject) => {
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                reject(new Error('Could not get canvas context'));
+                return;
+              }
+
+              canvas.width = img.width;
+              canvas.height = img.height;
+              ctx.drawImage(img, 0, 0);
+
+              const dataUrl = canvas.toDataURL('image/png');
+              const base64Data = dataUrl.split(',')[1] || dataUrl;
+              resolve(base64Data);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          img.onerror = () => reject(new Error('Failed to load image'));
+          img.src = thumbnailUrl;
+        });
+      } else if (thumbnailUrl.startsWith('data:')) {
+        // Extract base64 data from data URL
+        thumbnailData = RefinementUtils.dataUrlToBase64(thumbnailUrl);
+      } else {
+        // Assume it's already base64 data
+        thumbnailData = thumbnailUrl;
+      }
+
+      // Get the original prompt used for generation
+      const originalPrompt = buildPrompt({
+        profile: selectedIds[0] || "", // Use first selected template
+        promptOverride: customPresets[selectedIds[0]]?.prompt ?? curatedMap[selectedIds[0]]?.prompt,
+        headline,
+        colors,
+        aspect,
+        notes: prompt,
+        hasReferenceImages: refFrames.length > 0,
+        hasSubjectImages: frames.length > 0,
+      });
+
+      // Create new refinement history
+      const history = RefinementUtils.createHistoryFromThumbnail(
+        thumbnailUrl,
+        thumbnailData,
+        originalPrompt,
+        selectedIds[0] || "default"
+      );
+
+      setRefinementState({
+        isRefinementMode: true,
+        selectedThumbnailIndex: thumbnailIndex,
+        selectedThumbnailUrl: thumbnailUrl,
+        currentHistory: history,
+        histories: [...refinementState.histories, history],
+        isRefining: false,
+        feedbackPrompt: "",
+      });
+    } catch (error) {
+      console.error('Failed to prepare thumbnail for refinement:', error);
+      setError('Failed to prepare thumbnail for refinement. Please try again.');
+    }
+  };
+
+  const handleUpdateRefinementState = (update: Partial<RefinementState>) => {
+    setRefinementState(prev => {
+      const newState = { ...prev, ...update };
+
+      // If currentHistory is updated, save it to persistent storage (skip in development)
+      if (update.currentHistory && process.env.NODE_ENV !== 'development') {
+        try {
+          refinementHistory.saveHistory(update.currentHistory);
+        } catch (error) {
+          console.error('Storage quota exceeded, attempting cleanup:', error);
+          // Try to clean up storage and retry
+          RefinementUtils.cleanupStorage();
+          try {
+            refinementHistory.saveHistory(update.currentHistory);
+          } catch (retryError) {
+            console.error('Failed to save even after cleanup:', retryError);
+            setError('Storage quota exceeded. Refinement history may not be saved.');
+          }
+        }
+      }
+
+      // If histories array is updated, sync with persistent storage (skip in development)
+      if (update.histories && process.env.NODE_ENV !== 'development') {
+        // Save any new or updated histories
+        update.histories.forEach(history => {
+          const existing = refinementHistory.getHistoryById(history.id);
+          if (!existing || existing.updatedAt < history.updatedAt) {
+            try {
+              refinementHistory.saveHistory(history);
+            } catch (error) {
+              console.error('Storage quota exceeded for history:', history.id, error);
+            }
+          }
+        });
+      }
+
+      return newState;
+    });
+  };
+
+  const handleExitRefinementMode = () => {
+    setRefinementState(prev => ({
+      ...prev,
+      isRefinementMode: false,
+      selectedThumbnailIndex: undefined,
+      selectedThumbnailUrl: undefined,
+      currentHistory: undefined,
+      feedbackPrompt: "",
+      refinementError: undefined,
+    }));
+  };
+
+  const handleAuthRequired = () => {
+    setAuthRequired(true);
+    setShowAuthModal(true);
+  };
+
+  // History management functions
+  const handleSelectHistoryForRefinement = (history: RefinementHistory) => {
+    setRefinementState({
+      isRefinementMode: true,
+      currentHistory: history,
+      histories: refinementState.histories,
+      isRefining: false,
+      feedbackPrompt: "",
+    });
+    setShowHistoryBrowser(false);
+  };
+
+  const handleDeleteHistory = (historyId: string) => {
+    refinementHistory.deleteHistory(historyId);
+    // If we're currently viewing the deleted history, exit refinement mode
+    if (refinementState.currentHistory?.id === historyId) {
+      handleExitRefinementMode();
+    }
+  };
+
+  const handleClearAllHistories = () => {
+    refinementHistory.clearAllHistories();
+    // Exit refinement mode if we were in it
+    if (refinementState.isRefinementMode) {
+      handleExitRefinementMode();
+    }
+    setShowHistoryBrowser(false);
+  };
+
   return (
     <div className={styles.page}>
 
@@ -952,19 +1145,33 @@ export default function Home() {
               <span>Add Images</span>
             </label>
             {(process.env.NODE_ENV !== "production" || (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname))) && (
-              <button
-                type="button"
-                data-test="dev-add-sample-images"
-                onClick={() => importTestImagesFromUrls([
-                  "/references/aicoding.jpg",
-                  "/references/comparison.jpg",
-                  "/references/contrast.jpg",
-                  "/references/product.jpg",
-                ])}
-                style={{ padding: "6px 10px", border: "1px solid #ccc", borderRadius: 6 }}
-              >
-                Add sample images (dev)
-              </button>
+              <>
+                <button
+                  type="button"
+                  data-test="dev-add-sample-images"
+                  onClick={() => importTestImagesFromUrls([
+                    "/references/aicoding.jpg",
+                    "/references/comparison.jpg",
+                    "/references/contrast.jpg",
+                    "/references/product.jpg",
+                  ])}
+                  style={{ padding: "6px 10px", border: "1px solid #ccc", borderRadius: 6, marginRight: 8 }}
+                >
+                  Add sample images (dev)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    RefinementUtils.cleanupStorage();
+                    setError(null);
+                    alert('Storage cleaned up! Refinement history has been cleared.');
+                  }}
+                  style={{ padding: "6px 10px", border: "1px solid #ff6b6b", borderRadius: 6, color: "#ff6b6b" }}
+                  title="Clear localStorage to fix quota exceeded errors"
+                >
+                  Clear Storage (dev)
+                </button>
+              </>
             )}
           </div>
 
@@ -1247,7 +1454,7 @@ export default function Home() {
                 </div>
               )}
 
-              {!loading && results.length > 0 && (
+              {!loading && results.length > 0 && !refinementState.isRefinementMode && (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                     <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
@@ -1257,9 +1464,19 @@ export default function Home() {
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                     {results.map((src, i) => (
-                      <div key={i} style={{ border: "1px solid #ddd", padding: 8 }}>
+                      <div
+                        key={i}
+                        className={refinementState.selectedThumbnailIndex === i ? styles.selectedThumbnail : ""}
+                        style={{
+                          border: refinementState.selectedThumbnailIndex === i
+                            ? "3px solid var(--nb-accent)"
+                            : "1px solid #ddd",
+                          padding: 8,
+                          borderRadius: 8
+                        }}
+                      >
                         {src ? (<img src={src} alt={`result-${i}`} style={{ width: 320 }} />) : null}
-                        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                           <button
                             onClick={() => download(src, i)}
                             disabled={downloadingIndex === i}
@@ -1272,6 +1489,12 @@ export default function Home() {
                           >
                             {copyingIndex === i ? "Copying..." : "Copy"}
                           </button>
+                          <button
+                            onClick={() => handleSelectThumbnailForRefinement(i)}
+                            className={styles.refineButton}
+                          >
+                            Refine
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -1281,6 +1504,46 @@ export default function Home() {
                     <button onClick={() => { setResults([]); cleanupBlobUrls(); }}>← Generate More</button>
                     <button onClick={() => goTo(1)}>Start Over</button>
                   </div>
+                </>
+              )}
+
+              {/* Refinement Interface */}
+              {refinementState.isRefinementMode && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                    <button
+                      onClick={handleExitRefinementMode}
+                      style={{
+                        padding: "8px 16px",
+                        border: "1px solid #ddd",
+                        background: "white",
+                        borderRadius: 4,
+                        cursor: "pointer"
+                      }}
+                    >
+                      ← Back to Results
+                    </button>
+                    <h3 style={{ margin: 0 }}>Thumbnail Refinement</h3>
+                  </div>
+
+                  <ThumbnailRefinement
+                    refinementState={refinementState}
+                    onUpdateRefinementState={handleUpdateRefinementState}
+                    originalPrompt={buildPrompt({
+                      profile: selectedIds[0] || "",
+                      promptOverride: customPresets[selectedIds[0]]?.prompt ?? curatedMap[selectedIds[0]]?.prompt,
+                      headline,
+                      colors,
+                      aspect,
+                      notes: prompt,
+                      hasReferenceImages: refFrames.length > 0,
+                      hasSubjectImages: frames.length > 0,
+                    })}
+                    templateId={selectedIds[0] || "default"}
+                    credits={credits}
+                    isAuthed={isAuthed}
+                    onAuthRequired={handleAuthRequired}
+                  />
                 </>
               )}
 
@@ -1343,6 +1606,30 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* Refinement History Browser */}
+        {refinementHistory.histories.length > 0 && !refinementState.isRefinementMode && (
+          <section style={{ marginTop: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <button
+                onClick={() => setShowHistoryBrowser(!showHistoryBrowser)}
+                className={`${styles.historyButton} ${showHistoryBrowser ? styles.historyButtonActive : ""}`}
+              >
+                {showHistoryBrowser ? "Hide" : "Show"} Refinement History ({refinementHistory.histories.length})
+              </button>
+            </div>
+
+            {showHistoryBrowser && (
+              <RefinementHistoryBrowser
+                histories={refinementHistory.histories}
+                onSelectHistory={handleSelectHistoryForRefinement}
+                onDeleteHistory={handleDeleteHistory}
+                onClearAllHistories={handleClearAllHistories}
+                currentHistoryId={refinementState.currentHistory?.id}
+              />
+            )}
           </section>
         )}
       </main>
