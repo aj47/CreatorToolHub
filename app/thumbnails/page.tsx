@@ -30,35 +30,26 @@ export default function Home() {
   // Cloud storage integration
   const hybridStorage = useHybridStorage();
 
-  // Sync cloud storage frames to local state
+  // Sync hybrid storage frames to local state
   useEffect(() => {
-    if (hybridStorage.isCloudEnabled && !hybridStorage.isLoading) {
-      // Convert cloud frames to local format
-      const cloudFrames = hybridStorage.frames.map(img => ({
-        dataUrl: img.url || '',
-        b64: '', // Will be populated when needed
-        kind: 'image' as const,
-        filename: img.filename,
-        hash: img.hash,
-        importedAt: new Date(img.created_at).getTime()
-      }));
+    if (!hybridStorage.isLoading) {
+      // Hybrid storage already returns LegacyFrame[] format regardless of cloud/localStorage
+      const storageFrames = hybridStorage.frames;
+      const storageRefFrames = hybridStorage.refFrames;
 
-      const cloudRefFrames = hybridStorage.refFrames.map(img => ({
-        dataUrl: img.url || '',
-        b64: '', // Will be populated when needed
-        kind: 'image' as const,
-        filename: img.filename,
-        hash: img.hash,
-        importedAt: new Date(img.created_at).getTime()
-      }));
+      // Only update if we have no local frames yet (initial load) or if storage has more frames
+      // This prevents overriding local changes during remove operations
+      if ((frames.length === 0 && storageFrames.length > 0) ||
+          (storageFrames.length > frames.length)) {
+        setFrames(storageFrames);
+      }
 
-      // Only update if different to avoid infinite loops
-      if (cloudFrames.length !== frames.length || cloudRefFrames.length !== refFrames.length) {
-        setFrames(cloudFrames);
-        setRefFrames(cloudRefFrames);
+      if ((refFrames.length === 0 && storageRefFrames.length > 0) ||
+          (storageRefFrames.length > refFrames.length)) {
+        setRefFrames(storageRefFrames);
       }
     }
-  }, [hybridStorage.frames, hybridStorage.refFrames, hybridStorage.isCloudEnabled, hybridStorage.isLoading]);
+  }, [hybridStorage.frames, hybridStorage.refFrames, hybridStorage.isLoading]);
 
   const [count, setCount] = useState(4);
   const [loading, setLoading] = useState(false);
@@ -258,38 +249,18 @@ export default function Home() {
 
 
 
-  // Load saved custom profiles and prompt presets
+  // Load saved custom profiles and prompt presets - now handled by hybrid storage
   useEffect(() => {
-    try {
-      const cp2 = localStorage.getItem("cg_custom_presets_v2");
-      const cp1 = !cp2 ? localStorage.getItem("cg_custom_presets_v1") : null;
-      if (cp2) {
-        const obj = JSON.parse(cp2) as Record<string, Preset>;
-        if (obj && typeof obj === "object") setCustomPresets(obj);
-      } else if (cp1) {
-        // migrate v1 (label/template/colors/layout/subject) to v2 (title/prompt/colors/referenceImages)
-        type OldPresetV1 = { label?: string; template?: string; colors?: string[]; referenceImages?: string[]; layout?: string; subject?: string };
-        const old = JSON.parse(cp1) as Record<string, OldPresetV1>;
-        const migrated: Record<string, Preset> = {};
-        for (const [id, v] of Object.entries(old)) {
-          migrated[id] = { title: v.label ?? "Custom", prompt: v.template ?? "", colors: Array.isArray(v.colors) ? v.colors : [], referenceImages: Array.isArray(v.referenceImages) ? v.referenceImages : [] };
-        }
-        setCustomPresets(migrated);
-        try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(migrated)); } catch {}
-      } else {
-        const legacy = localStorage.getItem("cg_custom_style_profiles_v1");
-        if (legacy) {
-          const old = JSON.parse(legacy) as Record<string, { label: string; template: string }>;
-          const migrated: Record<string, Preset> = {};
-          for (const [id, v] of Object.entries(old)) {
-            migrated[id] = { title: v.label, prompt: v.template, colors: [], referenceImages: [] };
-          }
-          setCustomPresets(migrated);
-          try { localStorage.setItem("cg_custom_presets_v2", JSON.stringify(migrated)); } catch {}
-        }
-      }
-    } catch {}
-  }, []);
+    // Migration is now handled by the hybrid storage system
+    // This effect is kept for backward compatibility but the actual migration
+    // happens in the hybrid storage hook
+    if (!hybridStorage.isMigrated && !hybridStorage.isLoading) {
+      // Trigger migration if needed
+      hybridStorage.triggerMigration().catch(error => {
+        console.error('Failed to trigger migration:', error);
+      });
+    }
+  }, [hybridStorage.isMigrated, hybridStorage.isLoading, hybridStorage.triggerMigration]);
 
   const persistCustomPresets = async (obj: Record<string, Preset>) => {
     // This function is now handled by hybrid storage
@@ -338,37 +309,36 @@ export default function Home() {
       console.error('Failed to duplicate template:', error);
     }
   };
-  // Persist frames (including imported images) and restore on load
+  // Initialize frames from hybrid storage on component mount
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("cg_frames_v1");
-      if (raw) {
-        const arr = JSON.parse(raw) as Frame[];
-        if (Array.isArray(arr)) setFrames(arr);
+    if (!hybridStorage.isLoading) {
+      // Only set initial frames if we don't have any yet
+      if (frames.length === 0 && hybridStorage.frames.length > 0) {
+        const initialFrames = hybridStorage.frames.map(frame => ({
+          dataUrl: frame.dataUrl || '',
+          b64: frame.b64 || '',
+          kind: frame.kind || 'image' as const,
+          filename: frame.filename,
+          hash: frame.hash,
+          importedAt: frame.importedAt
+        }));
+        setFrames(initialFrames);
       }
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem("cg_frames_v1", JSON.stringify(frames));
-    } catch {}
-  }, [frames]);
 
-  // Persist reference frames (previously missing!)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("cg_ref_frames_v1");
-      if (raw) {
-        const arr = JSON.parse(raw) as Frame[];
-        if (Array.isArray(arr)) setRefFrames(arr);
+      // Only set initial ref frames if we don't have any yet
+      if (refFrames.length === 0 && hybridStorage.refFrames.length > 0) {
+        const initialRefFrames = hybridStorage.refFrames.map(frame => ({
+          dataUrl: frame.dataUrl || '',
+          b64: frame.b64 || '',
+          kind: frame.kind || 'image' as const,
+          filename: frame.filename,
+          hash: frame.hash,
+          importedAt: frame.importedAt
+        }));
+        setRefFrames(initialRefFrames);
       }
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem("cg_ref_frames_v1", JSON.stringify(refFrames));
-    } catch {}
-  }, [refFrames]);
+    }
+  }, [hybridStorage.isLoading, hybridStorage.frames, hybridStorage.refFrames]);
 
 
 
@@ -468,23 +438,19 @@ export default function Home() {
         const nextItem: Frame = { dataUrl, b64, kind: "image", filename: file.name, hash, importedAt: Date.now() };
         if (target === "frames") {
           setFrames((prev) => [...prev, nextItem]);
-          // Sync to cloud storage if available
-          if (hybridStorage.isCloudEnabled) {
-            try {
-              await hybridStorage.addFrame(nextItem);
-            } catch (error) {
-              console.error('Failed to sync frame to cloud:', error);
-            }
+          // Always sync to hybrid storage (handles both cloud and localStorage)
+          try {
+            await hybridStorage.addFrame(nextItem);
+          } catch (error) {
+            console.error('Failed to sync frame to storage:', error);
           }
         } else {
           setRefFrames((prev) => [...prev, nextItem]);
-          // Sync to cloud storage if available
-          if (hybridStorage.isCloudEnabled) {
-            try {
-              await hybridStorage.addRefFrame(nextItem);
-            } catch (error) {
-              console.error('Failed to sync reference frame to cloud:', error);
-            }
+          // Always sync to hybrid storage (handles both cloud and localStorage)
+          try {
+            await hybridStorage.addRefFrame(nextItem);
+          } catch (error) {
+            console.error('Failed to sync reference frame to storage:', error);
           }
         }
         existingHashes.add(hash);
@@ -529,7 +495,7 @@ export default function Home() {
   };
 
 
-  const captureFrame = () => {
+  const captureFrame = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -549,11 +515,30 @@ export default function Home() {
       ? canvas.toDataURL("image/jpeg", JPEG_QUALITY)
       : canvas.toDataURL("image/png");
     const b64 = dataUrl.split(",")[1] || "";
-    setFrames((prev) => [...prev, { dataUrl, b64, kind: "frame" }]);
+
+    const newFrame = { dataUrl, b64, kind: "frame" as const };
+    setFrames((prev) => [...prev, newFrame]);
+
+    // Also add to hybrid storage
+    try {
+      await hybridStorage.addFrame(newFrame);
+    } catch (error) {
+      console.error('Failed to add frame to storage:', error);
+    }
   };
 
-  const removeFrame = (idx: number) => {
+  const removeFrame = async (idx: number) => {
+    const frameToRemove = frames[idx];
     setFrames((prev) => prev.filter((_, i) => i !== idx));
+
+    // Also remove from hybrid storage (cloud or localStorage)
+    if (frameToRemove) {
+      try {
+        await hybridStorage.removeFrame(idx);
+      } catch (error) {
+        console.error('Failed to remove frame from storage:', error);
+      }
+    }
   };
 
   // Video resize functionality
