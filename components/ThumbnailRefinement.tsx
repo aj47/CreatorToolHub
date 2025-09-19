@@ -201,6 +201,147 @@ export default function ThumbnailRefinement({
     });
   }, [refinementState.histories, onUpdateRefinementState]);
 
+  // Helper functions for copy and download (similar to main page)
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [head, b64raw] = (dataUrl || "").split(",");
+    const mime = /^data:([^;]+);base64$/i.exec(head || "")?.[1] || "image/png";
+    const b64 = (b64raw || "").replace(/[^A-Za-z0-9+/=]/g, "");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  };
+
+  const blobFromBlobUrlViaCanvas = async (blobUrl: string): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create blob from canvas'));
+            }
+          }, 'image/png');
+        } catch (error) {
+          reject(error);
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = blobUrl;
+    });
+  };
+
+  const handleDownload = async (src: string) => {
+    onUpdateRefinementState({ isDownloading: true });
+    try {
+      let href = src;
+      let revokeTemp: string | null = null;
+
+      // Handle different source types
+      if (src.startsWith('data:')) {
+        const blob = dataUrlToBlob(src);
+        href = URL.createObjectURL(blob);
+        revokeTemp = href;
+      } else if (src.startsWith('blob:')) {
+        // Use blob URL directly
+        href = src;
+      }
+
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = `refined_thumbnail_iteration_${currentHistory.iterations.findIndex(i => i.id === currentIteration.id) + 1}.png`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Clean up temporary blob URL
+      if (revokeTemp) {
+        setTimeout(() => URL.revokeObjectURL(revokeTemp!), 100);
+      }
+    } catch (e) {
+      console.error("Failed to download refined image", e);
+      // Fallback: try simple download
+      const a = document.createElement("a");
+      a.href = src;
+      a.download = `refined_thumbnail_iteration_${currentHistory.iterations.findIndex(i => i.id === currentIteration.id) + 1}.png`;
+      a.click();
+    } finally {
+      onUpdateRefinementState({ isDownloading: false });
+    }
+  };
+
+  const handleCopy = async (src: string) => {
+    onUpdateRefinementState({ isCopying: true });
+    try {
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !navigator.clipboard.write) {
+        throw new Error('Clipboard API not available');
+      }
+
+      let blob: Blob;
+      if (src.startsWith('blob:')) {
+        blob = await blobFromBlobUrlViaCanvas(src);
+      } else if (src.startsWith('data:')) {
+        blob = dataUrlToBlob(src);
+      } else if (/^https?:/i.test(src)) {
+        const resp = await fetch(src);
+        if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+        blob = await resp.blob();
+      } else {
+        // Assume raw base64
+        const toDataUrlString = (u: string, mime: string = "image/png") => {
+          const s = (u || "").trim();
+          if (s.startsWith("data:")) return s;
+          const clean = s.replace(/[^A-Za-z0-9+/=]/g, "");
+          return `data:${mime};base64,${clean}`;
+        };
+        blob = dataUrlToBlob(toDataUrlString(src));
+      }
+
+      // Ensure blob is valid
+      if (!blob || blob.size === 0) {
+        throw new Error('Invalid image data');
+      }
+
+      // Create clipboard item with proper MIME type
+      const mimeType = blob.type || 'image/png';
+      const clipboardItem = new ClipboardItem({ [mimeType]: blob });
+
+      await navigator.clipboard.write([clipboardItem]);
+
+      console.log('Refined image copied to clipboard successfully');
+
+    } catch (error) {
+      console.error('Failed to copy refined image to clipboard:', error);
+
+      // Fallback: try to copy as text (data URL)
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(src);
+          console.log('Copied refined image URL as text fallback');
+        } else {
+          throw new Error('No clipboard access available');
+        }
+      } catch (fallbackError) {
+        console.error('Clipboard fallback also failed:', fallbackError);
+      }
+    } finally {
+      onUpdateRefinementState({ isCopying: false });
+    }
+  };
+
   if (!currentHistory || !currentIteration) {
     return (
       <div style={{ padding: 20, textAlign: "center" }}>
@@ -269,30 +410,64 @@ export default function ThumbnailRefinement({
               />
             </div>
 
-            {/* Refine Button */}
-            <button
-              onClick={handleRefine}
-              disabled={
-                refinementState.isRefining || 
-                !refinementState.feedbackPrompt.trim() ||
-                (!isAuthed) ||
-                (credits < 1)
-              }
-              style={{
-                padding: "12px 24px",
-                backgroundColor: refinementState.isRefining ? "#ccc" : "var(--nb-accent)",
-                color: "white",
-                border: "none",
-                borderRadius: 4,
-                cursor: refinementState.isRefining ? "not-allowed" : "pointer",
-                fontWeight: "bold"
-              }}
-            >
-              {refinementState.isRefining 
-                ? "Refining..." 
-                : `Refine Thumbnail (uses 1 credit)`
-              }
-            </button>
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={handleRefine}
+                disabled={
+                  refinementState.isRefining ||
+                  !refinementState.feedbackPrompt.trim() ||
+                  (!isAuthed) ||
+                  (credits < 1)
+                }
+                style={{
+                  padding: "12px 24px",
+                  backgroundColor: refinementState.isRefining ? "#ccc" : "var(--nb-accent)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                {refinementState.isRefining
+                  ? "Refining..."
+                  : `Refine Thumbnail (uses 1 credit)`
+                }
+              </button>
+
+              <button
+                onClick={() => handleDownload(currentIteration.imageUrl)}
+                disabled={refinementState.isDownloading}
+                style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                {refinementState.isDownloading ? "Downloading..." : "Download"}
+              </button>
+
+              <button
+                onClick={() => handleCopy(currentIteration.imageUrl)}
+                disabled={refinementState.isCopying}
+                style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#17a2b8",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                {refinementState.isCopying ? "Copying..." : "Copy"}
+              </button>
+            </div>
 
             {refinementState.refinementError && (
               <div className={styles.refinementError}>

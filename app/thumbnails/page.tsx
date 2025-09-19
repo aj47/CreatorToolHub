@@ -77,6 +77,8 @@ export default function Home() {
     histories: [],
     isRefining: false,
     feedbackPrompt: "",
+    isCopying: false,
+    isDownloading: false,
   });
   const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
 
