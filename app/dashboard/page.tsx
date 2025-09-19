@@ -8,9 +8,7 @@ export default function DashboardPage() {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   // In development, use mock data instead of Autumn
-  const { customer, isLoading, error, openBillingPortal, refetch } = isDevelopment
-    ? { customer: null, isLoading: false, error: null, openBillingPortal: () => Promise.resolve({}), refetch: () => {} }
-    : useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
+  const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
 
   const credits = useMemo(() => {
     if (isDevelopment) return 999; // Mock credits in development

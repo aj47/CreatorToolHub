@@ -240,7 +240,7 @@ export default function TemplateGallery(props: {
 
                     try {
                       setUploadingRefs(true);
-                      let referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                      const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
 
                       // Add reference image files
                       for (const file of newRefFiles) {
@@ -481,7 +481,7 @@ export default function TemplateGallery(props: {
                         try {
                           setUploadingRefs(true);
                           const colors = draftColors.split(',').map((s) => s.trim()).filter(Boolean);
-                          let referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
+                          const referenceImages = draftRefs.split(',').map((s) => s.trim()).filter(Boolean);
 
                           // Add reference image files
                           for (const file of editRefFiles) {

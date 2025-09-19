@@ -58,7 +58,7 @@ export default function AuthButton() {
 
   // Load Autumn customer to show credits badge when signed in
   // In development, skip Autumn and use mock credits
-  const { customer } = isDevelopment ? { customer: null } : useCustomer({ errorOnNotFound: false });
+  const { customer } = useCustomer({ errorOnNotFound: false });
   const credits = useMemo(() => {
     if (isDevelopment) return 999; // Mock credits in development
     if (!customer?.features) return 0;
