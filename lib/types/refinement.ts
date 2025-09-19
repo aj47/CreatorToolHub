@@ -33,6 +33,8 @@ export interface RefinementState {
   isRefining: boolean; // Whether a refinement is in progress
   refinementError?: string; // Any refinement errors
   feedbackPrompt: string; // Current feedback prompt input
+  isCopying: boolean; // Whether a copy operation is in progress
+  isDownloading: boolean; // Whether a download operation is in progress
 }
 
 export interface RefinementRequest {
