@@ -4,14 +4,29 @@ import { useCustomer } from "autumn-js/react";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
-export default function DashboardPage() {
+// Safe wrapper component for dashboard that handles Autumn provider
+function DashboardContent() {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  // In development, use mock data instead of Autumn
+  if (isDevelopment) {
+    // Mock dashboard for development
+    return (
+      <main className="nb-main">
+        <section className="nb-section">
+          <div className="nb-card" style={{ maxWidth: 600, margin: "0 auto" }}>
+            <h1>Dashboard (Development Mode)</h1>
+            <p>Credits: 999 (mock)</p>
+            <p>Development mode - Autumn billing is disabled.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // Production dashboard with Autumn
   const { customer, isLoading, error, openBillingPortal, refetch } = useCustomer({ errorOnNotFound: true, expand: ["invoices", "entities"] });
 
   const credits = useMemo(() => {
-    if (isDevelopment) return 999; // Mock credits in development
     if (!customer?.features) return 0;
     const f = customer.features[FEATURE_ID];
     // Prefer balance; if null/undefined, fall back to included_usage - usage
@@ -20,7 +35,7 @@ export default function DashboardPage() {
       return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
     }
     return 0;
-  }, [customer, isDevelopment]);
+  }, [customer]);
 
   return (
     <main className="nb-main">
@@ -102,5 +117,9 @@ export default function DashboardPage() {
       </section>
     </main>
   );
+}
+
+export default function DashboardPage() {
+  return <DashboardContent />;
 }
 

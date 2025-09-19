@@ -60,6 +60,10 @@ export class CloudStorageService {
 
   // Template operations
   async getTemplates(): Promise<CloudTemplate[]> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/templates`, {
       credentials: 'include'
     });
@@ -70,6 +74,10 @@ export class CloudStorageService {
   }
 
   async createTemplate(title: string, prompt: string, colors: string[]): Promise<CloudTemplate> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/templates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,6 +91,10 @@ export class CloudStorageService {
   }
 
   async updateTemplate(id: string, updates: Partial<Pick<CloudTemplate, 'title' | 'prompt' | 'colors'>>): Promise<void> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/templates/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -95,6 +107,10 @@ export class CloudStorageService {
   }
 
   async deleteTemplate(id: string): Promise<void> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/templates/${id}`, {
       method: 'DELETE',
       credentials: 'include',
@@ -106,21 +122,36 @@ export class CloudStorageService {
 
   // Image operations
   async getImages(type?: 'frame' | 'reference'): Promise<CloudUserImage[]> {
-    const url = new URL(`${this.baseUrl}/api/user/images`);
-    if (type) {
-      url.searchParams.set('type', type);
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
-    const response = await fetch(url.toString(), {
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to fetch images: ${response.statusText}`);
+    try {
+      const url = new URL(`${this.baseUrl}/api/user/images`);
+      if (type) {
+        url.searchParams.set('type', type);
+      }
+
+      const response = await fetch(url.toString(), {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch images: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+        throw new Error(`Invalid cloud storage URL: ${this.baseUrl}/api/user/images`);
+      }
+      throw error;
     }
-    return await response.json();
   }
 
   async uploadImage(file: File, imageType: 'frame' | 'reference'): Promise<CloudUserImage> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('image_type', imageType);
@@ -137,6 +168,10 @@ export class CloudStorageService {
   }
 
   async deleteImage(id: string): Promise<void> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/images/${id}`, {
       method: 'DELETE',
       credentials: 'include',
@@ -148,6 +183,10 @@ export class CloudStorageService {
 
   // Settings operations
   async getSettings(): Promise<CloudSettings | null> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/settings`, {
       credentials: 'include'
     });
@@ -159,6 +198,10 @@ export class CloudStorageService {
   }
 
   async updateSettings(updates: Partial<Pick<CloudSettings, 'favorites' | 'show_only_favs'>>): Promise<CloudSettings> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/settings`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -178,6 +221,10 @@ export class CloudStorageService {
     refFrames?: any[];
     settings?: any;
   }): Promise<MigrationResult> {
+    if (!this.baseUrl) {
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
     const response = await fetch(`${this.baseUrl}/api/user/migrate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -193,6 +240,10 @@ export class CloudStorageService {
   // Utility methods
   async checkConnection(): Promise<boolean> {
     try {
+      if (!this.baseUrl) {
+        return false;
+      }
+
       const response = await fetch(`${this.baseUrl}/api/user/profile`, {
         credentials: 'include'
       });

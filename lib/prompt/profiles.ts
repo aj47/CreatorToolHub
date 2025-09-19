@@ -18,22 +18,22 @@ export const profiles: Record<ProfileId, ProfileSpec> = {
   vlog: {
     title: 'Vlog',
     prompt:
-      'High-energy, high-contrast vlog aesthetic. Central focus is a large expressive face cutout from the uploaded frames, placed on the left or right third. Background is a stylized and slightly blurred version of the recorded scene to create depth. Add a short, bold 3–5 word headline with strong outline or drop shadow for maximum mobile legibility. Avoid clutter; keep a single clear focal point.',
+      'Create a high-energy vlog thumbnail with the main person as the central focus. Position the subject prominently using rule of thirds composition. Apply vibrant, high-contrast styling with a slightly blurred background for depth. Use bold, readable typography (3-5 words max) with strong outlines or drop shadows. Maintain a single clear focal point and avoid visual clutter.',
   },
   podcast: {
     title: 'Podcast',
     prompt:
-      'Two hosts presented side-by-side or in a split-screen layout with clear separation. Include a concise topic badge and a subtle studio or waveform motif. Make both faces clear and flattering with balanced lighting; keep the headline short and bold. Maintain a consistent palette; avoid overcrowding the frame.',
+      'Design a podcast thumbnail featuring the host(s) with professional presentation. Use side-by-side or split-screen layout for multiple hosts with clear visual separation. Include subtle audio-themed elements (waveforms, microphones) without overwhelming the composition. Apply balanced lighting and consistent color palette. Keep headlines short, bold, and highly legible.',
   },
   tutorial: {
     title: 'Tutorial/How-to',
     prompt:
-      'Use a UI screenshot background related to the topic. Enlarge and softly glow a key UI element (button or icon) to create a focal point. Add clean arrow or shape callouts. Include a crisp sans-serif headline (3–5 words) with strong contrast. Keep the layout clean with ample negative space and clear hierarchy.',
+      'Create an educational tutorial thumbnail with clear instructional focus. Feature the instructor prominently with UI/screen elements as supporting background. Highlight key interface elements with subtle glows or callouts. Use clean, professional typography with strong contrast and clear hierarchy. Apply educational color schemes that convey trust and clarity.',
   },
   screencast: {
     title: 'Tech Screen Cast',
     prompt:
-      'Generate a YouTube thumbnail with a 16:9 aspect ratio and a resolution of 1280x720 pixels. The thumbnail should be vibrant and high-contrast, easily readable on a small mobile screen. The central focus is a cutout of the tech influencer from the webcam footage, expressing excitement or surprise, placed on the left or right third. The background is a stylized and slightly blurred version of the user interface from the screen share. Enlarge a key UI element (e.g., a primary button or sparkle icon) with a subtle glowing outline as a focal point. Include a short, bold 3–5 word sans-serif text overlay with strong contrast and a subtle outline or drop shadow. Use the provided Colors brief for brand palette, and keep the tone energetic and intriguing without misleading clickbait.',
+      'Design a tech screencast thumbnail featuring the presenter with excitement or engagement. Position the person using rule of thirds with stylized UI/interface elements in the background. Highlight key technical elements with subtle glowing effects. Use energetic but professional styling with bold, readable typography. Apply tech-appropriate color schemes and maintain high contrast for mobile viewing.',
   },
   news: {
     title: 'News/Commentary',

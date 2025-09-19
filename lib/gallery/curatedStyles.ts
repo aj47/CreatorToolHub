@@ -57,51 +57,44 @@ const extras: StyleCard[] = [
     id: "cinematic",
     title: "Cinematic",
     prompt:
-      "Moody teal-orange grade, shallow depth of field subject, widescreen bars motif, bold minimalist title, dramatic lighting and atmosphere.",
+      "Create a cinematic-style thumbnail with dramatic lighting and moody atmosphere. Use teal-orange color grading, shallow depth of field effects, and bold minimalist typography. Apply widescreen composition principles with strong visual hierarchy and atmospheric depth.",
     previewUrl: svgDataUrl("Cinematic", palette[9]),
   },
   {
-    id: "retro-vaporwave",
-    title: "Retro Vaporwave",
+    id: "minimal-clean",
+    title: "Minimal Clean",
     prompt:
-      "80s retro vaporwave aesthetic: neon grid, sunset gradient, chrome text, palm silhouettes, nostalgic synthwave vibe with high contrast.",
-    previewUrl: svgDataUrl("Retro Vaporwave", palette[10]),
-  },
-  {
-    id: "minimal-mono",
-    title: "Minimal Mono",
-    prompt:
-      "Ultra minimal black-and-white style, large sans-serif headline, single accent shape, high whitespace and strong hierarchy for clarity.",
-    previewUrl: svgDataUrl("Minimal Mono", palette[11]),
+      "Design an ultra-clean, minimal thumbnail with maximum whitespace and strong typography hierarchy. Use a limited color palette (2-3 colors max), large sans-serif headlines, and simple geometric shapes for accent. Focus on clarity and readability above all else.",
+    previewUrl: svgDataUrl("Minimal Clean", palette[11]),
   },
   // Reference-image-based templates
 
 
   {
     id: "ref-product",
-    title: "Ref: Product",
-    prompt: "Product hero emphasis. Crisp edges, soft shadow, and a bold, minimal headline.",
+    title: "Ref: Product Focus",
+    prompt: "Create a product-focused thumbnail with clean, professional styling. Feature the main subject (person/product) prominently with crisp edges and subtle drop shadows. Use minimal, bold typography with high contrast. Maintain a clean background that doesn't compete with the subject. Apply modern, sleek visual treatment with plenty of white space.",
     previewUrl: "/references/product.jpg",
     referenceImages: ["/references/product.jpg"],
   },
   {
     id: "ref-contrast",
-    title: "Ref: High Contrast",
-    prompt: "High-contrast palette with clear focal point and strong hierarchy.",
+    title: "Ref: High Impact",
+    prompt: "Design a high-impact thumbnail with dramatic contrast and bold visual hierarchy. Use strong color separation between foreground and background. Feature the main subject with prominent positioning and clear focal emphasis. Apply bold, readable typography with strong outlines or shadows. Create visual tension through contrasting elements while maintaining clarity.",
     previewUrl: "/references/contrast.jpg",
     referenceImages: ["/references/contrast.jpg"],
   },
   {
     id: "ref-comparison",
-    title: "Ref: Comparison",
-    prompt: "Comparison layout: two-panel feel, distinct sides, concise labels.",
+    title: "Ref: Split Layout",
+    prompt: "Create a comparison-style thumbnail with clear visual separation between two sides or concepts. Use distinct color zones or dividers to separate content areas. Position subjects or elements to emphasize the comparison or before/after concept. Apply consistent typography across both sides while maintaining visual balance and hierarchy.",
     previewUrl: "/references/comparison.jpg",
     referenceImages: ["/references/comparison.jpg"],
   },
   {
     id: "ref-aicoding",
-    title: "Ref: AI Coding",
-    prompt: "Follow this reference closely: composition, color palette, typography, and text placement. Keep all text highly legible.",
+    title: "Ref: Tech Style",
+    prompt: "Design a tech-focused thumbnail with modern, digital aesthetics. Incorporate clean lines, subtle gradients, and professional color schemes. Feature the main subject with tech-appropriate styling - clean backgrounds, modern typography, and subtle tech-inspired visual elements. Maintain high readability with clear contrast and professional presentation.",
     previewUrl: "/references/aicoding.jpg",
     referenceImages: ["/references/aicoding.jpg"],
   },
