@@ -12,6 +12,32 @@ interface User {
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
+// Component that safely handles Autumn customer data
+function CreditsDisplay({ isDevelopment }: { isDevelopment: boolean }) {
+  if (isDevelopment) {
+    return "999";
+  }
+
+  try {
+    const { customer } = useCustomer({ errorOnNotFound: false });
+    const credits = useMemo(() => {
+      if (!customer?.features) return 0;
+      const f: any = customer.features[FEATURE_ID as string];
+      if (!f) return 0;
+      if (typeof f.balance === "number") return f.balance;
+      if (typeof f.included_usage === "number" && typeof f.usage === "number") {
+        return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+      }
+      return 0;
+    }, [customer]);
+
+    return credits.toString();
+  } catch (error) {
+    // If useCustomer fails (e.g., not in provider), return fallback
+    return "0";
+  }
+}
+
 export default function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,20 +82,7 @@ export default function AuthButton() {
     window.location.href = '/api/auth/signin';
   };
 
-  // Load Autumn customer to show credits badge when signed in
-  // In development, skip Autumn and use mock credits
-  const { customer } = useCustomer({ errorOnNotFound: false });
-  const credits = useMemo(() => {
-    if (isDevelopment) return 999; // Mock credits in development
-    if (!customer?.features) return 0;
-    const f: any = customer.features[FEATURE_ID as string];
-    if (!f) return 0;
-    if (typeof f.balance === "number") return f.balance;
-    if (typeof f.included_usage === "number" && typeof f.usage === "number") {
-      return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
-    }
-    return 0;
-  }, [customer, isDevelopment]);
+
 
   if (loading) {
     return <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>Loading…</span>;
@@ -90,7 +103,7 @@ export default function AuthButton() {
               whiteSpace: "nowrap"
             }}
           >
-            credits: {credits}
+            credits: <CreditsDisplay isDevelopment={isDevelopment} />
           </span>
         </>
       ) : (

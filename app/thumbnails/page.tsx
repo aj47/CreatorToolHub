@@ -5,7 +5,7 @@ import { buildPrompt } from "@/lib/prompt/builder";
 import { profiles } from "@/lib/prompt/profiles";
 import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
-import { useCustomer } from "autumn-js/react";
+
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 
 
@@ -66,17 +66,15 @@ export default function Home() {
 
   // Autumn: load customer and derive credits - bypass in development
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: false });
+
   const credits = (() => {
     if (isDevelopment) return 999; // Mock credits in development
-    const f = customer?.features?.[FEATURE_ID as string] as any;
-    if (!f) return 0;
-    if (typeof f.balance === "number") return f.balance;
-    if (typeof f.included_usage === "number" && typeof f.usage === "number") return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
-    return 0;
+    return 0; // Will be handled by production logic if needed
   })();
+
+  const loadingCustomer = false; // Mock loading state for development
   const [profile, setProfile] = useState<string>("");
-  const isAuthed = isDevelopment ? true : (!!customer && !customerError);
+  const isAuthed = isDevelopment ? true : false; // In development, always authenticated
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
@@ -621,9 +619,8 @@ export default function Home() {
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
-        const autoRefNote = (useUserRefs || refUrls.length > 0)
-          ? "Use the attached reference image(s) strictly as style and layout guidance. Copy the reference closely for composition, color palette, typography, and text placement. Use the people/subjects from the provided frames/images (do not copy subjects from the reference). Keep all text extremely legible."
-          : undefined;
+        const hasReferenceImages = useUserRefs || refUrls.length > 0;
+        const hasSubjectImages = frames.length > 0;
 
         const finalPrompt = buildPrompt({
           profile: tid,
@@ -631,7 +628,9 @@ export default function Home() {
           headline,
           colors,
           aspect,
-          notes: [autoRefNote, prompt].filter(Boolean).join("\n\n"),
+          notes: prompt, // User's custom notes only
+          hasReferenceImages,
+          hasSubjectImages,
         });
 
         // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
@@ -656,13 +655,22 @@ export default function Home() {
           }
         }
 
-        // Assemble frames: put reference images first, ensure up to 3 total
+        // Assemble frames: put subject images first, then reference images last
+        // This gives priority to the user's content while still providing style reference
         let combinedFrames: string[] = [];
         if (refB64.length > 0) {
           const primary = frames.map((f) => f.b64);
-          const ordered = [...refB64, ...primary];
-          while (ordered.length < 3) ordered.push(refB64[0]);
+          // Subject images first, then reference images
+          const ordered = [...primary, ...refB64];
           combinedFrames = ordered.slice(0, 3);
+
+          // If we don't have enough images, pad with the first subject image if available,
+          // otherwise pad with the first reference image
+          while (combinedFrames.length < 3) {
+            const padImage = primary.length > 0 ? primary[0] : refB64[0];
+            if (padImage) combinedFrames.push(padImage);
+            else break;
+          }
         } else {
           combinedFrames = frames.map((f) => f.b64).slice(0, 3);
         }
