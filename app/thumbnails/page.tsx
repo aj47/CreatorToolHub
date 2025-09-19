@@ -66,9 +66,7 @@ export default function Home() {
 
   // Autumn: load customer and derive credits - bypass in development
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const { customer, isLoading: loadingCustomer, error: customerError } = isDevelopment
-    ? { customer: null, isLoading: false, error: null }
-    : useCustomer({ errorOnNotFound: false });
+  const { customer, isLoading: loadingCustomer, error: customerError } = useCustomer({ errorOnNotFound: false });
   const credits = (() => {
     if (isDevelopment) return 999; // Mock credits in development
     const f = customer?.features?.[FEATURE_ID as string] as any;

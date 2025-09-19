@@ -79,7 +79,7 @@ export function isValidFileSize(sizeBytes: number): boolean {
 /**
  * Generate signed URL for R2 object (valid for 1 hour)
  */
-export async function generateSignedUrl(r2: R2Bucket, key: string): Promise<string> {
+export async function generateSignedUrl(r2: any, key: string): Promise<string> {
   const object = await r2.get(key);
   if (!object) {
     throw new Error('Object not found');

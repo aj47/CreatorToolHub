@@ -9,7 +9,7 @@ import {
 } from './utils';
 
 export class DatabaseService {
-  constructor(private db: D1Database) {}
+  constructor(private db: any) {}
 
   // User operations
   async createOrUpdateUser(email: string, name?: string, picture?: string): Promise<User> {
@@ -44,7 +44,7 @@ export class DatabaseService {
   async getUser(userId: string): Promise<User | null> {
     const result = await this.db.prepare(`
       SELECT * FROM users WHERE id = ?
-    `).bind(userId).first<UserRow>();
+    `).bind(userId).first();
     
     if (!result) return null;
     
@@ -84,7 +84,7 @@ export class DatabaseService {
       SELECT * FROM user_templates 
       WHERE user_id = ? 
       ORDER BY updated_at DESC
-    `).bind(userId).all<UserTemplateRow>();
+    `).bind(userId).all();
     
     return results.results.map(convertUserTemplateRow);
   }
@@ -93,7 +93,7 @@ export class DatabaseService {
     const result = await this.db.prepare(`
       SELECT * FROM user_templates 
       WHERE id = ? AND user_id = ?
-    `).bind(templateId, userId).first<UserTemplateRow>();
+    `).bind(templateId, userId).first();
     
     if (!result) return null;
     return convertUserTemplateRow(result);
@@ -166,9 +166,9 @@ export class DatabaseService {
       SELECT * FROM reference_images 
       WHERE template_id = ? 
       ORDER BY created_at ASC
-    `).bind(templateId).all<ReferenceImageRow>();
+    `).bind(templateId).all();
     
-    return results.results.map(row => ({
+    return results.results.map((row: any) => ({
       id: row.id,
       template_id: row.template_id,
       filename: row.filename,
@@ -183,7 +183,7 @@ export class DatabaseService {
     // Get R2 key before deleting
     const image = await this.db.prepare(`
       SELECT r2_key FROM reference_images WHERE id = ?
-    `).bind(imageId).first<{ r2_key: string }>();
+    `).bind(imageId).first();
 
     if (!image) return null;
 
@@ -228,9 +228,9 @@ export class DatabaseService {
 
     query += ` ORDER BY created_at DESC`;
 
-    const results = await this.db.prepare(query).bind(...params).all<UserImageRow>();
+    const results = await this.db.prepare(query).bind(...params).all();
 
-    return results.results.map(row => ({
+    return results.results.map((row: any) => ({
       id: row.id,
       user_id: row.user_id,
       filename: row.filename,
@@ -247,7 +247,7 @@ export class DatabaseService {
     // Get R2 key before deleting
     const image = await this.db.prepare(`
       SELECT r2_key FROM user_images WHERE id = ? AND user_id = ?
-    `).bind(imageId, userId).first<{ r2_key: string }>();
+    `).bind(imageId, userId).first();
 
     if (!image) return null;
 
@@ -261,7 +261,7 @@ export class DatabaseService {
   async findImageByHash(userId: string, hash: string): Promise<UserImage | null> {
     const result = await this.db.prepare(`
       SELECT * FROM user_images WHERE user_id = ? AND hash = ? LIMIT 1
-    `).bind(userId, hash).first<UserImageRow>();
+    `).bind(userId, hash).first();
 
     if (!result) return null;
 
@@ -322,7 +322,7 @@ export class DatabaseService {
   async getSettings(userId: string): Promise<UserSettings | null> {
     const result = await this.db.prepare(`
       SELECT * FROM user_settings WHERE user_id = ?
-    `).bind(userId).first<UserSettingsRow>();
+    `).bind(userId).first();
 
     if (!result) return null;
     return convertUserSettingsRow(result);

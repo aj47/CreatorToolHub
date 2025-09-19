@@ -8,8 +8,8 @@ export interface Env {
   MODEL_ID?: string; // optional override via Wrangler vars
   AUTUMN_SECRET_KEY?: string;
   FEATURE_ID?: string;
-  DB: D1Database; // Cloudflare D1 database binding
-  R2: R2Bucket;   // Cloudflare R2 bucket binding
+  DB: any; // Cloudflare D1 database binding
+  R2: any;   // Cloudflare R2 bucket binding
   NODE_ENV?: string;
 }
 

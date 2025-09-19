@@ -2,7 +2,7 @@
 import { generateR2Key, isValidImageType, isValidFileSize, calculateFileHash } from './utils';
 
 export class R2StorageService {
-  constructor(private r2: R2Bucket) {}
+  constructor(private r2: any) {}
 
   /**
    * Upload a file to R2 storage
@@ -87,7 +87,7 @@ export class R2StorageService {
   /**
    * Get file from R2
    */
-  async getFile(key: string): Promise<R2Object | null> {
+  async getFile(key: string): Promise<any | null> {
     return await this.r2.get(key);
   }
 
@@ -119,14 +119,14 @@ export class R2StorageService {
   /**
    * Get file metadata
    */
-  async getFileMetadata(key: string): Promise<R2Object | null> {
+  async getFileMetadata(key: string): Promise<any | null> {
     return await this.r2.head(key);
   }
 
   /**
    * List files with prefix
    */
-  async listFiles(prefix: string, limit: number = 100): Promise<R2Objects> {
+  async listFiles(prefix: string, limit: number = 100): Promise<any> {
     return await this.r2.list({
       prefix: prefix,
       limit: limit,
