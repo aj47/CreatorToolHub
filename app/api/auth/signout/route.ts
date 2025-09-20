@@ -2,10 +2,33 @@ export const runtime = "edge";
 
 import { getAuthToken, createInvalidatedToken, createSignOutCookie } from "@/lib/auth";
 
+// Environment variables configuration for Cloudflare Pages
+function getEnvVars() {
+  const getEnvVar = (key: string, fallback: string) => {
+    // Try process.env first (might work in some contexts)
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+
+    // Try globalThis (Cloudflare Workers/Pages sometimes use this)
+    if (typeof globalThis !== 'undefined' && (globalThis as any)[key]) {
+      return (globalThis as any)[key];
+    }
+
+    // Return fallback
+    return fallback;
+  };
+
+  return {
+    NEXTAUTH_URL: getEnvVar('NEXTAUTH_URL', 'https://creatortoolhub.com')
+  };
+}
+
 export async function POST(request: Request) {
   try {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const nextAuthUrl = process.env.NEXTAUTH_URL || '/';
+    const env = getEnvVars();
+    const isProduction = true; // Always treat as production in Cloudflare Pages
+    const nextAuthUrl = env.NEXTAUTH_URL || '/';
     
     // Get current token to invalidate it
     const token = getAuthToken(request);
@@ -55,8 +78,9 @@ export async function POST(request: Request) {
 
 // Also handle GET requests for backward compatibility
 export async function GET(request: Request) {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const nextAuthUrl = process.env.NEXTAUTH_URL || '/';
+  const env = getEnvVars();
+  const isProduction = true; // Always treat as production in Cloudflare Pages
+  const nextAuthUrl = env.NEXTAUTH_URL || '/';
   
   // Clear the auth cookie and redirect
   const signOutCookie = createSignOutCookie(isProduction);
