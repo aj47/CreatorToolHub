@@ -656,9 +656,11 @@ export default function Home() {
   };
 
   const generate = async () => {
+    console.log('Generate function called. selectedIds:', selectedIds, 'length:', selectedIds.length);
     // Client-side gate: block if out of credits for the number of generations requested
     const perTemplate = Math.max(1, count);
     const needed = perTemplate * (selectedIds.length || 0);
+    console.log('Credits check - needed:', needed, 'available:', credits, 'loadingCustomer:', loadingCustomer);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -1479,6 +1481,7 @@ export default function Home() {
                     className={styles.primary}
                     onClick={(e) => {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
+                      console.log('Generate button clicked. selectedIds:', selectedIds, 'length:', selectedIds.length);
                       generate();
                     }}
                     disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
