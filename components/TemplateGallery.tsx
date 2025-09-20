@@ -244,11 +244,10 @@ export default function TemplateGallery(props: {
 
                       // Add reference image files
                       for (const file of newRefFiles) {
-                        if (props.hybridStorage?.isCloudEnabled) {
-                          const uploadedImage = await props.hybridStorage.uploadRefFrame(file);
-                          referenceImages.push(`uploaded:${uploadedImage.id}`);
+                        const uploaded = await props.hybridStorage?.uploadRefFrame(file);
+                        if (uploaded?.dataUrl) {
+                          referenceImages.push(uploaded.dataUrl);
                         } else {
-                          // Store as data URL in local mode so it shows as a thumbnail
                           const dataUrl = await fileToDataUrl(file);
                           referenceImages.push(dataUrl);
                         }
@@ -485,9 +484,9 @@ export default function TemplateGallery(props: {
 
                           // Add reference image files
                           for (const file of editRefFiles) {
-                            if (props.hybridStorage?.isCloudEnabled) {
-                              const uploadedImage = await props.hybridStorage.uploadRefFrame(file);
-                              referenceImages.push(`uploaded:${uploadedImage.id}`);
+                            const uploaded = await props.hybridStorage?.uploadRefFrame(file);
+                            if (uploaded?.dataUrl) {
+                              referenceImages.push(uploaded.dataUrl);
                             } else {
                               const dataUrl = await fileToDataUrl(file);
                               referenceImages.push(dataUrl);

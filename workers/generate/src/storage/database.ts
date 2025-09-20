@@ -1,11 +1,30 @@
 // Database operations for user data storage
-import { 
-  User, UserTemplate, UserSettings, ReferenceImage, UserImage,
-  UserRow, UserTemplateRow, UserSettingsRow, ReferenceImageRow, UserImageRow
+import {
+  User,
+  UserTemplate,
+  UserSettings,
+  ReferenceImage,
+  Generation,
+  GenerationStatus,
+  GenerationOutput,
+  GenerationInput,
+  UserRow,
+  UserTemplateRow,
+  UserSettingsRow,
+  ReferenceImageRow,
+  GenerationRow,
+  GenerationOutputRow,
+  GenerationInputRow
 } from './types';
-import { 
-  deriveUserId, generateUUID, getCurrentTimestamp, 
-  convertUserTemplateRow, convertUserSettingsRow 
+import {
+  deriveUserId,
+  generateUUID,
+  getCurrentTimestamp,
+  convertUserTemplateRow,
+  convertUserSettingsRow,
+  convertGenerationRow,
+  convertGenerationOutputRow,
+  convertGenerationInputRow
 } from './utils';
 
 export class DatabaseService {
@@ -194,88 +213,286 @@ export class DatabaseService {
     return image.r2_key;
   }
 
-  // User image operations
-  async createUserImage(userId: string, filename: string, contentType: string, sizeBytes: number, r2Key: string, imageType: 'frame' | 'reference', hash?: string): Promise<UserImage> {
-    const imageId = generateUUID();
+  // Generation operations
+  async createGeneration(
+    userId: string,
+    params: {
+      templateId?: string;
+      prompt: string;
+      variantsRequested?: number;
+      status?: GenerationStatus;
+      source?: string;
+      parentGenerationId?: string;
+    }
+  ): Promise<Generation> {
+    const generationId = generateUUID();
     const now = getCurrentTimestamp();
+    const status = params.status || 'pending';
+    const variantsRequested = params.variantsRequested ?? 1;
 
     await this.db.prepare(`
-      INSERT INTO user_images (id, user_id, filename, content_type, size_bytes, r2_key, image_type, hash, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(imageId, userId, filename, contentType, sizeBytes, r2Key, imageType, hash || null, now).run();
+      INSERT INTO generations (id, user_id, template_id, prompt, variants_requested, status, source, parent_generation_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      generationId,
+      userId,
+      params.templateId || null,
+      params.prompt,
+      variantsRequested,
+      status,
+      params.source || null,
+      params.parentGenerationId || null,
+      now,
+      now
+    ).run();
 
-    return {
-      id: imageId,
-      user_id: userId,
-      filename,
-      content_type: contentType,
-      size_bytes: sizeBytes,
-      r2_key: r2Key,
-      image_type: imageType,
-      hash,
-      created_at: now
-    };
-  }
+    const row = await this.db.prepare(`
+      SELECT * FROM generations WHERE id = ?
+    `).bind(generationId).first();
 
-  async getUserImages(userId: string, imageType?: 'frame' | 'reference'): Promise<UserImage[]> {
-    let query = `SELECT * FROM user_images WHERE user_id = ?`;
-    const params = [userId];
-
-    if (imageType) {
-      query += ` AND image_type = ?`;
-      params.push(imageType);
+    if (!row) {
+      throw new Error('Failed to load generation after insert');
     }
 
-    query += ` ORDER BY created_at DESC`;
+    return convertGenerationRow(row as GenerationRow);
+  }
+
+  async addGenerationInputs(
+    generationId: string,
+    inputs: Array<{
+      input_type: string;
+      source_id?: string;
+      r2_key?: string;
+      hash?: string;
+      metadata?: Record<string, any>;
+    }>
+  ): Promise<GenerationInput[]> {
+    if (!inputs || inputs.length === 0) {
+      return [];
+    }
+
+    const created: GenerationInput[] = [];
+
+    for (const input of inputs) {
+      const id = generateUUID();
+      const createdAt = getCurrentTimestamp();
+      const metadata = input.metadata ? JSON.stringify(input.metadata) : null;
+
+      await this.db.prepare(`
+        INSERT INTO generation_inputs (id, generation_id, input_type, source_id, r2_key, hash, metadata, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        id,
+        generationId,
+        input.input_type,
+        input.source_id || null,
+        input.r2_key || null,
+        input.hash || null,
+        metadata,
+        createdAt
+      ).run();
+
+      created.push(
+        convertGenerationInputRow({
+          id,
+          generation_id: generationId,
+          input_type: input.input_type,
+          source_id: input.source_id || null,
+          r2_key: input.r2_key || null,
+          hash: input.hash || null,
+          metadata,
+          created_at: createdAt
+        } as GenerationInputRow)
+      );
+    }
+
+    return created;
+  }
+
+  async addGenerationOutputs(
+    generationId: string,
+    outputs: Array<{
+      variant_index: number;
+      r2_key: string;
+      mime_type: string;
+      width?: number;
+      height?: number;
+      size_bytes?: number;
+      hash?: string;
+    }>
+  ): Promise<GenerationOutput[]> {
+    if (!outputs || outputs.length === 0) {
+      return [];
+    }
+
+    const created: GenerationOutput[] = [];
+
+    for (const output of outputs) {
+      const id = generateUUID();
+      const createdAt = getCurrentTimestamp();
+
+      await this.db.prepare(`
+        INSERT INTO generation_outputs (id, generation_id, variant_index, r2_key, mime_type, width, height, size_bytes, hash, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        id,
+        generationId,
+        output.variant_index,
+        output.r2_key,
+        output.mime_type,
+        output.width ?? null,
+        output.height ?? null,
+        output.size_bytes ?? null,
+        output.hash || null,
+        createdAt
+      ).run();
+
+      created.push(
+        convertGenerationOutputRow({
+          id,
+          generation_id: generationId,
+          variant_index: output.variant_index,
+          r2_key: output.r2_key,
+          mime_type: output.mime_type,
+          width: output.width ?? null,
+          height: output.height ?? null,
+          size_bytes: output.size_bytes ?? null,
+          hash: output.hash || null,
+          created_at: createdAt
+        } as GenerationOutputRow)
+      );
+    }
+
+    return created;
+  }
+
+  async getGenerations(
+    userId: string,
+    options: { limit?: number; before?: string } = {}
+  ): Promise<Generation[]> {
+    const limit = Math.max(1, Math.min(options.limit ?? 50, 100));
+    let query = `
+      SELECT * FROM generations
+      WHERE user_id = ?
+    `;
+    const params: any[] = [userId];
+
+    if (options.before) {
+      query += ` AND created_at < ?`;
+      params.push(options.before);
+    }
+
+    query += ` ORDER BY created_at DESC, id DESC LIMIT ?`;
+    params.push(limit);
 
     const results = await this.db.prepare(query).bind(...params).all();
-
-    return results.results.map((row: any) => ({
-      id: row.id,
-      user_id: row.user_id,
-      filename: row.filename,
-      content_type: row.content_type,
-      size_bytes: row.size_bytes,
-      r2_key: row.r2_key,
-      image_type: row.image_type as 'frame' | 'reference',
-      hash: row.hash || undefined,
-      created_at: row.created_at
-    }));
+    const rows = results.results || [];
+    return rows.map((row: GenerationRow) => convertGenerationRow(row));
   }
 
-  async deleteUserImage(imageId: string, userId: string): Promise<string | null> {
-    // Get R2 key before deleting
-    const image = await this.db.prepare(`
-      SELECT r2_key FROM user_images WHERE id = ? AND user_id = ?
-    `).bind(imageId, userId).first();
+  async getGeneration(generationId: string, userId: string): Promise<Generation | null> {
+    const row = await this.db.prepare(`
+      SELECT * FROM generations WHERE id = ? AND user_id = ? LIMIT 1
+    `).bind(generationId, userId).first();
 
-    if (!image) return null;
+    if (!row) {
+      return null;
+    }
 
-    await this.db.prepare(`
-      DELETE FROM user_images WHERE id = ? AND user_id = ?
-    `).bind(imageId, userId).run();
-
-    return image.r2_key;
+    return convertGenerationRow(row as GenerationRow);
   }
 
-  async findImageByHash(userId: string, hash: string): Promise<UserImage | null> {
+  async getGenerationOutputs(generationId: string): Promise<GenerationOutput[]> {
+    const results = await this.db.prepare(`
+      SELECT * FROM generation_outputs WHERE generation_id = ? ORDER BY variant_index ASC
+    `).bind(generationId).all();
+
+    const rows = results.results || [];
+    return rows.map((row: GenerationOutputRow) => convertGenerationOutputRow(row));
+  }
+
+  async getGenerationInputs(generationId: string): Promise<GenerationInput[]> {
+    const results = await this.db.prepare(`
+      SELECT * FROM generation_inputs WHERE generation_id = ? ORDER BY created_at ASC
+    `).bind(generationId).all();
+
+    const rows = results.results || [];
+    return rows.map((row: GenerationInputRow) => convertGenerationInputRow(row));
+  }
+
+  async updateGeneration(
+    generationId: string,
+    userId: string,
+    updates: {
+      status?: GenerationStatus;
+      error_message?: string | null;
+      prompt?: string;
+      templateId?: string | null;
+      variantsRequested?: number;
+      source?: string | null;
+      parentGenerationId?: string | null;
+    }
+  ): Promise<Generation | null> {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.status !== undefined) {
+      fields.push('status = ?');
+      values.push(updates.status);
+    }
+    if (updates.error_message !== undefined) {
+      fields.push('error_message = ?');
+      values.push(updates.error_message || null);
+    }
+    if (updates.prompt !== undefined) {
+      fields.push('prompt = ?');
+      values.push(updates.prompt);
+    }
+    if (updates.templateId !== undefined) {
+      fields.push('template_id = ?');
+      values.push(updates.templateId || null);
+    }
+    if (updates.variantsRequested !== undefined) {
+      fields.push('variants_requested = ?');
+      values.push(updates.variantsRequested);
+    }
+    if (updates.source !== undefined) {
+      fields.push('source = ?');
+      values.push(updates.source || null);
+    }
+    if (updates.parentGenerationId !== undefined) {
+      fields.push('parent_generation_id = ?');
+      values.push(updates.parentGenerationId || null);
+    }
+
+    if (fields.length === 0) {
+      return await this.getGeneration(generationId, userId);
+    }
+
+    const updatedAt = getCurrentTimestamp();
+    fields.push('updated_at = ?');
+    values.push(updatedAt);
+    values.push(generationId, userId);
+
     const result = await this.db.prepare(`
-      SELECT * FROM user_images WHERE user_id = ? AND hash = ? LIMIT 1
-    `).bind(userId, hash).first();
+      UPDATE generations
+      SET ${fields.join(', ')}
+      WHERE id = ? AND user_id = ?
+    `).bind(...values).run();
 
-    if (!result) return null;
+    if (result.changes === 0) {
+      return null;
+    }
 
-    return {
-      id: result.id,
-      user_id: result.user_id,
-      filename: result.filename,
-      content_type: result.content_type,
-      size_bytes: result.size_bytes,
-      r2_key: result.r2_key,
-      image_type: result.image_type as 'frame' | 'reference',
-      hash: result.hash || undefined,
-      created_at: result.created_at
-    };
+    return await this.getGeneration(generationId, userId);
+  }
+
+  async deleteGeneration(generationId: string, userId: string): Promise<boolean> {
+    const result = await this.db.prepare(`
+      DELETE FROM generations WHERE id = ? AND user_id = ?
+    `).bind(generationId, userId).run();
+
+    return result.changes > 0;
   }
 
   // User settings operations

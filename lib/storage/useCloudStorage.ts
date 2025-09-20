@@ -1,6 +1,6 @@
 // React hook for managing cloud storage state and operations
 import { useState, useEffect, useCallback } from 'react';
-import { CloudStorageService, CloudTemplate, CloudUserImage, CloudSettings } from './client';
+import { CloudStorageService, CloudTemplate, CloudSettings, CloudGeneration, CloudGenerationOutput } from './client';
 
 export interface UseCloudStorageOptions {
   autoSync?: boolean;
@@ -10,8 +10,7 @@ export interface UseCloudStorageOptions {
 export interface UseCloudStorageReturn {
   // State
   templates: CloudTemplate[];
-  frames: CloudUserImage[];
-  refFrames: CloudUserImage[];
+  generations: CloudGeneration[];
   settings: CloudSettings | null;
   isLoading: boolean;
   isOnline: boolean;
@@ -24,19 +23,17 @@ export interface UseCloudStorageReturn {
   deleteTemplate: (id: string) => Promise<void>;
   refreshTemplates: () => Promise<void>;
 
-  // Image operations
-  uploadFrame: (file: File) => Promise<CloudUserImage>;
-  uploadRefFrame: (file: File) => Promise<CloudUserImage>;
-  deleteFrame: (id: string) => Promise<void>;
-  deleteRefFrame: (id: string) => Promise<void>;
-  refreshImages: () => Promise<void>;
+  // Generation operations
+  refreshGenerations: (params?: { limit?: number; before?: string }) => Promise<void>;
+  fetchGeneration: (id: string) => Promise<CloudGeneration | null>;
+  deleteGeneration: (id: string) => Promise<void>;
+  getGenerationOutputs: (id: string) => Promise<CloudGenerationOutput[]>;
 
   // Settings operations
   updateSettings: (updates: Partial<CloudSettings>) => Promise<void>;
   refreshSettings: () => Promise<void>;
 
-  // Migration and sync
-  migrateFromLocalStorage: (data: any) => Promise<void>;
+  // Sync and utility
   syncAll: () => Promise<void>;
   clearError: () => void;
 }
@@ -46,53 +43,33 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
 
   const [storage] = useState(() => new CloudStorageService());
   const [templates, setTemplates] = useState<CloudTemplate[]>([]);
-  const [frames, setFrames] = useState<CloudUserImage[]>([]);
-  const [refFrames, setRefFrames] = useState<CloudUserImage[]>([]);
+  const [generations, setGenerations] = useState<CloudGeneration[]>([]);
   const [settings, setSettings] = useState<CloudSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [requestCount, setRequestCount] = useState(0);
   const [lastRequestTime, setLastRequestTime] = useState(0);
 
-  // Request throttling to prevent overwhelming the worker
-  const shouldThrottleRequest = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastRequest = now - lastRequestTime;
+  const requestCooldownMs = 750;
 
-    // If less than 1 second since last request, throttle
-    if (timeSinceLastRequest < 1000) {
-      setRequestCount(prev => prev + 1);
-      // If more than 5 requests in quick succession, throttle more aggressively
-      if (requestCount > 5) {
-        return timeSinceLastRequest < 5000; // 5 second throttle
-      }
+  const shouldThrottleRequest = useCallback((): boolean => {
+    const now = Date.now();
+    if (now - lastRequestTime < requestCooldownMs) {
       return true;
     }
-
-    // Reset request count if enough time has passed
-    setRequestCount(0);
     setLastRequestTime(now);
     return false;
-  }, [requestCount, lastRequestTime]);
+  }, [lastRequestTime]);
 
   // Error handling
-  const handleError = useCallback((error: any, operation: string) => {
+  const handleError = useCallback((error: unknown, operation: string) => {
     console.error(`Cloud storage error (${operation}):`, error);
-    setError(error instanceof Error ? error.message : `Failed to ${operation}`);
+    const message = error instanceof Error ? error.message : `Failed to ${operation}`;
+    setError(message);
 
-    // Check if it's a network error or resource exhaustion
     if (error instanceof TypeError && error.message.includes('fetch')) {
       setIsOnline(false);
-    }
-
-    // If we get connection errors, back off for a while
-    if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES') ||
-        error.message?.includes('ERR_CONNECTION_CLOSED')) {
-      setIsOnline(false);
-      // Re-enable after 30 seconds
-      setTimeout(() => setIsOnline(true), 30000);
     }
   }, []);
 
@@ -100,49 +77,43 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     setError(null);
   }, []);
 
+
+  const execute = useCallback(async <T,>(operation: string, fn: () => Promise<T>): Promise<T> => {
+    setIsLoading(true);
+    try {
+      const result = await fn();
+      setIsOnline(true);
+      return result;
+    } catch (error) {
+      handleError(error, operation);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleError]);
+
   // Template operations
   const createTemplate = useCallback(async (title: string, prompt: string, colors: string[]): Promise<CloudTemplate> => {
-    try {
-      setIsLoading(true);
+    return await execute('create template', async () => {
       const template = await storage.createTemplate(title, prompt, colors);
       setTemplates(prev => [template, ...prev]);
-      setIsOnline(true);
       return template;
-    } catch (error) {
-      handleError(error, 'create template');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
+    });
+  }, [storage, execute]);
 
   const updateTemplate = useCallback(async (id: string, updates: Partial<CloudTemplate>): Promise<void> => {
-    try {
-      setIsLoading(true);
+    await execute('update template', async () => {
       await storage.updateTemplate(id, updates);
-      setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'update template');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
+      setTemplates(prev => prev.map(t => (t.id === id ? { ...t, ...updates } : t)));
+    });
+  }, [storage, execute]);
 
   const deleteTemplate = useCallback(async (id: string): Promise<void> => {
-    try {
-      setIsLoading(true);
+    await execute('delete template', async () => {
       await storage.deleteTemplate(id);
       setTemplates(prev => prev.filter(t => t.id !== id));
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'delete template');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
+    });
+  }, [storage, execute]);
 
   const refreshTemplates = useCallback(async (): Promise<void> => {
     if (shouldThrottleRequest()) {
@@ -161,100 +132,64 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     }
   }, [storage, handleError, shouldThrottleRequest]);
 
-  // Image operations
-  const uploadFrame = useCallback(async (file: File): Promise<CloudUserImage> => {
-    try {
-      setIsLoading(true);
-      const image = await storage.uploadImage(file, 'frame');
-      setFrames(prev => [image, ...prev]);
-      setIsOnline(true);
-      return image;
-    } catch (error) {
-      handleError(error, 'upload frame');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
-
-  const uploadRefFrame = useCallback(async (file: File): Promise<CloudUserImage> => {
-    try {
-      setIsLoading(true);
-      const image = await storage.uploadImage(file, 'reference');
-      setRefFrames(prev => [image, ...prev]);
-      setIsOnline(true);
-      return image;
-    } catch (error) {
-      handleError(error, 'upload reference frame');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
-
-  const deleteFrame = useCallback(async (id: string): Promise<void> => {
-    try {
-      setIsLoading(true);
-      await storage.deleteImage(id);
-      setFrames(prev => prev.filter(f => f.id !== id));
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'delete frame');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
-
-  const deleteRefFrame = useCallback(async (id: string): Promise<void> => {
-    try {
-      setIsLoading(true);
-      await storage.deleteImage(id);
-      setRefFrames(prev => prev.filter(f => f.id !== id));
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'delete reference frame');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
-
-  const refreshImages = useCallback(async (): Promise<void> => {
+  // Generation operations
+  const refreshGenerations = useCallback(async (params: { limit?: number; before?: string } = {}): Promise<void> => {
     if (shouldThrottleRequest()) {
-      return; // Skip this request due to throttling
+      return;
     }
 
     try {
       setIsLoading(true);
-      const [frameImages, refImages] = await Promise.all([
-        storage.getImages('frame'),
-        storage.getImages('reference')
-      ]);
-      setFrames(frameImages);
-      setRefFrames(refImages);
+      const list = await storage.getGenerations(params);
+      setGenerations(list);
       setIsOnline(true);
     } catch (error) {
-      handleError(error, 'refresh images');
+      handleError(error, 'refresh generations');
     } finally {
       setIsLoading(false);
     }
   }, [storage, handleError, shouldThrottleRequest]);
 
+  const fetchGeneration = useCallback(async (id: string): Promise<CloudGeneration | null> => {
+    return await execute('fetch generation', async () => {
+      const generation = await storage.getGeneration(id);
+      if (generation) {
+        setGenerations(prev => {
+          const index = prev.findIndex(g => g.id === id);
+          if (index >= 0) {
+            const next = [...prev];
+            next[index] = { ...prev[index], ...generation };
+            return next;
+          }
+          return [generation, ...prev];
+        });
+      }
+      return generation;
+    });
+  }, [storage, execute]);
+
+  const deleteGeneration = useCallback(async (id: string): Promise<void> => {
+    await execute('delete generation', async () => {
+      await storage.deleteGeneration(id);
+      setGenerations(prev => prev.filter(g => g.id !== id));
+    });
+  }, [storage, execute]);
+
+  const getGenerationOutputs = useCallback(async (id: string): Promise<CloudGenerationOutput[]> => {
+    return await execute('fetch generation outputs', async () => {
+      const outputs = await storage.getGenerationOutputs(id);
+      setGenerations(prev => prev.map(g => (g.id === id ? { ...g, outputs } : g)));
+      return outputs;
+    });
+  }, [storage, execute]);
+
   // Settings operations
   const updateSettings = useCallback(async (updates: Partial<CloudSettings>): Promise<void> => {
-    try {
-      setIsLoading(true);
+    await execute('update settings', async () => {
       const newSettings = await storage.updateSettings(updates);
       setSettings(newSettings);
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'update settings');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError]);
+    });
+  }, [storage, execute]);
 
   const refreshSettings = useCallback(async (): Promise<void> => {
     if (shouldThrottleRequest()) {
@@ -270,58 +205,34 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     }
   }, [storage, handleError, shouldThrottleRequest]);
 
-  // Migration
-  const migrateFromLocalStorage = useCallback(async (data: any): Promise<void> => {
-    try {
-      setIsLoading(true);
-      const result = await storage.migrateFromLocalStorage(data);
-      
-      // Show migration results
-      console.log('Migration completed:', result);
-      if (result.errors.length > 0) {
-        console.warn('Migration errors:', result.errors);
-      }
-      
-      // Refresh all data after migration
-      await Promise.all([
-        refreshTemplates(),
-        refreshImages(),
-        refreshSettings()
-      ]);
-      
-      setIsOnline(true);
-    } catch (error) {
-      handleError(error, 'migrate data');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [storage, handleError, refreshTemplates, refreshImages, refreshSettings]);
 
   // Sync all data
   const syncAll = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await Promise.all([
-        refreshTemplates(),
-        refreshImages(),
-        refreshSettings()
+      const [templateList, generationList, settingsValue] = await Promise.all([
+        storage.getTemplates(),
+        storage.getGenerations(),
+        storage.getSettings()
       ]);
+      setTemplates(templateList);
+      setGenerations(generationList);
+      setSettings(settingsValue);
+      setIsOnline(true);
       setLastSync(new Date());
     } catch (error) {
       handleError(error, 'sync data');
     } finally {
       setIsLoading(false);
     }
-  }, [refreshTemplates, refreshImages, refreshSettings, handleError]);
+  }, [storage, handleError]);
 
   // Initial load and auto-sync - disabled in production
   useEffect(() => {
-    // Only sync in development mode
     if (process.env.NODE_ENV === 'development') {
       syncAll();
     }
-  }, []);
+  }, [syncAll]);
 
   useEffect(() => {
     // Auto-sync disabled in production until worker issues are resolved
@@ -345,7 +256,7 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
         syncAll();
       }
     };
-    
+
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
@@ -358,35 +269,23 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
   }, [autoSync, syncAll]);
 
   return {
-    // State
     templates,
-    frames,
-    refFrames,
+    generations,
     settings,
     isLoading,
     isOnline,
     lastSync,
     error,
-
-    // Template operations
     createTemplate,
     updateTemplate,
     deleteTemplate,
     refreshTemplates,
-
-    // Image operations
-    uploadFrame,
-    uploadRefFrame,
-    deleteFrame,
-    deleteRefFrame,
-    refreshImages,
-
-    // Settings operations
+    refreshGenerations,
+    fetchGeneration,
+    deleteGeneration,
+    getGenerationOutputs,
     updateSettings,
     refreshSettings,
-
-    // Migration and sync
-    migrateFromLocalStorage,
     syncAll,
     clearError,
   };
