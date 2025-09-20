@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<Props, State> {
       stack: error.stack,
       severity: this.determineSeverity(error),
       context: {
-        component: errorInfo.componentStack,
+        component: errorInfo.componentStack || undefined,
         level: this.props.level || 'component',
         retryCount: this.state.retryCount,
         timestamp: Date.now(),

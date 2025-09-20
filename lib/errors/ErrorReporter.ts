@@ -45,7 +45,8 @@ export class ErrorReporter {
     }
 
     // Check if error should be reported
-    if (!ErrorUtils.shouldReport(error)) {
+    const errorForCheck = error.originalError || new Error(error.message);
+    if (!ErrorUtils.shouldReport(errorForCheck)) {
       return;
     }
 
