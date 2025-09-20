@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "deploy:safe": "./deploy-safe.sh",
+    "secrets:list": "wrangler secret list",
+    "secrets:put:gemini": "wrangler secret put GEMINI_API_KEY",
+    "secrets:put:autumn": "wrangler secret put AUTUMN_SECRET_KEY",
     "db:create": "wrangler d1 create creator-tool-hub-db",
     "db:migrate": "wrangler d1 migrations apply creator-tool-hub-db",
     "db:migrate:local": "wrangler d1 migrations apply creator-tool-hub-db --local",

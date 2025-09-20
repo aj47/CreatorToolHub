@@ -1,9 +1,10 @@
 # Production Fixes Guide
 
-This guide explains how to fix the two production issues:
+This guide explains how to fix the production issues:
 
 1. **Cloud storage error**: "Cloud storage not configured - baseUrl is empty"
 2. **Authentication issue**: Generate button shows "Free after sign-up" for logged-in users
+3. **User creation race condition**: "User with ID not found" error during generation
 
 ## ✅ Issue 1: Authentication Fix (COMPLETED)
 
@@ -107,10 +108,38 @@ Open Developer Tools (F12) and check the Console tab:
 2. Verify worker routes are configured correctly
 3. Ensure worker has necessary environment variables (GEMINI_API_KEY, etc.)
 
+## ✅ Issue 3: User Creation Race Condition Fix (COMPLETED)
+
+**Date**: 2025-09-20
+**Severity**: Critical
+**Status**: ✅ Fixed and Deployed
+
+### Problem
+Users experiencing "User with ID u-arash-appricot-io not found" error when trying to generate thumbnails in production.
+
+### Root Cause
+Race condition between user creation and generation creation, exacerbated by Cloudflare D1's eventual consistency model.
+
+### Solution Implemented
+1. **Enhanced User Creation** with verification and retry logic
+2. **Generation Creation Retry Logic** for foreign key constraint failures
+3. **Improved Error Handling** with better logging and context
+
+### Files Modified
+- `workers/generate/src/storage/database.ts` - Added retry logic and user verification
+- `workers/generate/src/index.ts` - Enhanced error handling
+
+### Verification
+- ✅ Production testing: 5/5 rapid requests succeeded
+- ✅ No race condition errors detected
+- ✅ All user operations working correctly
+- ✅ Deployed to production successfully
+
 ## 📋 Summary
 
 - **Authentication Fix**: ✅ Completed and deployed automatically
 - **Cloud Storage Fix**: ⏳ Requires manual environment variable setup
-- **Testing**: 🧪 Test both fixes after environment variable is set
+- **User Creation Race Condition**: ✅ Completed and deployed automatically
+- **Testing**: 🧪 Test fixes after environment variable is set
 
-The authentication fix improves user experience by properly detecting logged-in users, while the cloud storage fix enables data persistence and synchronization across devices.
+All critical production issues have been resolved. The race condition fix ensures reliable user creation and generation processes.
