@@ -64,15 +64,28 @@ export default function AuthButton() {
             name: data.user.name || '',
             picture: data.user.picture || '',
           });
+        } else {
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
+
+    // Re-check auth when user returns to the page (e.g., after sign out redirect)
+    const handleFocus = () => {
+      if (!isDevelopment) {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [isDevelopment]);
 
   const signIn = () => {
