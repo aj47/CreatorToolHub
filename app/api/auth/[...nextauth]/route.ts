@@ -12,14 +12,16 @@ export async function GET(request: Request) {
   // Handle different auth routes
   if (pathname.includes('/signout')) {
     const isProduction = process.env.NODE_ENV === 'production';
-    // Cookie deletion must match the original cookie attributes exactly
-    const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
+    // Try multiple cookie deletion strategies to ensure it works
+    const cookieOptions1 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
+    const cookieOptions2 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`;
+    const cookieOptions3 = `auth-token=; Path=/; Max-Age=0`;
 
     return new Response(null, {
       status: 302,
       headers: {
         'Location': process.env.NEXTAUTH_URL || '/',
-        'Set-Cookie': cookieOptions,
+        'Set-Cookie': [cookieOptions1, cookieOptions2, cookieOptions3],
       },
     });
   }
@@ -142,14 +144,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // Handle sign out
   const isProduction = process.env.NODE_ENV === 'production';
-  // Cookie deletion must match the original cookie attributes exactly
-  const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
+  // Try multiple cookie deletion strategies to ensure it works
+  const cookieOptions1 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
+  const cookieOptions2 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`;
+  const cookieOptions3 = `auth-token=; Path=/; Max-Age=0`;
 
   return new Response(null, {
     status: 302,
     headers: {
       'Location': process.env.NEXTAUTH_URL || '/',
-      'Set-Cookie': cookieOptions,
+      'Set-Cookie': [cookieOptions1, cookieOptions2, cookieOptions3],
     },
   });
 }
