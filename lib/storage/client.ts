@@ -22,17 +22,48 @@ export interface CloudReferenceImage {
   url?: string;
 }
 
-export interface CloudUserImage {
+export type CloudGenerationStatus = 'pending' | 'running' | 'complete' | 'failed' | string;
+
+export interface CloudGenerationOutput {
   id: string;
-  user_id: string;
-  filename: string;
-  content_type: string;
-  size_bytes: number;
+  generation_id: string;
+  variant_index: number;
   r2_key: string;
-  image_type: 'frame' | 'reference';
+  mime_type: string;
+  width?: number;
+  height?: number;
+  size_bytes?: number;
   hash?: string;
   created_at: string;
   url?: string;
+}
+
+export interface CloudGenerationInput {
+  id: string;
+  generation_id: string;
+  input_type: string;
+  source_id?: string;
+  r2_key?: string;
+  hash?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+}
+
+export interface CloudGeneration {
+  id: string;
+  user_id: string;
+  template_id?: string | null;
+  prompt: string;
+  variants_requested: number;
+  status: CloudGenerationStatus;
+  source?: string | null;
+  parent_generation_id?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  preview_url?: string | null;
+  outputs?: CloudGenerationOutput[];
+  inputs?: CloudGenerationInput[];
 }
 
 export interface CloudSettings {
@@ -41,14 +72,6 @@ export interface CloudSettings {
   show_only_favs: boolean;
   created_at: string;
   updated_at: string;
-}
-
-export interface MigrationResult {
-  templates: number;
-  frames: number;
-  refFrames: number;
-  settings: boolean;
-  errors: string[];
 }
 
 export class CloudStorageService {
@@ -179,85 +202,125 @@ export class CloudStorageService {
     }
   }
 
-  // Image operations
-  async getImages(type?: 'frame' | 'reference'): Promise<CloudUserImage[]> {
+  // Generation operations
+  async getGenerations(params: { limit?: number; before?: string } = {}): Promise<CloudGeneration[]> {
     if (!this.baseUrl) {
       if (process.env.NODE_ENV === 'development') {
-        // In development mode, return empty array
         return [];
       }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
-    try {
-      const url = new URL(`${this.baseUrl}/api/user/images`);
-      if (type) {
-        url.searchParams.set('type', type);
-      }
-
-      const response = await fetch(url.toString(), {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch images: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (error) {
-      if (error instanceof TypeError && error.message.includes('Invalid URL')) {
-        throw new Error(`Invalid cloud storage URL: ${this.baseUrl}/api/user/images`);
-      }
-      throw error;
+    const url = new URL(`${this.baseUrl}/api/user/generations`);
+    if (params.limit !== undefined) {
+      url.searchParams.set('limit', String(params.limit));
     }
+    if (params.before) {
+      url.searchParams.set('before', params.before);
+    }
+
+    const response = await fetch(url.toString(), {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      let message = `Failed to fetch generations (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          message += `: ${errorData.error}`;
+        } else if (response.statusText) {
+          message += `: ${response.statusText}`;
+        }
+      } catch {
+        if (response.statusText) {
+          message += `: ${response.statusText}`;
+        }
+      }
+      throw new Error(message);
+    }
+
+    return await response.json();
   }
 
-  async uploadImage(file: File, imageType: 'frame' | 'reference'): Promise<CloudUserImage> {
+  async getGeneration(id: string): Promise<CloudGeneration | null> {
     if (!this.baseUrl) {
       if (process.env.NODE_ENV === 'development') {
-        // Return a mock image in development mode
-        return {
-          id: `dev-image-${Date.now()}`,
-          user_id: 'dev@example.com',
-          filename: file.name,
-          content_type: file.type,
-          size_bytes: file.size,
-          r2_key: `dev/${file.name}`,
-          image_type: imageType,
-          created_at: new Date().toISOString(),
-        };
+        return null;
       }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('image_type', imageType);
-
-    const response = await fetch(`${this.baseUrl}/api/user/images`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
+    const response = await fetch(`${this.baseUrl}/api/user/generations/${id}`, {
+      credentials: 'include'
     });
-    if (!response.ok) {
-      throw new Error(`Failed to upload image: ${response.statusText}`);
+
+    if (response.status === 404) {
+      return null;
     }
+
+    if (!response.ok) {
+      let message = `Failed to fetch generation (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          message += `: ${errorData.error}`;
+        } else if (response.statusText) {
+          message += `: ${response.statusText}`;
+        }
+      } catch {
+        if (response.statusText) {
+          message += `: ${response.statusText}`;
+        }
+      }
+      throw new Error(message);
+    }
+
     return await response.json();
   }
 
-  async deleteImage(id: string): Promise<void> {
+  async getGenerationOutputs(id: string): Promise<CloudGenerationOutput[]> {
     if (!this.baseUrl) {
       if (process.env.NODE_ENV === 'development') {
-        // In development mode, silently succeed
+        return [];
+      }
+      throw new Error('Cloud storage not configured - baseUrl is empty');
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/user/generations/${id}/outputs`, {
+      credentials: 'include'
+    });
+
+    if (response.status === 404) {
+      return [];
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch generation outputs: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  async deleteGeneration(id: string): Promise<void> {
+    if (!this.baseUrl) {
+      if (process.env.NODE_ENV === 'development') {
         return;
       }
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
-    const response = await fetch(`${this.baseUrl}/api/user/images/${id}`, {
+    const response = await fetch(`${this.baseUrl}/api/user/generations/${id}`, {
       method: 'DELETE',
-      credentials: 'include',
+      credentials: 'include'
     });
+
+    if (response.status === 404) {
+      return;
+    }
+
     if (!response.ok) {
-      throw new Error(`Failed to delete image: ${response.statusText}`);
+      throw new Error(`Failed to delete generation: ${response.statusText}`);
     }
   }
 
@@ -314,38 +377,6 @@ export class CloudStorageService {
     return await response.json();
   }
 
-  // Migration from localStorage
-  async migrateFromLocalStorage(data: {
-    templates?: Record<string, any>;
-    frames?: any[];
-    refFrames?: any[];
-    settings?: any;
-  }): Promise<MigrationResult> {
-    if (!this.baseUrl) {
-      if (process.env.NODE_ENV === 'development') {
-        // Return mock migration result in development mode
-        return {
-          templates: Object.keys(data.templates || {}).length,
-          frames: (data.frames || []).length,
-          refFrames: (data.refFrames || []).length,
-          settings: !!data.settings,
-          errors: [],
-        };
-      }
-      throw new Error('Cloud storage not configured - baseUrl is empty');
-    }
-
-    const response = await fetch(`${this.baseUrl}/api/user/migrate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to migrate data: ${response.statusText}`);
-    }
-    return await response.json();
-  }
 
   // Utility methods
   async checkConnection(): Promise<boolean> {
@@ -382,46 +413,4 @@ export class CloudStorageService {
     };
   }
 
-  // Convert cloud image to legacy frame format
-  cloudImageToLegacyFrame(image: CloudUserImage): any {
-    return {
-      dataUrl: image.url || '', // Will need to fetch actual data URL if needed
-      b64: '', // Will be populated when needed
-      kind: 'image',
-      filename: image.filename,
-      hash: image.hash,
-      importedAt: new Date(image.created_at).getTime(),
-    };
-  }
-
-  // Helper to convert data URL to File for upload
-  dataUrlToFile(dataUrl: string, filename: string): File {
-    const [header, base64Data] = dataUrl.split(',');
-    const contentTypeMatch = header.match(/data:([^;]+)/);
-    const contentType = contentTypeMatch ? contentTypeMatch[1] : 'image/jpeg';
-    
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    return new File([bytes], filename, { type: contentType });
-  }
-
-  // Helper to fetch image as data URL (for backward compatibility)
-  async fetchImageAsDataUrl(url: string): Promise<string> {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-    
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
 }

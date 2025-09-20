@@ -2,6 +2,7 @@ import { Autumn } from "autumn-js";
 import { DatabaseService } from "./storage/database";
 import { R2StorageService } from "./storage/r2";
 import { UserAPI } from "./api/user";
+import { deriveUserId } from "./storage/utils";
 import {
   createDefaultMiddlewareStack,
   createRouteHandler,
@@ -203,7 +204,16 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   } catch {
     return errorResponse("Invalid JSON", 400, "INVALID_JSON");
   }
-  const { prompt, frames = [], framesMime, variants } = body || {};
+
+  const {
+    prompt,
+    frames = [],
+    framesMime,
+    variants,
+    templateId,
+    source,
+    parentGenerationId
+  } = body || {};
   if (!prompt || !Array.isArray(frames) || frames.length === 0) {
     return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
   }
@@ -212,25 +222,31 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   if (!apiKey) {
     return errorResponse("Missing GEMINI_API_KEY", 500, "MISSING_API_KEY");
   }
-    const model = env.MODEL_ID || DEFAULT_MODEL;
-    const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
+  const model = env.MODEL_ID || DEFAULT_MODEL;
+  const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
+  const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
-    // Build request parts once: up to 3 frames + text prompt
-    const reqParts: any[] = [];
-    for (const b64 of (frames as string[]).slice(0, 3)) {
-      if (typeof b64 === "string" && b64.length > 0) {
-        reqParts.push({ inlineData: { mimeType: imageMime, data: b64 } });
-      }
-    }
-    reqParts.push({ text: prompt });
-
-    const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+  if (!env.DB) {
+    console.error('Missing DB binding');
+    return errorResponse('Database not configured', 500, 'DB_NOT_CONFIGURED');
+  }
+  if (!env.R2) {
+    console.error('Missing R2 binding');
+    return errorResponse('Storage not configured', 500, 'R2_NOT_CONFIGURED');
+  }
 
   // Auth + credit gate before opening stream
-  const user = request.user; // User is already attached by auth middleware
+  const user = request.user;
   if (!user) {
     return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
   }
+
+  const userId = deriveUserId(user.email);
+  const db = new DatabaseService(env.DB);
+  const r2 = new R2StorageService(env.R2);
+
+  await db.createOrUpdateUser(user.email, user.name, user.picture);
+
   const FEATURE_ID = env.FEATURE_ID || "credits";
   if (!env.AUTUMN_SECRET_KEY) {
     return errorResponse("Missing AUTUMN_SECRET_KEY", 500, "MISSING_AUTUMN_KEY");
@@ -247,68 +263,189 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     );
   }
 
-    // Stream NDJSON with periodic heartbeats and incremental results
-    const te = new TextEncoder();
-    let doneVariants = 0;
-    let idx = 0;
+  const framesArray = frames as string[];
+  const framesForModel = framesArray.slice(0, 3);
+  const reqParts: any[] = [];
+  for (const b64 of framesForModel) {
+    if (typeof b64 === "string" && b64.length > 0) {
+      reqParts.push({ inlineData: { mimeType: imageMime, data: b64 } });
+    }
+  }
+  reqParts.push({ text: prompt });
 
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        const write = (obj: any) => controller.enqueue(te.encode(JSON.stringify(obj) + "\n"));
-        const heartbeat = () => controller.enqueue(te.encode(":\n")); // comment line keeps H3 alive
-        const hbId = setInterval(heartbeat, 10000);
+  const generation = await db.createGeneration(userId, {
+    templateId,
+    prompt,
+    variantsRequested: count,
+    status: "running",
+    source: typeof source === "string" ? source : "worker",
+    parentGenerationId
+  });
+
+  if (framesArray.length > 0) {
+    try {
+      await db.addGenerationInputs(
+        generation.id,
+        framesArray.map((frame, index) => ({
+          input_type: "frame",
+          metadata: {
+            index,
+            mime_type: imageMime,
+            encoding: "base64",
+            size_hint: frame.length,
+            used_in_generation: index < framesForModel.length
+          }
+        }))
+      );
+    } catch (inputError) {
+      console.warn('Failed to record generation inputs', inputError);
+    }
+  }
+
+  // Stream NDJSON with periodic heartbeats and incremental results
+  const te = new TextEncoder();
+  let doneVariants = 0;
+  let outputIndex = 0;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const write = (obj: any) => controller.enqueue(te.encode(JSON.stringify(obj) + "\n"));
+      const heartbeat = () => controller.enqueue(te.encode(":\n"));
+      const hbId = setInterval(heartbeat, 10000);
+
+      const finalize = async (status: "complete" | "failed", errorMessage?: string) => {
         try {
-          write({ type: "start", total: count });
+          await db.updateGeneration(generation.id, userId, {
+            status,
+            error_message: status === "failed" ? errorMessage ?? null : null
+          });
+        } catch (updateError) {
+          console.error('Failed to update generation status', updateError);
+        }
+      };
 
-          const CONCURRENCY = 3; // generous but bounded
-          for (let i = 0; i < count; i += CONCURRENCY) {
-            const batchSize = Math.min(CONCURRENCY, count - i);
-            const batch = Array.from({ length: batchSize }, async () => {
-              const json = await callGeminiGenerate(apiKey, model, reqParts);
-              const cand = json?.candidates?.[0];
-              const parts = cand?.content?.parts ?? [];
-              const imgs: string[] = [];
-              for (const p of parts) {
-                if (p?.inlineData?.data && p?.inlineData?.mimeType) {
-                  const { data, mimeType } = p.inlineData;
-                  imgs.push(`data:${mimeType};base64,${data}`);
-                }
-              }
-              return imgs;
-            });
+      try {
+        write({ type: "start", total: count, generationId: generation.id });
 
-            const settled = await Promise.allSettled(batch);
-            for (const s of settled) {
-              if (s.status === "fulfilled") {
-                const imgs = s.value;
-                // Emit each image as it becomes available
-                for (const dataUrl of imgs) {
-                  write({ type: "image", index: idx++, dataUrl });
-                }
-                doneVariants += 1;
-                write({ type: "progress", done: doneVariants, total: count });
-              } else {
-                // Emit error for this variant but continue
-                write({ type: "variant_error", error: String(s.reason || "unknown") });
-                doneVariants += 1;
-                write({ type: "progress", done: doneVariants, total: count });
+        const CONCURRENCY = 3;
+        for (let i = 0; i < count; i += CONCURRENCY) {
+          const batchSize = Math.min(CONCURRENCY, count - i);
+          const batch = Array.from({ length: batchSize }, async () => {
+            const json = await callGeminiGenerate(apiKey, model, reqParts);
+            const cand = json?.candidates?.[0];
+            const parts = cand?.content?.parts ?? [];
+            const imgs: string[] = [];
+            for (const p of parts) {
+              if (p?.inlineData?.data && p?.inlineData?.mimeType) {
+                const { data, mimeType } = p.inlineData;
+                imgs.push(`data:${mimeType};base64,${data}`);
               }
             }
+            return imgs;
+          });
+
+          const settled = await Promise.allSettled(batch);
+          for (const s of settled) {
+            if (s.status === "fulfilled") {
+              const imgs = s.value;
+              const outputsToPersist: Array<{
+                variant_index: number;
+                r2_key: string;
+                mime_type: string;
+                size_bytes: number;
+                hash?: string;
+              }> = [];
+              const pendingMessages: Array<{
+                dataUrl: string;
+                variantIndex: number;
+                storageKey: string;
+                mimeType: string;
+              }> = [];
+
+              for (const dataUrl of imgs) {
+                const variantIndex = outputIndex++;
+                try {
+                  const storageResult = await r2.saveGenerationOutputFromDataUrl(
+                    userId,
+                    generation.id,
+                    variantIndex,
+                    dataUrl
+                  );
+                  outputsToPersist.push({
+                    variant_index: variantIndex,
+                    r2_key: storageResult.key,
+                    mime_type: storageResult.contentType,
+                    size_bytes: storageResult.sizeBytes,
+                    hash: storageResult.hash
+                  });
+                  pendingMessages.push({
+                    dataUrl,
+                    variantIndex,
+                    storageKey: storageResult.key,
+                    mimeType: storageResult.contentType
+                  });
+                } catch (storageError) {
+                  console.error('Failed to persist generation output', storageError);
+                  write({
+                    type: "variant_error",
+                    generationId: generation.id,
+                    variantIndex,
+                    error: storageError instanceof Error ? storageError.message : String(storageError)
+                  });
+                }
+              }
+
+              const persistedOutputs =
+                outputsToPersist.length > 0
+                  ? await db.addGenerationOutputs(generation.id, outputsToPersist)
+                  : [];
+
+              pendingMessages.forEach((pending, index) => {
+                const persisted = persistedOutputs[index];
+                write({
+                  type: "image",
+                  generationId: generation.id,
+                  index: pending.variantIndex,
+                  dataUrl: pending.dataUrl,
+                  outputId: persisted?.id,
+                  storageKey: pending.storageKey,
+                  mimeType: pending.mimeType
+                });
+              });
+
+              doneVariants += 1;
+              write({ type: "progress", generationId: generation.id, done: doneVariants, total: count });
+            } else {
+              doneVariants += 1;
+              write({
+                type: "variant_error",
+                generationId: generation.id,
+                error: String(s.reason || "unknown")
+              });
+              write({ type: "progress", generationId: generation.id, done: doneVariants, total: count });
+            }
           }
-
-          // Track credits after success (best-effort)
-          try { await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count }); } catch {}
-
-          write({ type: "done" });
-          clearInterval(hbId);
-          controller.close();
-        } catch (err: any) {
-          clearInterval(hbId);
-          write({ type: "error", message: err?.message || "Unknown error" });
-          controller.close();
         }
+
+        try {
+          await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+        } catch (trackError) {
+          console.warn('Failed to track credit usage', trackError);
+        }
+
+        await finalize("complete");
+        write({ type: "done", generationId: generation.id });
+        clearInterval(hbId);
+        controller.close();
+      } catch (err: any) {
+        clearInterval(hbId);
+        const message = err?.message || "Unknown error";
+        await finalize("failed", message);
+        write({ type: "error", generationId: generation.id, message });
+        controller.close();
       }
-    });
+    }
+  });
 
   return new Response(stream, {
     headers: {

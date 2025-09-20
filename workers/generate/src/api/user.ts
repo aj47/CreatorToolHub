@@ -70,17 +70,27 @@ export class UserAPI {
       } else if (path === '/api/user/templates') {
         return this.handleTemplates(request, userId, method);
       } else if (path.startsWith('/api/user/templates/')) {
-        const templateId = path.split('/')[4];
+        const segments = path.split('/');
+        const templateId = segments[4];
         return this.handleTemplate(request, userId, templateId, method);
-      } else if (path === '/api/user/images') {
-        return this.handleImages(request, userId, method);
-      } else if (path.startsWith('/api/user/images/')) {
-        const imageId = path.split('/')[4];
-        return this.handleImage(request, userId, imageId, method);
+      } else if (path === '/api/user/generations') {
+        return this.handleGenerations(request, userId, method);
+      } else if (path.startsWith('/api/user/generations/')) {
+        const segments = path.split('/');
+        const generationId = segments[4];
+        const subresource = segments[5];
+        if (!generationId) {
+          return new Response(JSON.stringify({ error: "Generation ID is required" }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        if (subresource === 'outputs') {
+          return this.handleGenerationOutputs(request, userId, generationId, method);
+        }
+        return this.handleGenerationDetail(request, userId, generationId, method);
       } else if (path === '/api/user/settings') {
         return this.handleSettings(request, userId, method);
-      } else if (path === '/api/user/migrate') {
-        return this.handleMigration(request, userId, method);
       }
 
       return new Response(JSON.stringify({ error: "Not found" }), { 
@@ -220,64 +230,40 @@ export class UserAPI {
     });
   }
 
-  private async handleImages(request: Request, userId: string, method: string): Promise<Response> {
+  private async handleGenerations(request: Request, userId: string, method: string): Promise<Response> {
     if (method === 'GET') {
       const url = new URL(request.url);
-      const imageType = url.searchParams.get('type') as 'frame' | 'reference' | null;
-
-      const images = await this.db.getUserImages(userId, imageType || undefined);
-
-      // Generate signed URLs
-      for (const img of images) {
-        img.url = await this.r2.getSignedUrl(img.r2_key);
+      const limitParam = url.searchParams.get('limit');
+      const before = url.searchParams.get('before') || undefined;
+      let limit = 20;
+      if (limitParam) {
+        const parsed = parseInt(limitParam, 10);
+        if (!Number.isNaN(parsed)) {
+          limit = Math.max(1, Math.min(parsed, 50));
+        }
       }
 
-      return new Response(JSON.stringify(images), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+      const generations = await this.db.getGenerations(userId, { limit, before });
 
-    if (method === 'POST') {
-      const formData = await request.formData();
-      const file = formData.get('file') as File;
-      const imageType = formData.get('image_type') as 'frame' | 'reference';
+      const generationsWithOutputs = await Promise.all(
+        generations.map(async (generation) => {
+          const outputs = await this.db.getGenerationOutputs(generation.id);
+          const outputsWithUrls = await Promise.all(
+            outputs.map(async (output) => ({
+              ...output,
+              url: await this.r2.getSignedUrl(output.r2_key)
+            }))
+          );
 
-      if (!file || !imageType) {
-        return new Response(JSON.stringify({ error: "File and image_type are required" }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Check for duplicate by hash
-      const buffer = await file.arrayBuffer();
-      const hash = await this.calculateFileHash(buffer);
-      const existing = await this.db.findImageByHash(userId, hash);
-
-      if (existing) {
-        // Return existing image
-        existing.url = await this.r2.getSignedUrl(existing.r2_key);
-        return new Response(JSON.stringify(existing), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Upload new file
-      const { key } = await this.r2.uploadFile(userId, file, 'image', imageType);
-      const image = await this.db.createUserImage(
-        userId,
-        file.name,
-        file.type,
-        file.size,
-        key,
-        imageType,
-        hash
+          return {
+            ...generation,
+            preview_url: outputsWithUrls[0]?.url || null,
+            outputs: outputsWithUrls
+          };
+        })
       );
 
-      image.url = await this.r2.getSignedUrl(key);
-
-      return new Response(JSON.stringify(image), {
-        status: 201,
+      return new Response(JSON.stringify(generationsWithOutputs), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -288,19 +274,101 @@ export class UserAPI {
     });
   }
 
-  private async handleImage(request: Request, userId: string, imageId: string, method: string): Promise<Response> {
-    if (method === 'DELETE') {
-      const r2Key = await this.db.deleteUserImage(imageId, userId);
-      if (!r2Key) {
-        return new Response(JSON.stringify({ error: "Image not found" }), {
+  private async handleGenerationDetail(
+    request: Request,
+    userId: string,
+    generationId: string,
+    method: string
+  ): Promise<Response> {
+    if (method === 'GET') {
+      const generation = await this.db.getGeneration(generationId, userId);
+      if (!generation) {
+        return new Response(JSON.stringify({ error: "Generation not found" }), {
           status: 404,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      await this.r2.deleteFile(r2Key);
+      const [outputs, inputs] = await Promise.all([
+        this.db.getGenerationOutputs(generationId),
+        this.db.getGenerationInputs(generationId)
+      ]);
+
+      const outputsWithUrls = await Promise.all(
+        outputs.map(async (output) => ({
+          ...output,
+          url: await this.r2.getSignedUrl(output.r2_key)
+        }))
+      );
+
+      return new Response(JSON.stringify({
+        ...generation,
+        outputs: outputsWithUrls,
+        inputs
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (method === 'DELETE') {
+      const outputs = await this.db.getGenerationOutputs(generationId);
+      await Promise.all(
+        outputs.map(async (output) => {
+          try {
+            await this.r2.deleteFile(output.r2_key);
+          } catch (error) {
+            console.warn('Failed to delete generation output from R2', {
+              generationId,
+              key: output.r2_key,
+              error
+            });
+          }
+        })
+      );
+
+      const deleted = await this.db.deleteGeneration(generationId, userId);
+      if (!deleted) {
+        return new Response(JSON.stringify({ error: "Generation not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  private async handleGenerationOutputs(
+    request: Request,
+    userId: string,
+    generationId: string,
+    method: string
+  ): Promise<Response> {
+    if (method === 'GET') {
+      const generation = await this.db.getGeneration(generationId, userId);
+      if (!generation) {
+        return new Response(JSON.stringify({ error: "Generation not found" }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const outputs = await this.db.getGenerationOutputs(generationId);
+      const outputsWithUrls = await Promise.all(
+        outputs.map(async (output) => ({
+          ...output,
+          url: await this.r2.getSignedUrl(output.r2_key)
+        }))
+      );
+
+      return new Response(JSON.stringify(outputsWithUrls), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -338,129 +406,5 @@ export class UserAPI {
       status: 405,
       headers: { 'Content-Type': 'application/json' }
     });
-  }
-
-  private async handleMigration(request: Request, userId: string, method: string): Promise<Response> {
-    if (method !== 'POST') {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const data = await request.json();
-    const { templates, frames, refFrames, settings } = data;
-
-    const results = {
-      templates: 0,
-      frames: 0,
-      refFrames: 0,
-      settings: false,
-      errors: [] as string[]
-    };
-
-    try {
-      // Migrate templates
-      if (templates && typeof templates === 'object') {
-        for (const [id, template] of Object.entries(templates)) {
-          try {
-            const t = template as any;
-            await this.db.createTemplate(userId, t.title || 'Migrated Template', t.prompt || '', t.colors || []);
-            results.templates++;
-          } catch (error) {
-            results.errors.push(`Template ${id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-        }
-      }
-
-      // Migrate frames
-      if (Array.isArray(frames)) {
-        for (const frame of frames) {
-          try {
-            if (frame.dataUrl) {
-              const { key, hash } = await this.r2.uploadFromDataUrl(
-                userId,
-                frame.dataUrl,
-                frame.filename || 'migrated-frame.jpg',
-                'image',
-                'frame'
-              );
-              await this.db.createUserImage(
-                userId,
-                frame.filename || 'migrated-frame.jpg',
-                'image/jpeg',
-                0, // Size unknown from dataUrl
-                key,
-                'frame',
-                hash
-              );
-              results.frames++;
-            }
-          } catch (error) {
-            results.errors.push(`Frame: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-        }
-      }
-
-      // Migrate reference frames
-      if (Array.isArray(refFrames)) {
-        for (const frame of refFrames) {
-          try {
-            if (frame.dataUrl) {
-              const { key, hash } = await this.r2.uploadFromDataUrl(
-                userId,
-                frame.dataUrl,
-                frame.filename || 'migrated-ref.jpg',
-                'image',
-                'reference'
-              );
-              await this.db.createUserImage(
-                userId,
-                frame.filename || 'migrated-ref.jpg',
-                'image/jpeg',
-                0,
-                key,
-                'reference',
-                hash
-              );
-              results.refFrames++;
-            }
-          } catch (error) {
-            results.errors.push(`Reference frame: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
-        }
-      }
-
-      // Migrate settings
-      if (settings && typeof settings === 'object') {
-        try {
-          await this.db.createOrUpdateSettings(
-            userId,
-            settings.favorites || {},
-            settings.show_only_favs || false
-          );
-          results.settings = true;
-        } catch (error) {
-          results.errors.push(`Settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
-
-      return new Response(JSON.stringify(results), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error) {
-      return new Response(JSON.stringify({
-        error: error instanceof Error ? error.message : "Migration failed"
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-  }
-
-  private async calculateFileHash(content: ArrayBuffer): Promise<string> {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', content);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }

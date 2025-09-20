@@ -31,17 +31,45 @@ export interface ReferenceImage {
   url?: string; // Generated signed URL for frontend
 }
 
-export interface UserImage {
+export type GenerationStatus = 'pending' | 'running' | 'complete' | 'failed' | 'archived';
+
+export interface Generation {
   id: string;
   user_id: string;
-  filename: string;
-  content_type: string;
-  size_bytes: number;
+  template_id?: string;
+  prompt: string;
+  variants_requested: number;
+  status: GenerationStatus;
+  source?: string;
+  parent_generation_id?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerationOutput {
+  id: string;
+  generation_id: string;
+  variant_index: number;
   r2_key: string;
-  image_type: 'frame' | 'reference';
+  mime_type: string;
+  width?: number;
+  height?: number;
+  size_bytes?: number;
   hash?: string;
   created_at: string;
   url?: string; // Generated signed URL for frontend
+}
+
+export interface GenerationInput {
+  id: string;
+  generation_id: string;
+  input_type: string;
+  source_id?: string;
+  r2_key?: string;
+  hash?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
 }
 
 export interface UserSettings {
@@ -66,9 +94,31 @@ export interface UpdateTemplateRequest {
   colors?: string[];
 }
 
-export interface UploadImageRequest {
-  image_type: 'frame' | 'reference';
-  file: File;
+export interface CreateGenerationRequest {
+  template_id?: string;
+  prompt: string;
+  variants_requested?: number;
+  source?: string;
+  parent_generation_id?: string;
+  inputs?: Array<{
+    input_type: string;
+    source_id?: string;
+    r2_key?: string;
+    hash?: string;
+    metadata?: Record<string, any>;
+  }>;
+}
+
+export interface RecordGenerationOutputsRequest {
+  outputs: Array<{
+    variant_index: number;
+    r2_key: string;
+    mime_type: string;
+    width?: number;
+    height?: number;
+    size_bytes?: number;
+    hash?: string;
+  }>;
 }
 
 export interface UpdateSettingsRequest {
@@ -106,15 +156,41 @@ export interface ReferenceImageRow {
   created_at: string;
 }
 
-export interface UserImageRow {
+export interface GenerationRow {
   id: string;
   user_id: string;
-  filename: string;
-  content_type: string;
-  size_bytes: number;
+  template_id: string | null;
+  prompt: string;
+  variants_requested: number;
+  status: string;
+  source: string | null;
+  parent_generation_id: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerationOutputRow {
+  id: string;
+  generation_id: string;
+  variant_index: number;
   r2_key: string;
-  image_type: string;
+  mime_type: string;
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
   hash: string | null;
+  created_at: string;
+}
+
+export interface GenerationInputRow {
+  id: string;
+  generation_id: string;
+  input_type: string;
+  source_id: string | null;
+  r2_key: string | null;
+  hash: string | null;
+  metadata: string | null;
   created_at: string;
 }
 

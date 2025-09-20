@@ -5,83 +5,80 @@ export class R2StorageService {
   constructor(private r2: any) {}
 
   /**
-   * Upload a file to R2 storage
+   * Upload a template reference image to R2 storage
    */
-  async uploadFile(
-    userId: string, 
-    file: File, 
-    type: 'template' | 'image', 
-    subType?: string
-  ): Promise<{ key: string; hash: string }> {
-    // Validate file
+  async uploadTemplateReference(
+    userId: string,
+    templateId: string,
+    file: File
+  ): Promise<{ key: string; hash: string; sizeBytes: number }> {
     if (!isValidImageType(file.type)) {
       throw new Error(`Invalid file type: ${file.type}`);
     }
-    
+
     if (!isValidFileSize(file.size)) {
       throw new Error(`File too large: ${file.size} bytes`);
     }
-    
-    // Read file content
+
     const arrayBuffer = await file.arrayBuffer();
     const hash = await calculateFileHash(arrayBuffer);
-    
-    // Generate R2 key
-    const key = generateR2Key(userId, type, subType, file.name);
-    
-    // Upload to R2
+    const key = generateR2Key(userId, 'template-reference', {
+      templateId,
+      filename: file.name
+    });
+
     await this.r2.put(key, arrayBuffer, {
       httpMetadata: {
         contentType: file.type,
-        cacheControl: 'public, max-age=31536000', // 1 year
+        cacheControl: 'public, max-age=31536000'
       },
       customMetadata: {
         originalFilename: file.name,
         uploadedBy: userId,
-        hash: hash,
-      },
+        hash
+      }
     });
-    
-    return { key, hash };
+
+    return { key, hash, sizeBytes: arrayBuffer.byteLength };
   }
 
   /**
-   * Upload file from ArrayBuffer (for migration from base64)
+   * Upload template reference from ArrayBuffer (for migrations)
    */
-  async uploadFromBuffer(
+  async uploadTemplateReferenceFromBuffer(
     userId: string,
+    templateId: string,
     buffer: ArrayBuffer,
     filename: string,
-    contentType: string,
-    type: 'template' | 'image',
-    subType?: string
-  ): Promise<{ key: string; hash: string }> {
-    // Validate
+    contentType: string
+  ): Promise<{ key: string; hash: string; sizeBytes: number }> {
     if (!isValidImageType(contentType)) {
       throw new Error(`Invalid content type: ${contentType}`);
     }
-    
+
     if (!isValidFileSize(buffer.byteLength)) {
       throw new Error(`File too large: ${buffer.byteLength} bytes`);
     }
-    
+
     const hash = await calculateFileHash(buffer);
-    const key = generateR2Key(userId, type, subType, filename);
-    
-    // Upload to R2
+    const key = generateR2Key(userId, 'template-reference', {
+      templateId,
+      filename
+    });
+
     await this.r2.put(key, buffer, {
       httpMetadata: {
-        contentType: contentType,
-        cacheControl: 'public, max-age=31536000',
+        contentType,
+        cacheControl: 'public, max-age=31536000'
       },
       customMetadata: {
         originalFilename: filename,
         uploadedBy: userId,
-        hash: hash,
-      },
+        hash
+      }
     });
-    
-    return { key, hash };
+
+    return { key, hash, sizeBytes: buffer.byteLength };
   }
 
   /**
@@ -172,32 +169,91 @@ export class R2StorageService {
   }
 
   /**
-   * Convert base64 data URL to file and upload
+   * Upload template reference provided as a data URL
    */
-  async uploadFromDataUrl(
+  async uploadTemplateReferenceFromDataUrl(
     userId: string,
+    templateId: string,
     dataUrl: string,
-    filename: string,
-    type: 'template' | 'image',
-    subType?: string
-  ): Promise<{ key: string; hash: string }> {
-    // Parse data URL
+    filename: string
+  ): Promise<{ key: string; hash: string; sizeBytes: number; contentType: string }> {
+    const { buffer, contentType } = this.decodeDataUrl(dataUrl);
+    const result = await this.uploadTemplateReferenceFromBuffer(
+      userId,
+      templateId,
+      buffer,
+      filename,
+      contentType
+    );
+
+    return { ...result, contentType };
+  }
+
+  /**
+   * Persist generation output image to R2
+   */
+  async saveGenerationOutputFromDataUrl(
+    userId: string,
+    generationId: string,
+    variantIndex: number,
+    dataUrl: string
+  ): Promise<{ key: string; hash: string; sizeBytes: number; contentType: string }> {
+    const { buffer, contentType } = this.decodeDataUrl(dataUrl);
+
+    if (!isValidImageType(contentType)) {
+      throw new Error(`Invalid generation output content type: ${contentType}`);
+    }
+
+    if (!isValidFileSize(buffer.byteLength)) {
+      throw new Error(`Generated image too large: ${buffer.byteLength} bytes`);
+    }
+
+    const hash = await calculateFileHash(buffer);
+    const key = generateR2Key(userId, 'generation-output', {
+      generationId,
+      variantIndex,
+      extension: this.extensionFromContentType(contentType)
+    });
+
+    await this.r2.put(key, buffer, {
+      httpMetadata: {
+        contentType,
+        cacheControl: 'public, max-age=31536000'
+      },
+      customMetadata: {
+        uploadedBy: userId,
+        generationId,
+        hash,
+        variantIndex: String(variantIndex)
+      }
+    });
+
+    return { key, hash, sizeBytes: buffer.byteLength, contentType };
+  }
+
+  private decodeDataUrl(dataUrl: string): { buffer: ArrayBuffer; contentType: string } {
     const [header, base64Data] = dataUrl.split(',');
     if (!header || !base64Data) {
       throw new Error('Invalid data URL format');
     }
-    
-    // Extract content type
+
     const contentTypeMatch = header.match(/data:([^;]+)/);
     const contentType = contentTypeMatch ? contentTypeMatch[1] : 'application/octet-stream';
-    
-    // Convert base64 to ArrayBuffer
+
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
-    
-    return await this.uploadFromBuffer(userId, bytes.buffer, filename, contentType, type, subType);
+
+    return { buffer: bytes.buffer, contentType };
+  }
+
+  private extensionFromContentType(contentType: string): string {
+    const parts = contentType.split('/');
+    if (parts.length === 2) {
+      return parts[1];
+    }
+    return 'bin';
   }
 }
