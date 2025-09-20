@@ -42,7 +42,6 @@ async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: s
     // Convert SVG to base64
     const mockImageBase64 = Buffer.from(mockImageSvg).toString('base64');
 
-    console.log(`Created mock refined image with color #${color} for feedback: "${feedbackPrompt}"`);
     return mockImageBase64;
 
   } catch (error) {
@@ -205,12 +204,7 @@ REFINEMENT REQUEST: ${feedbackPrompt}
 
 Please apply the refinement request to modify the image while maintaining the overall style and composition from the original prompt.`;
 
-    // Debug: Log the baseImageData to see what we're receiving
-    console.log("Received baseImageData type:", typeof baseImageData);
-    console.log("Received baseImageData length:", baseImageData?.length || 0);
-    console.log("Received baseImageData starts with:", baseImageData?.substring(0, 50) || "undefined");
-    console.log("API Key:", apiKey);
-    console.log("API Key comparison:", apiKey === 'placeholder-for-testing');
+
 
     // Check if we're in development mode - use mock for testing UI flow
     let refinedImageBase64: string;
@@ -219,12 +213,10 @@ Please apply the refinement request to modify the image while maintaining the ov
     const isDevelopment = apiKey === 'placeholder-for-testing';
 
     if (isDevelopment) {
-      console.log("Development mode: Using mock refinement response");
       // In development mode, create a mock refined image by applying a simple visual modification
       // This simulates the refinement process for UI testing
       refinedImageBase64 = await createMockRefinedImage(baseImageData, feedbackPrompt);
     } else {
-      console.log("Production mode: Using real Gemini API");
       // Generate refined image using real Gemini API
       refinedImageBase64 = await refineImageWithGemini(
         apiKey,

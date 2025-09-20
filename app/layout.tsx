@@ -51,13 +51,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {isDevelopment ? (
-          <div>{content}</div>
-        ) : (
-          <AutumnProvider includeCredentials={true}>
-            {content}
-          </AutumnProvider>
-        )}
+        <AutumnProvider includeCredentials={true}>
+          {content}
+        </AutumnProvider>
       </body>
     </html>
   );
