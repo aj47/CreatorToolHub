@@ -170,7 +170,7 @@ export async function POST(req: Request) {
         allowed = !!checkRes?.data?.allowed;
         
         // Get current balance for response
-        if (checkRes?.data?.balance !== undefined) {
+        if (checkRes?.data?.balance !== undefined && checkRes.data.balance !== null) {
           creditsRemaining = checkRes.data.balance;
         }
       } catch (e) {

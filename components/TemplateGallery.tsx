@@ -289,7 +289,7 @@ export default function TemplateGallery(props: {
         </label>
       </div>
       <p style={{ margin: 0, fontSize: 12, opacity: 0.7 }}>
-        Reference templates (marked "Ref:") use example images for style/layout guidance only - your subjects will replace any people/objects in the references. Built-in templates work without references. Use Favorites to curate your preferred styles.
+        Reference templates (marked &quot;Ref:&quot;) use example images for style/layout guidance only - your subjects will replace any people/objects in the references. Built-in templates work without references. Use Favorites to curate your preferred styles.
       </p>
       {/* Container height set to 1.1x card height (~256px per card = ~282px for 1.1 cards) */}
       <div style={{ maxHeight: 282, overflowY: "auto" }}>
