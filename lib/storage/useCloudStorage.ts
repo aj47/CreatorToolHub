@@ -42,8 +42,8 @@ export interface UseCloudStorageReturn {
 }
 
 export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudStorageReturn {
-  const { autoSync = true, syncInterval = 30000 } = options;
-  
+  const { autoSync = true, syncInterval = 60000 } = options; // Increased from 30s to 60s
+
   const [storage] = useState(() => new CloudStorageService());
   const [templates, setTemplates] = useState<CloudTemplate[]>([]);
   const [frames, setFrames] = useState<CloudUserImage[]>([]);
@@ -53,15 +53,46 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
   const [isOnline, setIsOnline] = useState(true);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [requestCount, setRequestCount] = useState(0);
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+
+  // Request throttling to prevent overwhelming the worker
+  const shouldThrottleRequest = useCallback(() => {
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+
+    // If less than 1 second since last request, throttle
+    if (timeSinceLastRequest < 1000) {
+      setRequestCount(prev => prev + 1);
+      // If more than 5 requests in quick succession, throttle more aggressively
+      if (requestCount > 5) {
+        return timeSinceLastRequest < 5000; // 5 second throttle
+      }
+      return true;
+    }
+
+    // Reset request count if enough time has passed
+    setRequestCount(0);
+    setLastRequestTime(now);
+    return false;
+  }, [requestCount, lastRequestTime]);
 
   // Error handling
   const handleError = useCallback((error: any, operation: string) => {
     console.error(`Cloud storage error (${operation}):`, error);
     setError(error instanceof Error ? error.message : `Failed to ${operation}`);
-    
-    // Check if it's a network error
+
+    // Check if it's a network error or resource exhaustion
     if (error instanceof TypeError && error.message.includes('fetch')) {
       setIsOnline(false);
+    }
+
+    // If we get connection errors, back off for a while
+    if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES') ||
+        error.message?.includes('ERR_CONNECTION_CLOSED')) {
+      setIsOnline(false);
+      // Re-enable after 30 seconds
+      setTimeout(() => setIsOnline(true), 30000);
     }
   }, []);
 
@@ -114,6 +145,10 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
   }, [storage, handleError]);
 
   const refreshTemplates = useCallback(async (): Promise<void> => {
+    if (shouldThrottleRequest()) {
+      return; // Skip this request due to throttling
+    }
+
     try {
       setIsLoading(true);
       const templates = await storage.getTemplates();
@@ -124,7 +159,7 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     } finally {
       setIsLoading(false);
     }
-  }, [storage, handleError]);
+  }, [storage, handleError, shouldThrottleRequest]);
 
   // Image operations
   const uploadFrame = useCallback(async (file: File): Promise<CloudUserImage> => {
@@ -186,6 +221,10 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
   }, [storage, handleError]);
 
   const refreshImages = useCallback(async (): Promise<void> => {
+    if (shouldThrottleRequest()) {
+      return; // Skip this request due to throttling
+    }
+
     try {
       setIsLoading(true);
       const [frameImages, refImages] = await Promise.all([
@@ -200,7 +239,7 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     } finally {
       setIsLoading(false);
     }
-  }, [storage, handleError]);
+  }, [storage, handleError, shouldThrottleRequest]);
 
   // Settings operations
   const updateSettings = useCallback(async (updates: Partial<CloudSettings>): Promise<void> => {
@@ -218,6 +257,10 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
   }, [storage, handleError]);
 
   const refreshSettings = useCallback(async (): Promise<void> => {
+    if (shouldThrottleRequest()) {
+      return; // Skip this request due to throttling
+    }
+
     try {
       const settings = await storage.getSettings();
       setSettings(settings);
@@ -225,7 +268,7 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     } catch (error) {
       handleError(error, 'refresh settings');
     }
-  }, [storage, handleError]);
+  }, [storage, handleError, shouldThrottleRequest]);
 
   // Migration
   const migrateFromLocalStorage = useCallback(async (data: any): Promise<void> => {
@@ -272,28 +315,33 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
     }
   }, [refreshTemplates, refreshImages, refreshSettings, handleError]);
 
-  // Initial load and auto-sync
+  // Initial load and auto-sync - disabled in production
   useEffect(() => {
-    syncAll();
+    // Only sync in development mode
+    if (process.env.NODE_ENV === 'development') {
+      syncAll();
+    }
   }, []);
 
   useEffect(() => {
-    if (!autoSync) return;
+    // Auto-sync disabled in production until worker issues are resolved
+    if (process.env.NODE_ENV === 'development' && autoSync) {
+      const interval = setInterval(() => {
+        if (isOnline && !isLoading) {
+          syncAll();
+        }
+      }, syncInterval);
 
-    const interval = setInterval(() => {
-      if (isOnline && !isLoading) {
-        syncAll();
-      }
-    }, syncInterval);
-
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   }, [autoSync, syncInterval, isOnline, isLoading, syncAll]);
 
   // Online/offline detection
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      if (autoSync) {
+      // Auto-sync disabled in production
+      if (process.env.NODE_ENV === 'development' && autoSync) {
         syncAll();
       }
     };

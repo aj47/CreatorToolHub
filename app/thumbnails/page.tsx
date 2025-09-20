@@ -1212,7 +1212,7 @@ export default function Home() {
               <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} disabled={framesFull} />
               <span>Add Images</span>
             </label>
-            {(process.env.NODE_ENV !== "production" || (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname))) && (
+            {process.env.NODE_ENV === "development" && (
               <>
                 <button
                   type="button"

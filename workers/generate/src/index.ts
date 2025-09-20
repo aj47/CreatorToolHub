@@ -2,6 +2,13 @@ import { Autumn } from "autumn-js";
 import { DatabaseService } from "./storage/database";
 import { R2StorageService } from "./storage/r2";
 import { UserAPI } from "./api/user";
+import {
+  createDefaultMiddlewareStack,
+  createRouteHandler,
+  jsonResponse,
+  errorResponse,
+  AuthenticatedRequest
+} from "./middleware";
 
 export interface Env {
   GEMINI_API_KEY: string;
@@ -119,49 +126,92 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    // Preflight for CORS
-    if (request.method === "OPTIONS") {
-      return withCors(new Response(null, { status: 204 }), request, env);
-    }
-
-    // Handle user data API routes
-    if (url.pathname.startsWith("/api/user")) {
-      const db = new DatabaseService(env.DB);
-      const r2 = new R2StorageService(env.R2);
-      const userAPI = new UserAPI(db, r2, env);
-      const resp = await userAPI.handleRequest(request);
-      return withCors(resp, request, env);
-    }
-
-    // Handle generation route
-    if (url.pathname !== "/api/generate") {
-      return withCors(new Response("Not Found", { status: 404 }), request, env);
-    }
-    if (request.method === "GET") {
-      return withCors(Response.json({ status: "ok" }, { status: 200, headers: { "Cache-Control": "no-store" } }), request, env);
-    }
-    if (request.method !== "POST") {
-      return withCors(new Response("Method Not Allowed", { status: 405 }), request, env);
-    }
-
-    // Parse and validate early (before streaming)
-    let body: any;
     try {
-      body = await request.json();
-    } catch {
-      return withCors(Response.json({ error: "Invalid JSON" }, { status: 400 }), request, env);
-    }
-    const { prompt, frames = [], framesMime, variants } = body || {};
-    if (!prompt || !Array.isArray(frames) || frames.length === 0) {
-      return withCors(Response.json({ error: "Missing prompt or frames" }, { status: 400 }), request, env);
-    }
+      // Create middleware stack
+      const middlewareStack = createDefaultMiddlewareStack();
 
-    const apiKey = env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return withCors(Response.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 }), request, env);
+      // Add user API routes
+      middlewareStack.route('/api/user', createRouteHandler(async (req, env) => {
+        return await handleUserAPI(req, env);
+      }));
+
+      // Add generation route
+      middlewareStack.route('/api/generate', createRouteHandler(async (req, env) => {
+        return await handleGeneration(req, env);
+      }), ['POST']);
+
+      // Add health check route
+      middlewareStack.route('/api/health', createRouteHandler(async (req, env) => {
+        return jsonResponse({ status: 'healthy', timestamp: Date.now() });
+      }), ['GET']);
+
+      // Process request through middleware stack
+      return await middlewareStack.handle(request as AuthenticatedRequest, env);
+    } catch (error) {
+      console.error('Worker error:', error);
+      return errorResponse(
+        'Internal server error',
+        500,
+        'WORKER_ERROR',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
+  }
+};
+
+// Handler functions
+async function handleUserAPI(request: AuthenticatedRequest, env: Env): Promise<Response> {
+  // Validate environment bindings
+  if (!env.DB) {
+    console.error('Missing DB binding');
+    return errorResponse('Database not configured', 500, 'DB_NOT_CONFIGURED');
+  }
+
+  if (!env.R2) {
+    console.error('Missing R2 binding');
+    return errorResponse('Storage not configured', 500, 'R2_NOT_CONFIGURED');
+  }
+
+  try {
+    const db = new DatabaseService(env.DB);
+    const r2 = new R2StorageService(env.R2);
+    const userAPI = new UserAPI(db, r2, env);
+    return await userAPI.handleRequest(request);
+  } catch (error) {
+    console.error('User API error:', error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Internal server error",
+      500,
+      'USER_API_ERROR',
+      error instanceof Error ? error.stack : undefined
+    );
+  }
+}
+
+async function handleGeneration(request: AuthenticatedRequest, env: Env): Promise<Response> {
+  if (request.method === "GET") {
+    return jsonResponse({ status: "ok" }, 200, { "Cache-Control": "no-store" });
+  }
+  if (request.method !== "POST") {
+    return errorResponse("Method Not Allowed", 405, "METHOD_NOT_ALLOWED");
+  }
+
+  // Parse and validate early (before streaming)
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return errorResponse("Invalid JSON", 400, "INVALID_JSON");
+  }
+  const { prompt, frames = [], framesMime, variants } = body || {};
+  if (!prompt || !Array.isArray(frames) || frames.length === 0) {
+    return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
+  }
+
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return errorResponse("Missing GEMINI_API_KEY", 500, "MISSING_API_KEY");
+  }
     const model = env.MODEL_ID || DEFAULT_MODEL;
     const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
 
@@ -176,24 +226,26 @@ export default {
 
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
-    // Auth + credit gate before opening stream
-    const user = getUser(request);
-    if (!user) {
-      return withCors(Response.json({ error: "Unauthorized" }, { status: 401 }), request, env);
-    }
-    const FEATURE_ID = env.FEATURE_ID || "credits";
-    if (!env.AUTUMN_SECRET_KEY) {
-      return withCors(Response.json({ error: "Missing AUTUMN_SECRET_KEY" }, { status: 500 }), request, env);
-    }
-    const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
-    const customer_id = deriveCustomerId(user.email);
-    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
-    if (!checkRes?.data?.allowed) {
-      return withCors(Response.json(
-        { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
-        { status: 402 }
-      ), request, env);
-    }
+  // Auth + credit gate before opening stream
+  const user = request.user; // User is already attached by auth middleware
+  if (!user) {
+    return errorResponse("Unauthorized", 401, "UNAUTHORIZED");
+  }
+  const FEATURE_ID = env.FEATURE_ID || "credits";
+  if (!env.AUTUMN_SECRET_KEY) {
+    return errorResponse("Missing AUTUMN_SECRET_KEY", 500, "MISSING_AUTUMN_KEY");
+  }
+  const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
+  const customer_id = deriveCustomerId(user.email);
+  const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+  if (!checkRes?.data?.allowed) {
+    return errorResponse(
+      "Insufficient credits",
+      402,
+      "INSUFFICIENT_CREDITS",
+      { feature_id: FEATURE_ID, required: count }
+    );
+  }
 
     // Stream NDJSON with periodic heartbeats and incremental results
     const te = new TextEncoder();
@@ -258,14 +310,13 @@ export default {
       }
     });
 
-    return withCors(new Response(stream, {
-      headers: {
-        "Content-Type": "application/x-ndjson; charset=utf-8",
-        "Cache-Control": "no-store, no-transform",
-        // Disable some proxies buffering if present
-        "X-Accel-Buffering": "no"
-      }
-    }), request, env);
-  },
-};
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      // Disable some proxies buffering if present
+      "X-Accel-Buffering": "no"
+    }
+  });
+}
 

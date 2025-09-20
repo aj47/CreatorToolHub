@@ -1,0 +1,71 @@
+export const runtime = "edge";
+
+import { getAuthToken, createInvalidatedToken, createSignOutCookie } from "@/lib/auth";
+
+export async function POST(request: Request) {
+  try {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const nextAuthUrl = process.env.NEXTAUTH_URL || '/';
+    
+    // Get current token to invalidate it
+    const token = getAuthToken(request);
+    
+    if (token) {
+      // Create an invalidated version of the token
+      const invalidatedToken = createInvalidatedToken(token);
+      
+      // Set the invalidated token as a cookie (this marks it as signed out)
+      const invalidatedCookie = `auth-token=${invalidatedToken}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=86400`;
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Signed out successfully' 
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Set-Cookie': invalidatedCookie,
+        },
+      });
+    } else {
+      // No token found, but still return success
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Already signed out' 
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Sign out error:', error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: 'Sign out failed' 
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
+
+// Also handle GET requests for backward compatibility
+export async function GET(request: Request) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const nextAuthUrl = process.env.NEXTAUTH_URL || '/';
+  
+  // Clear the auth cookie and redirect
+  const signOutCookie = createSignOutCookie(isProduction);
+  
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location': nextAuthUrl,
+      'Set-Cookie': signOutCookie,
+    },
+  });
+}
