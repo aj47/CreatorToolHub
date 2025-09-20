@@ -142,6 +142,11 @@ export default function Home() {
   const [profile, setProfile] = useState<string>("");
   const isAuthed = !!user; // User is authenticated if user object exists
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Debug logging for selectedIds state
+  useEffect(() => {
+    console.log('selectedIds state changed:', selectedIds, 'length:', selectedIds.length);
+  }, [selectedIds]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
