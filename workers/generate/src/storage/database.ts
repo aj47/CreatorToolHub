@@ -34,22 +34,34 @@ export class DatabaseService {
   async createOrUpdateUser(email: string, name?: string, picture?: string): Promise<User> {
     const userId = deriveUserId(email);
     const now = getCurrentTimestamp();
-    
+
     // Try to update first, then insert if not exists
     const updateResult = await this.db.prepare(`
-      UPDATE users 
+      UPDATE users
       SET name = ?, picture = ?, updated_at = ?
       WHERE id = ?
     `).bind(name || null, picture || null, now, userId).run();
-    
+
     if (updateResult.changes === 0) {
       // User doesn't exist, create new
-      await this.db.prepare(`
-        INSERT INTO users (id, email, name, picture, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).bind(userId, email, name || null, picture || null, now, now).run();
+      try {
+        await this.db.prepare(`
+          INSERT INTO users (id, email, name, picture, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(userId, email, name || null, picture || null, now, now).run();
+      } catch (error: any) {
+        // Handle race condition where user was created between UPDATE and INSERT
+        if (error?.message?.includes('UNIQUE constraint failed')) {
+          console.log(`User ${userId} already exists, continuing...`);
+        } else {
+          throw error;
+        }
+      }
     }
-    
+
+    // Verify user exists after creation/update (handle D1 eventual consistency)
+    await this.ensureUserExists(userId, email, name, picture);
+
     return {
       id: userId,
       email,
@@ -58,6 +70,36 @@ export class DatabaseService {
       created_at: now,
       updated_at: now
     };
+  }
+
+  /**
+   * Ensure user exists in database with retry logic for D1 eventual consistency
+   */
+  private async ensureUserExists(userId: string, email: string, name?: string, picture?: string, maxRetries: number = 3): Promise<void> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const user = await this.getUser(userId);
+      if (user) {
+        return; // User exists, we're good
+      }
+
+      if (attempt === maxRetries) {
+        // Final attempt - try to create user one more time
+        try {
+          const now = getCurrentTimestamp();
+          await this.db.prepare(`
+            INSERT OR IGNORE INTO users (id, email, name, picture, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).bind(userId, email, name || null, picture || null, now, now).run();
+        } catch (error) {
+          console.error(`Failed to ensure user ${userId} exists after ${maxRetries} attempts:`, error);
+          throw new Error(`User creation failed after ${maxRetries} attempts. This may be due to database consistency issues.`);
+        }
+      } else {
+        // Wait before retry (exponential backoff)
+        const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000); // 100ms, 200ms, 400ms, max 1s
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
   }
 
   async getUser(userId: string): Promise<User | null> {
@@ -81,12 +123,20 @@ export class DatabaseService {
   async createTemplate(userId: string, title: string, prompt: string, colors: string[]): Promise<UserTemplate> {
     const templateId = generateUUID();
     const now = getCurrentTimestamp();
-    
-    await this.db.prepare(`
-      INSERT INTO user_templates (id, user_id, title, prompt, colors, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(templateId, userId, title, prompt, JSON.stringify(colors), now, now).run();
-    
+
+    try {
+      await this.db.prepare(`
+        INSERT INTO user_templates (id, user_id, title, prompt, colors, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(templateId, userId, title, prompt, JSON.stringify(colors), now, now).run();
+    } catch (error: any) {
+      // Handle foreign key constraint errors
+      if (error?.message?.includes('FOREIGN KEY constraint failed')) {
+        throw new Error(`User with ID ${userId} not found`);
+      }
+      throw error;
+    }
+
     return {
       id: templateId,
       user_id: userId,
@@ -163,12 +213,20 @@ export class DatabaseService {
   async createReferenceImage(templateId: string, filename: string, contentType: string, sizeBytes: number, r2Key: string): Promise<ReferenceImage> {
     const imageId = generateUUID();
     const now = getCurrentTimestamp();
-    
-    await this.db.prepare(`
-      INSERT INTO reference_images (id, template_id, filename, content_type, size_bytes, r2_key, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(imageId, templateId, filename, contentType, sizeBytes, r2Key, now).run();
-    
+
+    try {
+      await this.db.prepare(`
+        INSERT INTO reference_images (id, template_id, filename, content_type, size_bytes, r2_key, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(imageId, templateId, filename, contentType, sizeBytes, r2Key, now).run();
+    } catch (error: any) {
+      // Handle foreign key constraint errors
+      if (error?.message?.includes('FOREIGN KEY constraint failed')) {
+        throw new Error(`Template with ID ${templateId} not found`);
+      }
+      throw error;
+    }
+
     return {
       id: imageId,
       template_id: templateId,
@@ -230,21 +288,62 @@ export class DatabaseService {
     const status = params.status || 'pending';
     const variantsRequested = params.variantsRequested ?? 1;
 
-    await this.db.prepare(`
-      INSERT INTO generations (id, user_id, template_id, prompt, variants_requested, status, source, parent_generation_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(
-      generationId,
-      userId,
-      params.templateId || null,
-      params.prompt,
-      variantsRequested,
-      status,
-      params.source || null,
-      params.parentGenerationId || null,
-      now,
-      now
-    ).run();
+    // Retry logic for D1 eventual consistency
+    let lastError: any = null;
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.db.prepare(`
+          INSERT INTO generations (id, user_id, template_id, prompt, variants_requested, status, source, parent_generation_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          generationId,
+          userId,
+          params.templateId || null,
+          params.prompt,
+          variantsRequested,
+          status,
+          params.source || null,
+          params.parentGenerationId || null,
+          now,
+          now
+        ).run();
+
+        // Success - break out of retry loop
+        break;
+
+      } catch (error: any) {
+        lastError = error;
+
+        // Handle foreign key constraint errors
+        if (error?.message?.includes('FOREIGN KEY constraint failed')) {
+          if (params.templateId) {
+            // Template not found - don't retry
+            throw new Error(`Template with ID ${params.templateId} not found or access denied`);
+          }
+          if (params.parentGenerationId) {
+            // Parent generation not found - don't retry
+            throw new Error(`Parent generation with ID ${params.parentGenerationId} not found or access denied`);
+          }
+
+          // User not found - might be eventual consistency issue
+          if (attempt < maxRetries) {
+            console.log(`Attempt ${attempt}: User ${userId} not found, retrying...`);
+            // Wait before retry (exponential backoff)
+            const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          } else {
+            // Final attempt failed
+            throw new Error(`User with ID ${userId} not found`);
+          }
+        }
+
+        // Other errors - don't retry
+        throw error;
+      }
+    }
 
     const row = await this.db.prepare(`
       SELECT * FROM generations WHERE id = ?
@@ -515,16 +614,24 @@ export class DatabaseService {
 
     if (updateResult.changes === 0) {
       // Settings don't exist, create new
-      await this.db.prepare(`
-        INSERT INTO user_settings (user_id, favorites, show_only_favs, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).bind(
-        userId,
-        JSON.stringify(favorites || {}),
-        showOnlyFavs ? 1 : 0,
-        now,
-        now
-      ).run();
+      try {
+        await this.db.prepare(`
+          INSERT INTO user_settings (user_id, favorites, show_only_favs, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(
+          userId,
+          JSON.stringify(favorites || {}),
+          showOnlyFavs ? 1 : 0,
+          now,
+          now
+        ).run();
+      } catch (error: any) {
+        // Handle foreign key constraint errors
+        if (error?.message?.includes('FOREIGN KEY constraint failed')) {
+          throw new Error(`User with ID ${userId} not found`);
+        }
+        throw error;
+      }
     }
 
     return {

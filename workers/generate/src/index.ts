@@ -245,7 +245,18 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   const db = new DatabaseService(env.DB);
   const r2 = new R2StorageService(env.R2);
 
-  await db.createOrUpdateUser(user.email, user.name, user.picture);
+  // Ensure user exists in database before proceeding
+  try {
+    await db.createOrUpdateUser(user.email, user.name, user.picture);
+  } catch (error) {
+    console.error('Failed to create/update user:', error);
+    return errorResponse(
+      "Failed to initialize user account",
+      500,
+      "USER_CREATION_FAILED",
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
 
   const FEATURE_ID = env.FEATURE_ID || "credits";
   if (!env.AUTUMN_SECRET_KEY) {
@@ -273,14 +284,52 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   }
   reqParts.push({ text: prompt });
 
-  const generation = await db.createGeneration(userId, {
-    templateId,
-    prompt,
-    variantsRequested: count,
-    status: "running",
-    source: typeof source === "string" ? source : "worker",
-    parentGenerationId
-  });
+  // Validate templateId if provided
+  if (templateId) {
+    const template = await db.getTemplate(templateId, userId);
+    if (!template) {
+      return errorResponse(
+        "Template not found or access denied",
+        400,
+        "INVALID_TEMPLATE_ID",
+        { templateId }
+      );
+    }
+  }
+
+  // Validate parentGenerationId if provided
+  if (parentGenerationId) {
+    const parentGeneration = await db.getGeneration(parentGenerationId, userId);
+    if (!parentGeneration) {
+      return errorResponse(
+        "Parent generation not found or access denied",
+        400,
+        "INVALID_PARENT_GENERATION_ID",
+        { parentGenerationId }
+      );
+    }
+  }
+
+  // Create generation record with retry logic
+  let generation;
+  try {
+    generation = await db.createGeneration(userId, {
+      templateId,
+      prompt,
+      variantsRequested: count,
+      status: "running",
+      source: typeof source === "string" ? source : "worker",
+      parentGenerationId
+    });
+  } catch (error) {
+    console.error('Failed to create generation:', error);
+    return errorResponse(
+      error instanceof Error ? error.message : "Failed to create generation",
+      500,
+      "GENERATION_CREATION_FAILED",
+      { userId, templateId, parentGenerationId }
+    );
+  }
 
   if (framesArray.length > 0) {
     try {

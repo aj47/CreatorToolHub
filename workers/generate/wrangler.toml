@@ -16,6 +16,13 @@ bucket_name = "creator-tool-hub-user-data"
 # Environment variables
 [vars]
 NODE_ENV = "production"
+FEATURE_ID = "credits"
+MODEL_ID = "gemini-2.5-flash-image-preview"
+ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000"
+
+# Secrets (these need to be set separately with `wrangler secret put`)
+# GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
+# AUTUMN_SECRET_KEY - Set with: wrangler secret put AUTUMN_SECRET_KEY
 
 # Routes for both generation and user data APIs
 routes = [
