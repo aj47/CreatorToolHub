@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   // Handle different auth routes
   if (pathname.includes('/signout')) {
     const isProduction = process.env.NODE_ENV === 'production';
-    const domain = isProduction ? '; Domain=.creatortoolhub.com' : '';
-    const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=None${domain}; Path=/; Max-Age=0`;
+    // Cookie deletion must match the original cookie attributes exactly
+    const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
 
     return new Response(null, {
       status: 302,
@@ -107,9 +107,8 @@ export async function GET(request: Request) {
 
         // Set cookie and redirect
         const isProduction = process.env.NODE_ENV === 'production';
-        // Use domain that allows subdomain access for worker authentication
-        const domain = isProduction ? '; Domain=.creatortoolhub.com' : '';
-        const cookieOptions = `auth-token=${token}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=None${domain}; Path=/; Max-Age=86400`;
+        // For cross-domain worker access, use SameSite=None with Secure
+        const cookieOptions = `auth-token=${token}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=86400`;
         const redirectUrl = nextAuthUrl || '/';
 
         const response = new Response(null, {
@@ -143,8 +142,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // Handle sign out
   const isProduction = process.env.NODE_ENV === 'production';
-  const domain = isProduction ? '; Domain=.creatortoolhub.com' : '';
-  const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=None${domain}; Path=/; Max-Age=0`;
+  // Cookie deletion must match the original cookie attributes exactly
+  const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
 
   return new Response(null, {
     status: 302,
