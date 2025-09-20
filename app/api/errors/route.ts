@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AppError } from '@/lib/errors/ErrorTypes';
 
+export const runtime = 'edge';
+
 interface ErrorReportPayload {
   errors: AppError[];
   metadata: {
