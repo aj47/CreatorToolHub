@@ -70,7 +70,12 @@ function DashboardContent() {
                   <button
                     className="nb-btn"
                     onClick={async () => {
-                      try { await fetch('/api/auth/signout', { method: 'POST' }); } finally { window.location.href = '/'; }
+                      try {
+                        await fetch('/api/auth/signout', { method: 'POST' });
+                      } finally {
+                        // Force a hard refresh to clear all cached state
+                        window.location.replace('/');
+                      }
                     }}
                     title="Sign out"
                   >
