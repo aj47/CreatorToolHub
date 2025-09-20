@@ -260,7 +260,7 @@ export default function ThumbnailRefinement({
 
       const a = document.createElement("a");
       a.href = href;
-      a.download = `refined_thumbnail_iteration_${currentHistory.iterations.findIndex(i => i.id === currentIteration.id) + 1}.png`;
+      a.download = `refined_thumbnail_iteration_${(currentHistory?.iterations.findIndex(i => i.id === currentIteration?.id) ?? -1) + 1}.png`;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -275,7 +275,7 @@ export default function ThumbnailRefinement({
       // Fallback: try simple download
       const a = document.createElement("a");
       a.href = src;
-      a.download = `refined_thumbnail_iteration_${currentHistory.iterations.findIndex(i => i.id === currentIteration.id) + 1}.png`;
+      a.download = `refined_thumbnail_iteration_${(currentHistory?.iterations.findIndex(i => i.id === currentIteration?.id) ?? -1) + 1}.png`;
       a.click();
     } finally {
       onUpdateRefinementState({ isDownloading: false });

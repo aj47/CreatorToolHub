@@ -7,7 +7,7 @@ import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
-import { RefinementState, RefinementUtils } from "@/lib/types/refinement";
+import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
@@ -1008,6 +1008,8 @@ export default function Home() {
         histories: [...refinementState.histories, history],
         isRefining: false,
         feedbackPrompt: "",
+        isCopying: false,
+        isDownloading: false,
       });
     } catch (error) {
       console.error('Failed to prepare thumbnail for refinement:', error);
@@ -1080,6 +1082,8 @@ export default function Home() {
       histories: refinementState.histories,
       isRefining: false,
       feedbackPrompt: "",
+      isCopying: false,
+      isDownloading: false,
     });
     setShowHistoryBrowser(false);
   };
