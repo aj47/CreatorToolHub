@@ -9,7 +9,11 @@
     "lint": "eslint",
     "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
     "pages:build": "npx @cloudflare/next-on-pages@latest",
-    "pages:dev": "wrangler pages dev .vercel/output/static --functions .vercel/output/functions"
+    "pages:dev": "wrangler pages dev .vercel/output/static --functions .vercel/output/functions",
+    "dev:local": "bash scripts/dev-local-stack.sh",
+    "test:full-stack": "node scripts/test-full-stack.js",
+    "test:perf": "node scripts/test-full-stack.js --perf-only",
+    "test:check": "bash scripts/test-with-check.sh"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
