@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
 import { buildPrompt } from "@/lib/prompt/builder";
 import { profiles } from "@/lib/prompt/profiles";
+import { useCustomer } from "autumn-js/react";
+
 import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap } from "@/lib/gallery/curatedStyles";
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
@@ -133,12 +135,25 @@ export default function Home() {
     checkAuth();
   }, [isDevelopment]);
 
-  const credits = (() => {
-    if (isDevelopment) return 999; // Mock credits in development
-    return 0; // Will be handled by production logic if needed
-  })();
+  const { customer, isLoading: customerLoading } = useCustomer({ errorOnNotFound: false });
 
-  const loadingCustomer = false; // Mock loading state for development
+  const credits = useMemo(() => {
+    if (isDevelopment) return 999;
+    if (!customer?.features) return 0;
+    const feature = customer.features[FEATURE_ID as string] as {
+      balance?: number;
+      included_usage?: number;
+      usage?: number;
+    } | undefined;
+    if (!feature) return 0;
+    if (typeof feature.balance === "number") return feature.balance;
+    if (typeof feature.included_usage === "number" && typeof feature.usage === "number") {
+      return Math.max(0, (feature.included_usage ?? 0) - (feature.usage ?? 0));
+    }
+    return 0;
+  }, [customer, isDevelopment]);
+
+  const loadingCustomer = isDevelopment ? false : customerLoading;
   const [profile, setProfile] = useState<string>("");
   const isAuthed = !!user; // User is authenticated if user object exists
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -166,6 +181,8 @@ export default function Home() {
   useEffect(() => {
     if (selectedIds.length > 0) {
       localStorage.setItem('thumbnails-selectedIds', JSON.stringify(selectedIds));
+    } else {
+      localStorage.removeItem('thumbnails-selectedIds');
     }
   }, [selectedIds]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
