@@ -21,6 +21,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Creator Tool Hub",
   description: "A hub of minimal, focused tools for creators",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
