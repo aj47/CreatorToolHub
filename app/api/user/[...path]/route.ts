@@ -1,20 +1,24 @@
 export const runtime = "edge";
 
 // Proxy API route to forward requests to the worker
-export async function GET(request: Request, { params }: { params: { path: string[] } }) {
-  return proxyToWorker(request, params.path);
+export async function GET(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyToWorker(request, path);
 }
 
-export async function POST(request: Request, { params }: { params: { path: string[] } }) {
-  return proxyToWorker(request, params.path);
+export async function POST(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyToWorker(request, path);
 }
 
-export async function PUT(request: Request, { params }: { params: { path: string[] } }) {
-  return proxyToWorker(request, params.path);
+export async function PUT(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyToWorker(request, path);
 }
 
-export async function DELETE(request: Request, { params }: { params: { path: string[] } }) {
-  return proxyToWorker(request, params.path);
+export async function DELETE(request: Request, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  return proxyToWorker(request, path);
 }
 
 async function proxyToWorker(request: Request, pathSegments: string[]) {

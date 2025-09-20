@@ -26,7 +26,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error('Proxy error:', error);
-    return new Response(JSON.stringify({ error: 'Proxy failed', details: error.message }), {
+    return new Response(JSON.stringify({
+      error: 'Proxy failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
