@@ -15,12 +15,18 @@ export function getAuthToken(request: Request): string | null {
 export function verifyAuthToken(token: string): { email: string; name: string; picture: string } | null {
   try {
     const payload = JSON.parse(atob(token));
-    
+
     // Check expiration
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
-    
+
+    // Check if token was created before a global sign out time
+    // This provides server-side session invalidation
+    if (payload.signOutAfter && payload.signOutAfter < Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+
     if (payload.email) {
       return {
         email: payload.email,
@@ -28,7 +34,7 @@ export function verifyAuthToken(token: string): { email: string; name: string; p
         picture: payload.picture || '',
       };
     }
-    
+
     return null;
   } catch {
     return null;

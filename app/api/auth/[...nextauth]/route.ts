@@ -1,5 +1,7 @@
 export const runtime = "edge";
 
+import { getAuthToken } from "@/lib/auth";
+
 // Simple Google OAuth implementation for Edge Runtime
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -11,17 +13,43 @@ export async function GET(request: Request) {
 
   // Handle different auth routes
   if (pathname.includes('/signout')) {
+    // Server-side session invalidation approach
+    // Instead of trying to delete the cookie, we'll set a signOutAfter timestamp
+    const token = getAuthToken(request);
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token));
+        // Create a new token with signOutAfter timestamp
+        const invalidatedPayload = {
+          ...payload,
+          signOutAfter: Math.floor(Date.now() / 1000), // Current timestamp
+        };
+        const invalidatedToken = btoa(JSON.stringify(invalidatedPayload));
+
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieOptions = `auth-token=${invalidatedToken}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=86400`;
+
+        return new Response(null, {
+          status: 302,
+          headers: {
+            'Location': process.env.NEXTAUTH_URL || '/',
+            'Set-Cookie': cookieOptions,
+          },
+        });
+      } catch (error) {
+        // If token parsing fails, fall back to cookie deletion
+      }
+    }
+
+    // Fallback: try to delete the cookie
     const isProduction = process.env.NODE_ENV === 'production';
-    // Try multiple cookie deletion strategies to ensure it works
-    const cookieOptions1 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
-    const cookieOptions2 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`;
-    const cookieOptions3 = `auth-token=; Path=/; Max-Age=0`;
+    const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
 
     return new Response(null, {
       status: 302,
       headers: {
         'Location': process.env.NEXTAUTH_URL || '/',
-        'Set-Cookie': [cookieOptions1, cookieOptions2, cookieOptions3],
+        'Set-Cookie': cookieOptions,
       },
     });
   }
@@ -142,18 +170,42 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  // Handle sign out
+  // Handle sign out with server-side session invalidation
+  const token = getAuthToken(request);
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token));
+      // Create a new token with signOutAfter timestamp
+      const invalidatedPayload = {
+        ...payload,
+        signOutAfter: Math.floor(Date.now() / 1000), // Current timestamp
+      };
+      const invalidatedToken = btoa(JSON.stringify(invalidatedPayload));
+
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cookieOptions = `auth-token=${invalidatedToken}; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=86400`;
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': process.env.NEXTAUTH_URL || '/',
+          'Set-Cookie': cookieOptions,
+        },
+      });
+    } catch (error) {
+      // If token parsing fails, fall back to cookie deletion
+    }
+  }
+
+  // Fallback: try to delete the cookie
   const isProduction = process.env.NODE_ENV === 'production';
-  // Try multiple cookie deletion strategies to ensure it works
-  const cookieOptions1 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
-  const cookieOptions2 = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=0`;
-  const cookieOptions3 = `auth-token=; Path=/; Max-Age=0`;
+  const cookieOptions = `auth-token=; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=${isProduction ? 'None' : 'Lax'}; Path=/; Max-Age=0`;
 
   return new Response(null, {
     status: 302,
     headers: {
       'Location': process.env.NEXTAUTH_URL || '/',
-      'Set-Cookie': [cookieOptions1, cookieOptions2, cookieOptions3],
+      'Set-Cookie': cookieOptions,
     },
   });
 }
