@@ -3,14 +3,43 @@ export const runtime = "edge";
 import { getAuthToken, createAuthToken, createAuthCookie, createInvalidatedToken } from "@/lib/auth";
 import { User } from "@/lib/auth/types";
 
-// Simple Google OAuth implementation for Edge Runtime
+// Environment variables configuration for Cloudflare Pages
+// In Cloudflare Pages, environment variables are injected at build/runtime
+// We'll try multiple approaches to access them
+function getEnvVars() {
+  // Try to access environment variables in different ways for Cloudflare Pages
+  const getEnvVar = (key: string, fallback: string) => {
+    // Try process.env first (might work in some contexts)
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+
+    // Try globalThis (Cloudflare Workers/Pages sometimes use this)
+    if (typeof globalThis !== 'undefined' && (globalThis as any)[key]) {
+      return (globalThis as any)[key];
+    }
+
+    // Return fallback
+    return fallback;
+  };
+
+  return {
+    GOOGLE_CLIENT_ID: getEnvVar('GOOGLE_CLIENT_ID', 'your-google-client-id-here'),
+    GOOGLE_CLIENT_SECRET: getEnvVar('GOOGLE_CLIENT_SECRET', 'your-google-client-secret-here'),
+    NEXTAUTH_URL: getEnvVar('NEXTAUTH_URL', 'https://creatortoolhub.com'),
+    NEXTAUTH_SECRET: getEnvVar('NEXTAUTH_SECRET', 'your-secure-nextauth-secret-key-here-32-chars'),
+    AUTUMN_SECRET_KEY: getEnvVar('AUTUMN_SECRET_KEY', '***REMOVED***')
+  };
+}
+
+// Simple Google OAuth implementation for Cloudflare Pages
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const pathname = url.pathname;
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
 
-
+  const env = getEnvVars();
 
   // Handle different auth routes
   if (pathname.includes('/signout')) {
@@ -23,13 +52,12 @@ export async function GET(request: Request) {
 
   // Handle signin route - redirect to Google OAuth
   if (pathname.includes('/signin')) {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const nextAuthUrl = process.env.NEXTAUTH_URL;
+    const clientId = env.GOOGLE_CLIENT_ID;
+    const nextAuthUrl = env.NEXTAUTH_URL;
 
-
-
-    if (!clientId) {
-      return new Response('OAuth configuration error', { status: 500 });
+    if (!clientId || clientId === 'your-google-client-id-here') {
+      console.error('OAuth configuration error - Google Client ID not configured:', clientId);
+      return new Response('OAuth configuration error - Google Client ID not configured', { status: 500 });
     }
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -39,8 +67,7 @@ export async function GET(request: Request) {
     authUrl.searchParams.set('scope', 'openid email profile');
     authUrl.searchParams.set('state', 'signin');
 
-
-
+    console.log('Redirecting to Google OAuth:', authUrl.toString());
     return new Response(null, {
       status: 302,
       headers: { 'Location': authUrl.toString() },
@@ -51,11 +78,11 @@ export async function GET(request: Request) {
     // Handle OAuth callback
 
     try {
-      const clientId = process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      const nextAuthUrl = process.env.NEXTAUTH_URL;
+      const clientId = env.GOOGLE_CLIENT_ID;
+      const clientSecret = env.GOOGLE_CLIENT_SECRET;
+      const nextAuthUrl = env.NEXTAUTH_URL;
 
-      if (!clientId || !clientSecret) {
+      if (!clientId || !clientSecret || clientId === 'your-google-client-id-here' || clientSecret === 'your-google-client-secret-here') {
         return new Response(null, {
           status: 302,
           headers: { 'Location': `${nextAuthUrl}/?error=oauth_config` },
@@ -100,7 +127,7 @@ export async function GET(request: Request) {
         };
 
         const token = createAuthToken(userObj, 24); // 24 hours
-        const isProduction = process.env.NODE_ENV === 'production';
+        const isProduction = true; // Always treat as production in Cloudflare Pages
         const cookieOptions = createAuthCookie(token, isProduction);
         const redirectUrl = nextAuthUrl || '/';
 
@@ -128,7 +155,7 @@ export async function GET(request: Request) {
   // Default fallback - redirect to home
   return new Response(null, {
     status: 302,
-    headers: { 'Location': process.env.NEXTAUTH_URL || '/' },
+    headers: { 'Location': env.NEXTAUTH_URL || '/' },
   });
 }
 
