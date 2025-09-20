@@ -157,6 +157,7 @@ export async function POST(req: Request) {
     }
 
     // Return images as data URLs for direct client use
+    // Note: Dimension enforcement will be handled on the client side
     const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);
 
     return Response.json({ images: dataUrls });

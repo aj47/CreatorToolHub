@@ -11,6 +11,7 @@ import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
+import { enforceYouTubeDimensionsBatch, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
 
 type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
@@ -737,9 +738,22 @@ export default function Home() {
           if (!Array.isArray(images) || images.length === 0) {
             throw new Error("No images returned");
           }
+
+          // Enforce YouTube thumbnail dimensions (1280x720) on all generated images
+          let processedImages: string[];
+          try {
+            processedImages = await enforceYouTubeDimensionsBatch(images, YOUTUBE_THUMBNAIL.QUALITY);
+            // Convert back to data URLs with correct MIME type
+            processedImages = processedImages.map(base64 => `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${base64}`);
+          } catch (error) {
+            console.error("Failed to enforce YouTube dimensions:", error);
+            // Fallback to original images if dimension enforcement fails
+            processedImages = images;
+          }
+
           // Push all images at once
           try {
-            const newBlobUrls = images.map((u: string) => {
+            const newBlobUrls = processedImages.map((u: string) => {
               const dataUrl = toDataUrlString(u);
               const blob = dataUrlToBlob(dataUrl);
               return URL.createObjectURL(blob);
@@ -747,10 +761,10 @@ export default function Home() {
             setResults((prev) => [...prev, ...newBlobUrls]);
             setBlobUrls((prev) => [...prev, ...newBlobUrls]);
           } catch {
-            setResults((prev) => [...prev, ...images]);
+            setResults((prev) => [...prev, ...processedImages]);
           }
-          setProgressTotal(images.length);
-          setProgressDone(images.length);
+          setProgressTotal(processedImages.length);
+          setProgressDone(processedImages.length);
         } else {
           // Stream NDJSON response: handle start/progress/image/done events
           if (!res.body) throw new Error("No response body");
@@ -778,8 +792,19 @@ export default function Home() {
                 }
               } else if (evt.type === "image") {
                 try {
-                  const dataUrl = toDataUrlString(evt.dataUrl);
-                  const blob = dataUrlToBlob(dataUrl);
+                  // Enforce YouTube thumbnail dimensions on the streamed image
+                  let processedDataUrl: string;
+                  try {
+                    const originalDataUrl = toDataUrlString(evt.dataUrl);
+                    const processedBase64 = await enforceYouTubeDimensionsBatch([originalDataUrl], YOUTUBE_THUMBNAIL.QUALITY);
+                    processedDataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${processedBase64[0]}`;
+                  } catch (error) {
+                    console.error("Failed to enforce YouTube dimensions on streamed image:", error);
+                    // Fallback to original image if dimension enforcement fails
+                    processedDataUrl = toDataUrlString(evt.dataUrl);
+                  }
+
+                  const blob = dataUrlToBlob(processedDataUrl);
                   const blobUrl = URL.createObjectURL(blob);
                   setResults((prev) => [...prev, blobUrl]);
                   setBlobUrls((prev) => [...prev, blobUrl]);
@@ -1427,6 +1452,19 @@ export default function Home() {
                           ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
                           : "Generate thumbnails")}
                   </button>
+
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#666',
+                    textAlign: 'center',
+                    marginTop: '8px',
+                    padding: '6px 12px',
+                    background: '#f8f9fa',
+                    borderRadius: '4px',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    ✅ All thumbnails automatically sized to YouTube specs (1280×720)
+                  </div>
 
                   <div className={styles.navRow}>
                     <button onClick={() => goTo(2)}>← Back</button>

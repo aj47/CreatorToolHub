@@ -10,6 +10,7 @@ import {
   RefinementResponse,
   RefinementUtils
 } from "@/lib/types/refinement";
+import { enforceYouTubeDimensions, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
 interface ThumbnailRefinementProps {
   refinementState: RefinementState;
@@ -137,8 +138,26 @@ export default function ThumbnailRefinement({
         throw new Error(result.error || "Refinement failed");
       }
 
+      // Enforce YouTube thumbnail dimensions on the refined image
+      let processedIteration = result.iteration;
+      try {
+        if (result.iteration.imageData) {
+          const processedBase64 = await enforceYouTubeDimensions(result.iteration.imageData, YOUTUBE_THUMBNAIL.QUALITY);
+          const processedDataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${processedBase64}`;
+
+          processedIteration = {
+            ...result.iteration,
+            imageData: processedBase64,
+            imageUrl: processedDataUrl
+          };
+        }
+      } catch (error) {
+        console.error("Failed to enforce YouTube dimensions on refined image:", error);
+        // Continue with original iteration if dimension enforcement fails
+      }
+
       // Add the new iteration to the current history
-      const updatedHistory = RefinementUtils.addIteration(currentHistory, result.iteration);
+      const updatedHistory = RefinementUtils.addIteration(currentHistory, processedIteration);
       
       // Update refinement state
       onUpdateRefinementState({
@@ -321,8 +340,6 @@ export default function ThumbnailRefinement({
 
       await navigator.clipboard.write([clipboardItem]);
 
-      console.log('Refined image copied to clipboard successfully');
-
     } catch (error) {
       console.error('Failed to copy refined image to clipboard:', error);
 
@@ -330,7 +347,6 @@ export default function ThumbnailRefinement({
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(src);
-          console.log('Copied refined image URL as text fallback');
         } else {
           throw new Error('No clipboard access available');
         }
