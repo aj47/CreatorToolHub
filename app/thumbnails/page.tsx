@@ -147,6 +147,27 @@ export default function Home() {
   useEffect(() => {
     console.log('selectedIds state changed:', selectedIds, 'length:', selectedIds.length);
   }, [selectedIds]);
+
+  // Persist selectedIds in localStorage to prevent loss during navigation
+  useEffect(() => {
+    const saved = localStorage.getItem('thumbnails-selectedIds');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedIds(parsed);
+        }
+      } catch (e) {
+        console.error('Failed to parse saved selectedIds:', e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedIds.length > 0) {
+      localStorage.setItem('thumbnails-selectedIds', JSON.stringify(selectedIds));
+    }
+  }, [selectedIds]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
