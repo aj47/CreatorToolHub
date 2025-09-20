@@ -93,8 +93,45 @@ export default function Home() {
     }
   }, [refinementHistory.histories, refinementHistory.isLoading]);
 
-  // Autumn: load customer and derive credits - bypass in development
+  // Authentication and credits state
   const isDevelopment = process.env.NODE_ENV === 'development';
+  const [user, setUser] = useState<{ email: string; name: string; picture: string } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (isDevelopment) {
+        // In development, use a mock user
+        setUser({
+          email: 'dev@example.com',
+          name: 'Dev User',
+          picture: '',
+        });
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/auth/session');
+        const data = await response.json();
+
+        if (data.authenticated && data.user) {
+          setUser({
+            email: data.user.email,
+            name: data.user.name || '',
+            picture: data.user.picture || '',
+          });
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [isDevelopment]);
 
   const credits = (() => {
     if (isDevelopment) return 999; // Mock credits in development
@@ -103,7 +140,7 @@ export default function Home() {
 
   const loadingCustomer = false; // Mock loading state for development
   const [profile, setProfile] = useState<string>("");
-  const isAuthed = isDevelopment ? true : false; // In development, always authenticated
+  const isAuthed = !!user; // User is authenticated if user object exists
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [aspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [headline, setHeadline] = useState<string>("");
@@ -1444,13 +1481,15 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
                   >
-                    {!isAuthed
-                      ? "Generate thumbnails (Free after sign-up)"
-                      : (!loadingCustomer
-                          ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
-                          : "Generate thumbnails")}
+                    {authLoading
+                      ? "Loading..."
+                      : !isAuthed
+                        ? "Generate thumbnails (Free after sign-up)"
+                        : (!loadingCustomer
+                            ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
+                            : "Generate thumbnails")}
                   </button>
 
                   <div style={{
