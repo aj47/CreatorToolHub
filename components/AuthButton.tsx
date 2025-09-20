@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useCustomer } from "autumn-js/react";
-
-interface User {
-  email: string;
-  name: string;
-  picture: string;
-}
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
@@ -36,61 +31,8 @@ function CreditsDisplay({ isDevelopment }: { isDevelopment: boolean }) {
 }
 
 export default function AuthButton() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, signIn } = useAuth();
   const isDevelopment = process.env.NODE_ENV === 'development';
-
-  useEffect(() => {
-    // In development, use a mock user to bypass authentication
-    if (isDevelopment) {
-      setUser({
-        email: 'dev@example.com',
-        name: 'Dev User',
-        picture: '',
-      });
-      setLoading(false);
-      return;
-    }
-
-    // Check authentication status via session endpoint
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/session');
-        const data = await response.json();
-
-        if (data.authenticated && data.user) {
-          setUser({
-            email: data.user.email,
-            name: data.user.name || '',
-            picture: data.user.picture || '',
-          });
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    // Re-check auth when user returns to the page (e.g., after sign out redirect)
-    const handleFocus = () => {
-      if (!isDevelopment) {
-        checkAuth();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [isDevelopment]);
-
-  const signIn = () => {
-    window.location.href = '/api/auth/signin';
-  };
 
 
 

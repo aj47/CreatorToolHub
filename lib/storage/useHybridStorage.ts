@@ -89,26 +89,31 @@ export function useHybridStorage(): UseHybridStorageReturn {
           exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
         }));
         document.cookie = `auth-token=${mockToken}; path=/; max-age=86400`;
-      }
 
-      try {
-        // Check if we can connect to the cloud storage API
-        const isAvailable = await storage.checkConnection();
-        if (isAvailable) {
-          setIsCloudEnabled(true);
-          // Sync data if connection is successful
-          await cloudStorage.syncAll();
-        } else {
-          console.log('Cloud storage not available, using localStorage fallback');
+        try {
+          // Check if we can connect to the cloud storage API
+          const isAvailable = await storage.checkConnection();
+          if (isAvailable) {
+            setIsCloudEnabled(true);
+            console.log('Cloud storage available');
+          } else {
+            console.log('Cloud storage not available, using localStorage fallback');
+            setIsCloudEnabled(false);
+          }
+        } catch (error) {
+          console.log('Cloud storage not available, using localStorage fallback:', error);
           setIsCloudEnabled(false);
         }
-      } catch (error) {
-        console.log('Cloud storage not available, using localStorage fallback:', error);
+      } else {
+        // Temporarily disable cloud storage in production until issues are resolved
+        console.log('Cloud storage temporarily disabled in production');
         setIsCloudEnabled(false);
       }
     };
 
-    checkCloudAvailability();
+    // Add a delay to prevent immediate requests on page load
+    const timeoutId = setTimeout(checkCloudAvailability, 1000);
+    return () => clearTimeout(timeoutId);
   }, [storage, cloudStorage]);
 
   // Load localStorage data

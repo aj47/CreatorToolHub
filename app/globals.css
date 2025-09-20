@@ -179,3 +179,115 @@ a {
 .nb-tl-content p { margin-top: 2px; }
 .nb-badge { display: inline-block; border: 2px solid var(--nb-border); background: #fff; padding: 1px 6px; font-weight: 800; box-shadow: 3px 3px 0 var(--nb-border); font-size: 12px; margin-left: 8px; }
 .nb-badge--done { background: #ffe5e5; }
+
+/* Error Boundary styles */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 2rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin: 1rem;
+}
+
+.error-boundary__container {
+  text-align: center;
+  max-width: 500px;
+}
+
+.error-boundary__icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-boundary__title {
+  color: #dc2626;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.error-boundary__message {
+  color: #7f1d1d;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.error-boundary__error-id {
+  color: #991b1b;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.error-boundary__error-id code {
+  background: #fee2e2;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.error-boundary__actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.error-boundary__button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.error-boundary__button--primary {
+  background: #dc2626;
+  color: white;
+  border: none;
+}
+
+.error-boundary__button--primary:hover {
+  background: #b91c1c;
+}
+
+.error-boundary__button--secondary {
+  background: white;
+  color: #dc2626;
+  border: 1px solid #dc2626;
+}
+
+.error-boundary__button--secondary:hover {
+  background: #fef2f2;
+}
+
+.error-boundary__details {
+  text-align: left;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.error-boundary__details summary {
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.error-boundary__stack,
+.error-boundary__component-stack {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+}
