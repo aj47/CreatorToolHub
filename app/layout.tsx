@@ -22,7 +22,12 @@ export const metadata: Metadata = {
   title: "Creator Tool Hub",
   description: "A hub of minimal, focused tools for creators",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "16x16 32x32", type: "image/x-icon" },
+      { url: "/favicon.png", sizes: "200x200", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/favicon.png",
   },
 };
 
