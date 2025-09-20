@@ -72,7 +72,20 @@ export class CloudStorageService {
       credentials: 'include'
     });
     if (!response.ok) {
-      throw new Error(`Failed to fetch templates: ${response.statusText}`);
+      let errorMessage = `Failed to fetch templates (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage += `: ${errorData.error}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch {
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      }
+      throw new Error(errorMessage);
     }
     return await response.json();
   }
@@ -140,7 +153,21 @@ export class CloudStorageService {
       credentials: 'include',
     });
     if (!response.ok) {
-      throw new Error(`Failed to delete template: ${response.statusText}`);
+      let errorMessage = `Failed to delete template (${response.status})`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage += `: ${errorData.error}`;
+        } else if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      } catch {
+        // If we can't parse JSON, fall back to status text
+        if (response.statusText) {
+          errorMessage += `: ${response.statusText}`;
+        }
+      }
+      throw new Error(errorMessage);
     }
   }
 
