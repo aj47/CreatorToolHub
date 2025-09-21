@@ -1,7 +1,4 @@
-"use client";
-
-import { useMemo } from "react";
-import { PricingTable } from "autumn-js/react";
+import { PricingTableClient } from "@/components/PricingTableClient";
 
 const pricingFaqItems: { question: string; answer: string }[] = [
   {
@@ -26,24 +23,20 @@ const pricingFaqItems: { question: string; answer: string }[] = [
   },
 ];
 
-export default function PricingPage() {
-  const faqJsonLd = useMemo(
-    () =>
-      JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        mainEntity: pricingFaqItems.map((item) => ({
-          "@type": "Question",
-          name: item.question,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: item.answer,
-          },
-        })),
-      }),
-    []
-  );
+const faqJsonLd = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: pricingFaqItems.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: item.answer,
+    },
+  })),
+});
 
+export default function PricingPage() {
   return (
     <main className="nb-main">
       <section className="nb-section" style={{ paddingBottom: 0 }}>
@@ -55,18 +48,7 @@ export default function PricingPage() {
           <p style={{ maxWidth: 640, margin: "0 auto 16px", fontSize: 18, lineHeight: 1.6 }}>
             Flexible plans that scale from solo creators to production studios. Every option covers AI thumbnails, video SEO, and upcoming production workflows.
           </p>
-          <ul
-            style={{
-              textAlign: "left",
-              listStyle: "disc",
-              paddingLeft: "1.5rem",
-              display: "grid",
-              gap: 8,
-              maxWidth: 640,
-              margin: "0 auto",
-              lineHeight: 1.5,
-            }}
-          >
+          <ul className="nb-list" style={{ maxWidth: 640, margin: "0 auto", textAlign: "left" }}>
             <li>Unified credits usable across every Creator Tool Hub feature.</li>
             <li>Premium thumbnail templates and video SEO automations included.</li>
             <li>Top up with additional packs whenever your production calendar ramps up.</li>
@@ -79,7 +61,7 @@ export default function PricingPage() {
           <h2 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 16, textAlign: "center" }}>
             Choose the plan that matches your upload schedule
           </h2>
-          <PricingTable />
+          <PricingTableClient />
         </div>
       </section>
 

@@ -48,7 +48,6 @@ export default function Home() {
       <section className="nb-hero">
         <div className="nb-hero-grid">
           <div>
-            <span className="nb-badge nb-badge--accent">SEO-focused AI tools</span>
             <h1 className="nb-hero-title">Generate YouTube thumbnails, titles & timestamps in minutes</h1>
             <p className="nb-hero-sub">
               Creator Tool Hub helps YouTube creators ship eye-catching thumbnails, keyword-rich titles, and automatic timestamps that make every upload easier to discover.
@@ -71,48 +70,49 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="nb-section" aria-labelledby="workflow-title">
-        <div style={{ display: "grid", gap: 16 }}>
-          <div className="nb-card" style={{ display: "grid", gap: 12 }}>
-            <h2 id="workflow-title" className="nb-feature-title">AI tools built for every step of your YouTube workflow</h2>
-            <p className="nb-muted">
-              Rank for searches like &ldquo;YouTube timestamp generator&rdquo; and &ldquo;YouTube thumbnail maker&rdquo; by keeping your creative and metadata in one place.
-            </p>
-          </div>
-          <div style={{ display: "grid", gap: 16 }}>
-            <article className="nb-card" style={{ display: "grid", gap: 12 }}>
-              <h3 className="nb-feature-title">YouTube Thumbnail Generator</h3>
-              <p>Produce scroll-stopping thumbnail designs in just a few clicks.</p>
-              <ul className="nb-list">
-                <li>Capture frames from your upload or import existing artwork.</li>
-                <li>Apply high-performing layouts, fonts, and styles tailored to YouTube.</li>
-                <li>Export 1280×720-ready images that stay within YouTube’s guidelines.</li>
-              </ul>
-              <a className="nb-link" href="/thumbnails">Create AI thumbnails →</a>
-            </article>
+      <section className="nb-section" aria-label="Creator workflow tools">
+        <div className="nb-card-grid">
+          <article className="nb-card nb-card--feature">
+            <h3 className="nb-feature-title">YouTube Thumbnail Generator</h3>
+            <p>Produce scroll-stopping thumbnail designs in just a few clicks.</p>
+            <ul className="nb-list">
+              <li>Capture frames from your upload or import existing artwork.</li>
+              <li>Apply high-performing layouts, fonts, and styles tailored to YouTube.</li>
+              <li>Export 1280×720-ready images that stay within YouTube’s guidelines.</li>
+            </ul>
+            <a className="nb-card-cta" href="/thumbnails">
+              <span>Create AI thumbnails</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
 
-            <article className="nb-card" style={{ display: "grid", gap: 12 }}>
-              <h3 className="nb-feature-title">YouTube Title & Description Generator</h3>
-              <p>Turn transcripts into keyword-rich titles, descriptions, and hashtags.</p>
-              <ul className="nb-list">
-                <li>Generate multiple SEO-optimized YouTube titles under 60 characters.</li>
-                <li>Write descriptions that weave in your target queries naturally.</li>
-                <li>Copy titles, descriptions, and hashtags with a single click.</li>
-              </ul>
-              <a className="nb-link" href="/video-seo">Write titles & descriptions →</a>
-            </article>
+          <article className="nb-card nb-card--feature">
+            <h3 className="nb-feature-title">YouTube Title & Description Generator</h3>
+            <p>Turn transcripts into keyword-rich titles, descriptions, and hashtags.</p>
+            <ul className="nb-list">
+              <li>Generate multiple SEO-optimized YouTube titles under 60 characters.</li>
+              <li>Write descriptions that weave in your target queries naturally.</li>
+              <li>Copy titles, descriptions, and hashtags with a single click.</li>
+            </ul>
+            <a className="nb-card-cta" href="/video-seo">
+              <span>Write titles & descriptions</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
 
-            <article className="nb-card" style={{ display: "grid", gap: 12 }}>
-              <h3 className="nb-feature-title">YouTube Timestamp Generator</h3>
-              <p>Automatically create accurate chapter markers that boost watch time.</p>
-              <ul className="nb-list">
-                <li>Paste any public YouTube link and we fetch the transcript instantly.</li>
-                <li>Convert offsets into MM:SS chapter labels that summarize each segment.</li>
-                <li>Publish timestamps directly inside your YouTube description.</li>
-              </ul>
-              <a className="nb-link" href="/video-seo#results">Generate timestamps →</a>
-            </article>
-          </div>
+          <article className="nb-card nb-card--feature">
+            <h3 className="nb-feature-title">YouTube Timestamp Generator</h3>
+            <p>Automatically create accurate chapter markers that boost watch time.</p>
+            <ul className="nb-list">
+              <li>Paste any public YouTube link and we fetch the transcript instantly.</li>
+              <li>Convert offsets into MM:SS chapter labels that summarize each segment.</li>
+              <li>Publish timestamps directly inside your YouTube description.</li>
+            </ul>
+            <a className="nb-card-cta" href="/video-seo#results">
+              <span>Generate timestamps</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
         </div>
       </section>
 
@@ -163,21 +163,21 @@ export default function Home() {
       </section>
 
       <section id="faq" className="nb-section" aria-labelledby="faq-title">
-        <div className="nb-card" style={{ display: "grid", gap: 16 }}>
+        <div className="nb-faq-card">
           <h2 id="faq-title" className="nb-feature-title">FAQ: Creator Tool Hub for YouTube SEO</h2>
-          <details className="nb-faq">
+          <details className="nb-faq-item">
             <summary>How does the YouTube timestamp generator work?</summary>
             <p>We fetch the public transcript for your video, map each line to its offset, and return polished MM:SS chapter markers you can paste into your description.</p>
           </details>
-          <details className="nb-faq">
+          <details className="nb-faq-item">
             <summary>Can I customize the AI thumbnail generator?</summary>
             <p>Yes. Upload your own frames, reference images, color palettes, and prompts to fine-tune every thumbnail variation.</p>
           </details>
-          <details className="nb-faq">
+          <details className="nb-faq-item">
             <summary>Do the generated titles follow YouTube best practices?</summary>
             <p>Absolutely. We keep titles under 60 characters, include high-intent keywords, and surface multiple options so you can A/B test.</p>
           </details>
-          <details className="nb-faq">
+          <details className="nb-faq-item">
             <summary>What does it cost to use the YouTube SEO tools?</summary>
             <p>You can explore the workspace for free, then add affordable credits only when you need new thumbnail or metadata generations.</p>
           </details>

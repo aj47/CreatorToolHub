@@ -170,23 +170,19 @@ export default function VideoSEOPage() {
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <div className={styles.hero}>
+        <header className={styles.hero}>
           <span className={styles.newBadge}>AI YouTube SEO</span>
           <h1 className={styles.title}>YouTube title, description & timestamp generator</h1>
           <p className={styles.subtitle}>
             Paste any YouTube link to turn transcripts into SEO-optimized titles, keyword-rich descriptions, clickable thumbnail ideas, and chapter timestamps.
           </p>
-          <ul className={styles.heroHighlights}>
-            <li>Generate multiple YouTube titles and descriptions tuned for search intent.</li>
-            <li>Automatic timestamp generator formats MM:SS chapters for your video description.</li>
-            <li>Get thumbnail concepts and references to boost click-through rate.</li>
-          </ul>
-        </div>
+        </header>
 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: faqJsonLd }}
         />
+
 
         <div className={styles.formCard}>
           <h2 className={styles.formTitle}>Optimize your video SEO</h2>
@@ -226,42 +222,6 @@ export default function VideoSEOPage() {
             </div>
           </form>
         </div>
-
-        <section className={styles.featuresSection} aria-labelledby="videoSeoBenefits">
-          <h2 id="videoSeoBenefits" className={styles.featureHeading}>Why creators use our YouTube title & timestamp generator</h2>
-          <p className={styles.featureIntro}>
-            Creator Tool Hub combines AI copywriting and precise timestamps so your videos rank for intent-driven searches like &ldquo;YouTube timestamp generator&rdquo; and &ldquo;YouTube title generator&rdquo;.
-          </p>
-          <div className={styles.featureGrid}>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Keyword-rich titles & descriptions</h3>
-              <p>Ship multiple title variations and keyword-dense descriptions pulled directly from your transcript.</p>
-              <ul className={styles.featureList}>
-                <li>Deliver 5 SEO-optimized YouTube titles under 60 characters.</li>
-                <li>Auto-generate descriptions with hashtags, CTAs, and relevant search terms.</li>
-                <li>Copy titles, descriptions, and hashtags into YouTube Studio instantly.</li>
-              </ul>
-            </article>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Automatic timestamp generator</h3>
-              <p>Create chapter markers that highlight every key talking point.</p>
-              <ul className={styles.featureList}>
-                <li>Convert transcripts into precise MM:SS chapters and topic labels.</li>
-                <li>Keep viewers engaged with clear navigation across your video.</li>
-                <li>Reuse timestamp lists for your description, blog posts, or show notes.</li>
-              </ul>
-            </article>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Thumbnail & creative direction</h3>
-              <p>Pair metadata with visual ideas to increase click-through rate.</p>
-              <ul className={styles.featureList}>
-                <li>Receive 10 thumbnail concepts aligned with your topic and hook.</li>
-                <li>Send thumbnail prompts straight to the Creator Tool Hub generator.</li>
-                <li>Share references with collaborators so every asset stays on brand.</li>
-              </ul>
-            </article>
-          </div>
-        </section>
 
         {error && (
           <div className={styles.errorCard} data-testid="video-seo-error">
@@ -406,6 +366,7 @@ export default function VideoSEOPage() {
             </div>
           </div>
         )}
+
 
         <section className={styles.faqSection} aria-labelledby="videoSeoFaq">
           <div className={styles.faqCard}>

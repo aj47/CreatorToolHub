@@ -1290,55 +1290,18 @@ export default function Home() {
 
 
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
-        <div className={styles.hero}>
+        <header className={styles.hero}>
           <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
           <p className={styles.subtitle}>
             Capture frames, apply on-brand templates, and export 1280x720 thumbnails your audience will click.
           </p>
-          <ul className={styles.heroHighlights}>
-            <li>Upload frames, screenshots, or images and remix them with AI styling.</li>
-            <li>Reference proven layouts to generate YouTube-ready compositions in seconds.</li>
-            <li>Export multiple thumbnail variants and iterate with guided refinements.</li>
-          </ul>
-        </div>
+        </header>
 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: faqJsonLd }}
         />
 
-        <section className={styles.featuresSection} aria-labelledby="thumbnailBenefits">
-          <h2 id="thumbnailBenefits" className={styles.featureHeading}>Why creators choose Creator Tool Hub for YouTube thumbnails</h2>
-          <p className={styles.featureIntro}>
-            Combine AI design assistance with your footage to deliver click-worthy thumbnails that follow YouTube best practices.
-          </p>
-          <div className={styles.featureGrid}>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Instant frame capture & uploads</h3>
-              <ul className={styles.featureList}>
-                <li>Pull stills directly from your video or drop in PNG, JPG, and WebP images.</li>
-                <li>Store subject frames in hybrid cloud or local storage for quick reuse.</li>
-                <li>Keep everything synchronized while you experiment with new layouts.</li>
-              </ul>
-            </article>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Template-driven AI layouts</h3>
-              <ul className={styles.featureList}>
-                <li>Choose from curated templates or build your own presets for every channel.</li>
-                <li>Blend reference images and color palettes so every thumbnail stays on brand.</li>
-                <li>Generate multiple variants per run to test different hooks and headlines.</li>
-              </ul>
-            </article>
-            <article className={styles.featureCard}>
-              <h3 className={styles.featureTitle}>Refine & export fast</h3>
-              <ul className={styles.featureList}>
-                <li>Iterate with natural-language feedback until every detail is dialed in.</li>
-                <li>Download or copy thumbnails optimized for YouTube in a single click.</li>
-                <li>Track generations and refinements so you can revisit winning designs.</li>
-              </ul>
-            </article>
-          </div>
-        </section>
 
         {/* Stepper */}
         <nav className={styles.stepper} aria-label="Thumbnail creation steps">
@@ -1900,6 +1863,7 @@ export default function Home() {
             )}
           </section>
         )}
+
 
         <section className={styles.faqSection} aria-labelledby="thumbnailFaq">
           <div className={styles.faqCard}>
