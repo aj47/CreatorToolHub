@@ -95,6 +95,12 @@
   margin-bottom: 24px;
 }
 
+.buttonContainer {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
 .label {
   font-size: 16px;
   font-weight: 600;

@@ -190,7 +190,7 @@ function buildMockContent(videoId: string): GeminiContentResult {
       `The Future of AI is Here (And It's Free!)`
     ],
     description: [
-      `This is a comprehensive mocked description for testing the video optimizer flow for video ${videoId}. It demonstrates how the generated copy will be displayed in the interface, including keyword-rich messaging, timestamps, and a clear call to action.`,
+      `This is a comprehensive mocked description for testing the video SEO flow for video ${videoId}. It demonstrates how the generated copy will be displayed in the interface, including keyword-rich messaging, timestamps, and a clear call to action.`,
       "",
       "00:15 - Introduction to the problem",
       "01:30 - Demonstration of the solution",
@@ -203,7 +203,7 @@ function buildMockContent(videoId: string): GeminiContentResult {
       "- Documentation: [Link]",
       "- Community Discord: [Link]",
       "",
-      "#mock #videoOptimizer #testing #AI #opensource"
+      "#mock #videoSEO #testing #AI #opensource"
     ].join("\n"),
     thumbnailIdeas: [
       "Split screen: frustrated developer vs happy developer using the tool",
@@ -268,7 +268,7 @@ export async function POST(req: Request) {
       return Response.json({ success: false, error: "Invalid YouTube URL or ID" }, { status: 400 });
     }
 
-    if (process.env.MOCK_VIDEO_OPTIMIZER === "true") {
+    if (process.env.MOCK_VIDEO_SEO === "true") {
       const transcript = buildMockTranscript(videoId);
       const mockContent = buildMockContent(videoId);
       return Response.json({

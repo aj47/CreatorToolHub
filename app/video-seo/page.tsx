@@ -17,7 +17,7 @@ interface GenerationResult {
 
 type CopyTarget = "title" | "description" | "thumbnailIdeas";
 
-export default function VideoOptimizerPage() {
+export default function VideoSEOPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export default function VideoOptimizerPage() {
 
       setResult(data as GenerationResult);
     } catch (requestError) {
-      console.error("Video optimizer request failed", requestError);
+      console.error("Video SEO request failed", requestError);
       setError(requestError instanceof Error ? requestError.message : "Unexpected error occurred");
     } finally {
       setLoading(false);
@@ -85,16 +85,16 @@ export default function VideoOptimizerPage() {
       <main className={styles.main}>
         <div className={styles.hero}>
           <span className={styles.newBadge}>New</span>
-          <h1 className={styles.title}>Video Optimizer</h1>
+          <h1 className={styles.title}>Video SEO</h1>
           <p className={styles.subtitle}>
-            Paste any YouTube link and get an optimized title and description crafted from the transcript in seconds.
+            Paste any YouTube link and get SEO-optimized titles and descriptions crafted from the transcript in seconds.
           </p>
         </div>
 
         <div className={styles.formCard}>
-          <h2 className={styles.formTitle}>Optimize your video metadata</h2>
+          <h2 className={styles.formTitle}>Optimize your video SEO</h2>
 
-          <form onSubmit={onSubmit} data-testid="video-optimizer-form">
+          <form onSubmit={onSubmit} data-testid="video-seo-form">
             <div className={styles.formGroup}>
               <label className={styles.label}>
                 YouTube link or ID
@@ -108,23 +108,21 @@ export default function VideoOptimizerPage() {
                 data-testid="video-url-input"
               />
             </div>
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className={styles.button}
-              data-testid="generate-video-content-button"
-            >
-              {loading ? "Generating..." : "Generate title & description"}
-            </button>
+            <div className={styles.buttonContainer}>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className={styles.button}
+                data-testid="generate-video-content-button"
+              >
+                {loading ? "Generating..." : "Generate title & description"}
+              </button>
+            </div>
           </form>
-
-          <div className={styles.infoCallout}>
-            <strong>Pro tip:</strong> We fetch the full transcript via the official IO YouTube Transcriptor API, then craft metadata using Gemini 2.5 Pro.
-          </div>
         </div>
 
         {error && (
-          <div className={styles.errorCard} data-testid="video-optimizer-error">
+          <div className={styles.errorCard} data-testid="video-seo-error">
             <p className={styles.errorTitle}>Something went wrong</p>
             <p className={styles.errorMessage}>{error}</p>
           </div>
@@ -135,12 +133,12 @@ export default function VideoOptimizerPage() {
             {result.mock && (
               <div className={styles.mockWarning}>
                 <p className={styles.mockTitle}>Mock data enabled</p>
-                <p className={styles.mockMessage}>Set <code className={styles.mockCode}>MOCK_VIDEO_OPTIMIZER=true</code> locally to work without external API calls.</p>
+                <p className={styles.mockMessage}>Set <code className={styles.mockCode}>MOCK_VIDEO_SEO=true</code> locally to work without external API calls.</p>
               </div>
             )}
 
-            <div className={styles.resultCard} data-testid="video-optimizer-result">
-              <h2 className={styles.resultTitle}>Optimized content</h2>
+            <div className={styles.resultCard} data-testid="video-seo-result">
+              <h2 className={styles.resultTitle}>SEO-optimized content</h2>
               {/* Title Options */}
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
