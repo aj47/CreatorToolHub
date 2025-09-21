@@ -10,19 +10,23 @@ interface GenerationResult {
   success: boolean;
   videoId: string;
   transcript: string;
-  generatedTitle: string;
+  titles: string[];
   description: string;
+  thumbnailIdeas: string[];
+  timestamps?: string[];
+  references?: string[];
   mock?: boolean;
 }
 
-type CopyTarget = "title" | "description";
+type CopyTarget = "title" | "description" | "thumbnailIdeas";
 
 export default function VideoOptimizerPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
-  const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false });
+  const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false, thumbnailIdeas: false });
+  const [selectedTitleIndex, setSelectedTitleIndex] = useState(0);
 
   const canSubmit = useMemo(() => youtubeUrl.trim().length > 0 && !loading, [loading, youtubeUrl]);
 
@@ -139,27 +143,46 @@ export default function VideoOptimizerPage() {
               <CardTitle className="nb-text text-xl font-semibold">Optimized content</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Title Options */}
               <section className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-1">
-                    <h2 className="text-base font-semibold">Title</h2>
-                    <p className="whitespace-pre-line text-lg font-medium" data-testid="generated-title">
-                      {result.generatedTitle}
-                    </p>
+                  <div className="space-y-2 flex-1">
+                    <h2 className="text-base font-semibold">Title Options ({result.titles?.length || 0})</h2>
+                    {result.titles && result.titles.length > 0 && (
+                      <div className="space-y-2">
+                        {result.titles.map((title, index) => (
+                          <div
+                            key={index}
+                            className={`cursor-pointer rounded-md border p-3 transition-colors ${
+                              selectedTitleIndex === index
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                            onClick={() => setSelectedTitleIndex(index)}
+                          >
+                            <p className="text-sm font-medium">{title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {title.length} characters
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => void copyToClipboard(result.generatedTitle, "title")}
-                    disabled={!result.generatedTitle}
-                    aria-label="Copy generated title"
+                    onClick={() => void copyToClipboard(result.titles?.[selectedTitleIndex] || "", "title")}
+                    disabled={!result.titles?.[selectedTitleIndex]}
+                    aria-label="Copy selected title"
                   >
-                    {copied.title ? "Copied" : "Copy"}
+                    {copied.title ? "Copied" : "Copy Selected"}
                   </Button>
                 </div>
               </section>
 
+              {/* Description */}
               <section className="space-y-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <h2 className="text-base font-semibold">Description</h2>
@@ -181,6 +204,35 @@ export default function VideoOptimizerPage() {
                   {result.description}
                 </pre>
               </section>
+
+              {/* Thumbnail Ideas */}
+              {result.thumbnailIdeas && result.thumbnailIdeas.length > 0 && (
+                <section className="space-y-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <h2 className="text-base font-semibold">Thumbnail Ideas ({result.thumbnailIdeas.length})</h2>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void copyToClipboard(result.thumbnailIdeas.join('\n'), "thumbnailIdeas")}
+                      disabled={!result.thumbnailIdeas.length}
+                      aria-label="Copy all thumbnail ideas"
+                    >
+                      {copied.thumbnailIdeas ? "Copied" : "Copy All"}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {result.thumbnailIdeas.map((idea, index) => (
+                      <div
+                        key={index}
+                        className="nb-card bg-background p-3 text-sm"
+                      >
+                        <span className="font-medium text-primary">#{index + 1}</span> {idea}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <section className="space-y-3">
                 <h2 className="text-base font-semibold">Transcript (truncated)</h2>
