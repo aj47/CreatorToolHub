@@ -1,6 +1,8 @@
 export const runtime = "edge";
 
 import { GoogleGenAI } from "@google/genai";
+import { getUser } from "@/lib/auth";
+import { Autumn } from "autumn-js";
 
 const GEMINI_MODEL_ID = "gemini-2.5-pro";
 const RAPIDAPI_HOST = "io-youtube-transcriptor.p.rapidapi.com";
@@ -256,6 +258,20 @@ function extractTextFromGemini(result: any): string | null {
 
 export async function POST(req: Request) {
   try {
+    // Authentication check
+    let user = getUser(req);
+    if (!user && process.env.NODE_ENV === 'development') {
+      // Use mock user in development
+      user = {
+        email: 'dev@example.com',
+        name: 'Dev User',
+        picture: '',
+      };
+    }
+    if (!user) {
+      return Response.json({ success: false, error: "Authentication required" }, { status: 401 });
+    }
+
     const body = (await req.json().catch(() => null)) as GenerateVideoContentRequest | null;
 
     const youtubeUrl = body?.youtubeUrl?.trim();
@@ -266,6 +282,45 @@ export async function POST(req: Request) {
     const videoId = extractVideoId(youtubeUrl);
     if (!videoId) {
       return Response.json({ success: false, error: "Invalid YouTube URL or ID" }, { status: 400 });
+    }
+
+    // Autumn credit check: Video SEO costs 1 credit
+    const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
+    const deriveCustomerId = (email: string) => {
+      const raw = email.toLowerCase();
+      const cleaned = raw
+        .replace(/[^a-z0-9_-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^[-_]+/, "")
+        .replace(/[-_]+$/, "");
+      return ("u-" + cleaned).slice(0, 40);
+    };
+    const customer_id = deriveCustomerId(user.email);
+
+    const secretKey = process.env.AUTUMN_SECRET_KEY;
+    const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
+    const creditsRequired = 1; // Video SEO costs 1 credit
+
+    let allowed = true;
+    let autumn: Autumn | null = null;
+
+    if (autumnEnabled) {
+      autumn = new Autumn({ secretKey: secretKey as string });
+      try {
+        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: creditsRequired });
+        allowed = !!checkRes?.data?.allowed;
+      } catch (e) {
+        return Response.json(
+          { success: false, error: "Billing service unavailable. Please try again.", code: "billing_unavailable" },
+          { status: 503 }
+        );
+      }
+      if (!allowed) {
+        return Response.json(
+          { success: false, error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: creditsRequired },
+          { status: 402 }
+        );
+      }
     }
 
     if (process.env.MOCK_VIDEO_SEO === "true") {
@@ -330,6 +385,15 @@ export async function POST(req: Request) {
     }
 
     const content = parseGeminiResponse(text);
+
+    // Track credit usage after successful generation
+    if (autumn) {
+      try {
+        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: creditsRequired });
+      } catch (e) {
+        console.warn("Autumn track failed; continuing without failing request", e);
+      }
+    }
 
     return Response.json({
       success: true,
