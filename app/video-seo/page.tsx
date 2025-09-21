@@ -48,6 +48,10 @@ export default function VideoSEOPage() {
   const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false, thumbnailIdeas: false, timestamps: false });
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0);
 
+  const timestamps = result?.timestamps ?? [];
+  const thumbnailIdeas = result?.thumbnailIdeas ?? [];
+
+
   // Auth and credits
   const { user, loading: authLoading } = useAuth();
   const { customer, isLoading: customerLoading } = useCustomer({ errorOnNotFound: false });
@@ -335,15 +339,15 @@ export default function VideoSEOPage() {
                 </div>
               </section>
 
-              {result.timestamps && result.timestamps.length > 0 && (
+              {timestamps.length > 0 && (
                 <section className={styles.section}>
                   <div className={styles.sectionHeader}>
-                    <h3 className={styles.sectionTitle}>Timestamps & Chapters ({result.timestamps.length})</h3>
+                    <h3 className={styles.sectionTitle}>Timestamps & Chapters ({timestamps.length})</h3>
                     <button
                       type="button"
                       className={styles.buttonSecondary}
-                      onClick={() => void copyToClipboard(result.timestamps.join('\n'), "timestamps")}
-                      disabled={!result.timestamps.length}
+                      onClick={() => void copyToClipboard(timestamps.join('\n'), "timestamps")}
+                      disabled={!timestamps.length}
                       aria-label="Copy generated timestamps"
                     >
                       {copied.timestamps ? "Copied" : "Copy"}
@@ -353,28 +357,28 @@ export default function VideoSEOPage() {
                     className={styles.contentBox}
                     data-testid="generated-timestamps"
                   >
-                    {result.timestamps.join('\n')}
+                    {timestamps.join('\n')}
                   </div>
                 </section>
               )}
 
               {/* Thumbnail Ideas */}
-              {result.thumbnailIdeas && result.thumbnailIdeas.length > 0 && (
+              {thumbnailIdeas.length > 0 && (
                 <section className={styles.section}>
                   <div className={styles.sectionHeader}>
-                    <h3 className={styles.sectionTitle}>Thumbnail Ideas ({result.thumbnailIdeas.length})</h3>
+                    <h3 className={styles.sectionTitle}>Thumbnail Ideas ({thumbnailIdeas.length})</h3>
                     <button
                       type="button"
                       className={styles.buttonSecondary}
-                      onClick={() => void copyToClipboard(result.thumbnailIdeas.join('\n'), "thumbnailIdeas")}
-                      disabled={!result.thumbnailIdeas.length}
+                      onClick={() => void copyToClipboard(thumbnailIdeas.join('\n'), "thumbnailIdeas")}
+                      disabled={!thumbnailIdeas.length}
                       aria-label="Copy all thumbnail ideas"
                     >
                       {copied.thumbnailIdeas ? "Copied" : "Copy All"}
                     </button>
                   </div>
                   <div className={styles.thumbnailGrid}>
-                    {result.thumbnailIdeas.map((idea, index) => (
+                    {thumbnailIdeas.map((idea, index) => (
                       <div
                         key={index}
                         className={styles.thumbnailIdea}
