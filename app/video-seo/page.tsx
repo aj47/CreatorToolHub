@@ -1,7 +1,11 @@
 "use client";
 
 import { FormEvent, useCallback, useMemo, useState } from "react";
+import { useCustomer } from "autumn-js/react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import styles from "./page.module.css";
+
+const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
 interface GenerationResult {
   success: boolean;
@@ -25,7 +29,37 @@ export default function VideoSEOPage() {
   const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false, thumbnailIdeas: false });
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0);
 
-  const canSubmit = useMemo(() => youtubeUrl.trim().length > 0 && !loading, [loading, youtubeUrl]);
+  // Auth and credits
+  const { user, isLoading: authLoading } = useAuth();
+  const { customer, isLoading: customerLoading } = useCustomer({ errorOnNotFound: false });
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  const credits = useMemo(() => {
+    if (isDevelopment) return 999;
+    if (!customer?.features) return 0;
+    const feature = customer.features[FEATURE_ID as string] as {
+      balance?: number;
+      included_usage?: number;
+      usage?: number;
+    } | undefined;
+    if (!feature) return 0;
+    if (typeof feature.balance === "number") return feature.balance;
+    if (typeof feature.included_usage === "number" && typeof feature.usage === "number") {
+      return Math.max(0, (feature.included_usage ?? 0) - (feature.usage ?? 0));
+    }
+    return 0;
+  }, [customer, isDevelopment]);
+
+  const isAuthed = !!user;
+  const loadingCustomer = customerLoading && !isDevelopment;
+  const creditsRequired = 1; // Video SEO costs 1 credit
+
+  const canSubmit = useMemo(() => {
+    if (!youtubeUrl.trim().length || loading || authLoading) return false;
+    if (!isAuthed) return true; // Allow submission to show auth requirement
+    if (loadingCustomer) return false; // Wait for customer data
+    return credits >= creditsRequired;
+  }, [youtubeUrl, loading, authLoading, isAuthed, loadingCustomer, credits, creditsRequired]);
 
   const resetCopiedState = useCallback((target: CopyTarget) => {
     setTimeout(() => {
@@ -46,6 +80,18 @@ export default function VideoSEOPage() {
   }, [resetCopiedState]);
 
   const handleGenerate = useCallback(async () => {
+    // Check auth requirement
+    if (!isAuthed) {
+      setError("Please sign in to generate video SEO content.");
+      return;
+    }
+
+    // Check credits
+    if (!loadingCustomer && credits < creditsRequired) {
+      setError(`You need ${creditsRequired} credit to generate video SEO content. You have ${credits}.`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
@@ -72,7 +118,7 @@ export default function VideoSEOPage() {
     } finally {
       setLoading(false);
     }
-  }, [youtubeUrl]);
+  }, [youtubeUrl, isAuthed, loadingCustomer, credits, creditsRequired]);
 
   const onSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -115,7 +161,15 @@ export default function VideoSEOPage() {
                 className={styles.button}
                 data-testid="generate-video-content-button"
               >
-                {loading ? "Generating..." : "Generate title & description"}
+                {loading
+                  ? "Generating..."
+                  : authLoading
+                    ? "Loading..."
+                    : !isAuthed
+                      ? "Generate title & description (Free after sign-up)"
+                      : (!loadingCustomer
+                          ? `Generate title & description (uses ${creditsRequired} credit${creditsRequired === 1 ? '' : 's'})`
+                          : "Generate title & description")}
               </button>
             </div>
           </form>
