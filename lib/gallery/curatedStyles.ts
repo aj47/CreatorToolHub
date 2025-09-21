@@ -60,10 +60,14 @@ const extras: StyleCard[] = [
       "Create a cinematic-style thumbnail with dramatic lighting and moody atmosphere. Use teal-orange color grading, shallow depth of field effects, and bold minimalist typography. Apply widescreen composition principles with strong visual hierarchy and atmospheric depth.",
     previewUrl: svgDataUrl("Cinematic", palette[9]),
   },
-
-
-
-
+  {
+    id: "software-review",
+    title: "Software Review",
+    prompt:
+      "Design a software review thumbnail that prominently showcases the product logo alongside an interface motif. Use a clean split layout with the logo or icon anchored on one side and a large, bold headline where at least one keyword is highlighted using a contrasting color bar or underline. Apply modern, tech-forward styling with crisp lighting, subtle gradients, and balanced spacing to convey clarity and trust.",
+    previewUrl: svgDataUrl("Software Review", palette[10]),
+    colors: ["#0F172A", "#38BDF8", "#FBBF24"],
+  },
 ];
 
 export const curatedStyles: StyleCard[] = [...builtinCards, ...extras];

@@ -22,7 +22,6 @@ export const profiles: Record<ProfileId, ProfileSpec> = {
     prompt:
       'Design a podcast thumbnail featuring the host(s) with professional presentation. Use side-by-side or split-screen layout for multiple hosts with clear visual separation. Include subtle audio-themed elements (waveforms, microphones) without overwhelming the composition. Apply balanced lighting and consistent color palette. Keep headlines short, bold, and highly legible.',
   },
-
   screencast: {
     title: 'Tech Screen Cast',
     prompt:
@@ -38,12 +37,11 @@ export const profiles: Record<ProfileId, ProfileSpec> = {
     prompt:
       'High-saturation gaming aesthetic with a character or avatar cutout as the focal subject. Add neon accents, motion streaks, and dynamic lighting for energy. Use bold numbers/emotes or a short callout if appropriate. Maintain extreme contrast and ensure everything reads on mobile.',
   },
-
   interview: {
     title: 'Interview',
     prompt:
-      'Two subjects with clear contrast between them, balanced side-by-side composition. Include a concise topic label or badge. Use a studio or abstract background that does not distract. Give equal visual weight to both participants; keep the layout clean and readable.',
+      'Design a polished interview thumbnail featuring two presenters in a clean split layout. Use complementary lighting, a sleek studio or gradient background, and contrasting name tags or lower-thirds that highlight each speaker. Keep typography bold and legible, emphasizing the topic or guest name with a color accent.',
   },
-
 };
+
 
