@@ -11,8 +11,11 @@ interface GenerateVideoContentRequest {
 }
 
 interface GeminiContentResult {
-  title: string;
+  titles: string[];
   description: string;
+  thumbnailIdeas: string[];
+  timestamps?: string[];
+  references?: string[];
 }
 
 interface TranscriptEntry {
@@ -94,26 +97,53 @@ function processTranscript(data: any): string {
 }
 
 function buildPrompt(videoId: string, transcript: string): string {
-  return `You are assisting with YouTube content optimization. Analyze the provided transcript to craft an engaging, SEO-friendly title and description.
+  return `Your task is to generate YouTube titles, description, and thumbnail ideas for this video given the transcript.
 
 Video ID: ${videoId}
 Transcript with timestamps:
 ${transcript}
 
 Requirements:
-1. Title under 60 characters that drives clicks without clickbait.
-2. Description of 2-3 paragraphs summarizing the video, calling out key takeaways, audience, and a call-to-action.
-3. Include 3-5 relevant hashtags at the end of the description.
-4. Format the response as minified JSON with keys "title" and "description". Do not include any additional commentary or Markdown formatting.`;
+1. Generate 5 different title options (each under 60 characters) that follow best practices and will generate the most clickthrough
+2. The description should have lots of keywords for SEO but also be concise and make sense
+3. Any keywords hard to add to the description can be added as hashtags below
+4. The description should contain timestamps in format MM:SS - <topic> (start with MM:SS until 1hr in). Timestamps should be no more than 6 words in length and be of the topic that is talked about at the time
+5. Include placeholder links to references mentioned in the video
+6. Generate 10 thumbnail ideas that follow best practices and will generate the most clickthrough
+7. Format the response as valid JSON with this exact structure:
+
+{
+  "titles": ["title1", "title2", "title3", "title4", "title5"],
+  "description": "full description with timestamps and hashtags",
+  "thumbnailIdeas": ["idea1", "idea2", "idea3", "idea4", "idea5", "idea6", "idea7", "idea8", "idea9", "idea10"],
+  "timestamps": ["MM:SS - topic", "MM:SS - topic", ...],
+  "references": ["reference1", "reference2", ...]
+}
+
+Do not include any additional commentary or Markdown formatting. Return only valid JSON.`;
 }
 
 function tryParseGeminiJson(content: string): GeminiContentResult | null {
   try {
     const parsed = JSON.parse(content);
+
+    // Check for new structured format
+    if (Array.isArray(parsed?.titles) && typeof parsed?.description === "string" && Array.isArray(parsed?.thumbnailIdeas)) {
+      return {
+        titles: parsed.titles.map((t: any) => String(t).trim()).filter(Boolean),
+        description: parsed.description.trim(),
+        thumbnailIdeas: parsed.thumbnailIdeas.map((t: any) => String(t).trim()).filter(Boolean),
+        timestamps: Array.isArray(parsed.timestamps) ? parsed.timestamps.map((t: any) => String(t).trim()).filter(Boolean) : undefined,
+        references: Array.isArray(parsed.references) ? parsed.references.map((r: any) => String(r).trim()).filter(Boolean) : undefined,
+      };
+    }
+
+    // Fallback to old format for backward compatibility
     if (typeof parsed?.title === "string" && typeof parsed?.description === "string") {
       return {
-        title: parsed.title.trim(),
+        titles: [parsed.title.trim()],
         description: parsed.description.trim(),
+        thumbnailIdeas: [],
       };
     }
   } catch {
@@ -152,12 +182,53 @@ function buildMockTranscript(videoId: string): string {
 
 function buildMockContent(videoId: string): GeminiContentResult {
   return {
-    title: `Sample optimization for ${videoId}`,
+    titles: [
+      `Amazing AI Tool That Changes Everything - ${videoId}`,
+      `This Open-Source App Fixes The Biggest Problem`,
+      `10-Second Solution? You Won't Believe This`,
+      `Why Everyone's Talking About This New Tool`,
+      `The Future of AI is Here (And It's Free!)`
+    ],
     description: [
-      `This is a mocked description used while testing the video optimizer flow for video ${videoId}.`,
-      "It demonstrates how the generated copy will be displayed in the interface, including keyword-rich messaging and a clear call to action.",
-      "#mock #videoOptimizer #testing"
-    ].join("\n\n"),
+      `This is a comprehensive mocked description for testing the video optimizer flow for video ${videoId}. It demonstrates how the generated copy will be displayed in the interface, including keyword-rich messaging, timestamps, and a clear call to action.`,
+      "",
+      "00:15 - Introduction to the problem",
+      "01:30 - Demonstration of the solution",
+      "02:45 - Key features overview",
+      "04:20 - Live coding example",
+      "06:10 - Community collaboration",
+      "",
+      "References:",
+      "- GitHub Repository: [Link]",
+      "- Documentation: [Link]",
+      "- Community Discord: [Link]",
+      "",
+      "#mock #videoOptimizer #testing #AI #opensource"
+    ].join("\n"),
+    thumbnailIdeas: [
+      "Split screen: frustrated developer vs happy developer using the tool",
+      "Large text overlay '10 SECONDS' with shocked face reaction",
+      "Before/after comparison of messy vs clean workflow",
+      "Developer pointing at screen with bright arrows and highlights",
+      "Question mark thumbnail: 'The Tool Everyone's Using?'",
+      "Red arrow pointing to specific UI element with 'GAME CHANGER' text",
+      "Side-by-side code comparison with VS Code screenshots",
+      "Person with hands on head (frustrated) next to solution preview",
+      "Bright neon text 'OPEN SOURCE' with GitHub logo prominent",
+      "Multiple app windows with big X marks vs single clean interface"
+    ],
+    timestamps: [
+      "00:15 - Problem introduction",
+      "01:30 - Solution demo",
+      "02:45 - Feature overview",
+      "04:20 - Live example",
+      "06:10 - Community info"
+    ],
+    references: [
+      "GitHub Repository",
+      "Official Documentation",
+      "Community Discord"
+    ]
   };
 }
 
@@ -205,8 +276,11 @@ export async function POST(req: Request) {
         mock: true,
         videoId,
         transcript,
-        generatedTitle: mockContent.title,
+        titles: mockContent.titles,
         description: mockContent.description,
+        thumbnailIdeas: mockContent.thumbnailIdeas,
+        timestamps: mockContent.timestamps,
+        references: mockContent.references,
       });
     }
 
@@ -255,14 +329,17 @@ export async function POST(req: Request) {
       throw new Error("Gemini did not return any text content");
     }
 
-    const { title, description } = parseGeminiResponse(text);
+    const content = parseGeminiResponse(text);
 
     return Response.json({
       success: true,
       videoId,
       transcript,
-      generatedTitle: title,
-      description,
+      titles: content.titles,
+      description: content.description,
+      thumbnailIdeas: content.thumbnailIdeas,
+      timestamps: content.timestamps,
+      references: content.references,
     });
   } catch (error) {
     console.error("/api/generate-video-content error", error);
