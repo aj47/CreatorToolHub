@@ -19,14 +19,33 @@ interface GenerationResult {
   mock?: boolean;
 }
 
-type CopyTarget = "title" | "description" | "thumbnailIdeas";
+type CopyTarget = "title" | "description" | "thumbnailIdeas" | "timestamps";
+
+const faqItems: { question: string; answer: string }[] = [
+  {
+    question: "How does the YouTube timestamp generator work?",
+    answer: "Paste any public YouTube URL and Creator Tool Hub fetches the transcript, converts offsets into MM:SS chapters, and formats them for your description.",
+  },
+  {
+    question: "Will the YouTube title generator follow best practices?",
+    answer: "Yes. Titles stay under 60 characters, include high-intent keywords from the transcript, and you can copy the strongest option with one click.",
+  },
+  {
+    question: "Can I tailor the description and hashtags for my channel?",
+    answer: "Absolutely. Edit the generated copy inline, keep the structured timestamps, and add the hashtags or links your audience needs before publishing.",
+  },
+  {
+    question: "Do I need my own API keys or transcripts?",
+    answer: "No. Creator Tool Hub handles transcript retrieval and AI generation—you just sign in, spend credits, and ship optimized metadata.",
+  },
+];
 
 export default function VideoSEOPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
-  const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false, thumbnailIdeas: false });
+  const [copied, setCopied] = useState<Record<CopyTarget, boolean>>({ title: false, description: false, thumbnailIdeas: false, timestamps: false });
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0);
 
   // Auth and credits
@@ -60,6 +79,24 @@ export default function VideoSEOPage() {
     if (loadingCustomer) return false; // Wait for customer data
     return credits >= creditsRequired;
   }, [youtubeUrl, loading, authLoading, isAuthed, loadingCustomer, credits, creditsRequired]);
+
+
+  const faqJsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqItems.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      }),
+    []
+  );
 
   const resetCopiedState = useCallback((target: CopyTarget) => {
     setTimeout(() => {
@@ -130,12 +167,22 @@ export default function VideoSEOPage() {
     <div className={styles.page}>
       <main className={styles.main}>
         <div className={styles.hero}>
-          <span className={styles.newBadge}>New</span>
-          <h1 className={styles.title}>Video SEO</h1>
+          <span className={styles.newBadge}>AI YouTube SEO</span>
+          <h1 className={styles.title}>YouTube title, description & timestamp generator</h1>
           <p className={styles.subtitle}>
-            Paste any YouTube link and get SEO-optimized titles and descriptions crafted from the transcript in seconds.
+            Paste any YouTube link to turn transcripts into SEO-optimized titles, keyword-rich descriptions, clickable thumbnail ideas, and chapter timestamps.
           </p>
+          <ul className={styles.heroHighlights}>
+            <li>Generate multiple YouTube titles and descriptions tuned for search intent.</li>
+            <li>Automatic timestamp generator formats MM:SS chapters for your video description.</li>
+            <li>Get thumbnail concepts and references to boost click-through rate.</li>
+          </ul>
         </div>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: faqJsonLd }}
+        />
 
         <div className={styles.formCard}>
           <h2 className={styles.formTitle}>Optimize your video SEO</h2>
@@ -164,6 +211,7 @@ export default function VideoSEOPage() {
                 {loading
                   ? "Generating..."
                   : authLoading
+
                     ? "Loading..."
                     : !isAuthed
                       ? "Generate title & description (Free after sign-up)"
@@ -174,6 +222,42 @@ export default function VideoSEOPage() {
             </div>
           </form>
         </div>
+
+        <section className={styles.featuresSection} aria-labelledby="videoSeoBenefits">
+          <h2 id="videoSeoBenefits" className={styles.featureHeading}>Why creators use our YouTube title & timestamp generator</h2>
+          <p className={styles.featureIntro}>
+            Creator Tool Hub combines AI copywriting and precise timestamps so your videos rank for intent-driven searches like &ldquo;YouTube timestamp generator&rdquo; and &ldquo;YouTube title generator&rdquo;.
+          </p>
+          <div className={styles.featureGrid}>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Keyword-rich titles & descriptions</h3>
+              <p>Ship multiple title variations and keyword-dense descriptions pulled directly from your transcript.</p>
+              <ul className={styles.featureList}>
+                <li>Deliver 5 SEO-optimized YouTube titles under 60 characters.</li>
+                <li>Auto-generate descriptions with hashtags, CTAs, and relevant search terms.</li>
+                <li>Copy titles, descriptions, and hashtags into YouTube Studio instantly.</li>
+              </ul>
+            </article>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Automatic timestamp generator</h3>
+              <p>Create chapter markers that highlight every key talking point.</p>
+              <ul className={styles.featureList}>
+                <li>Convert transcripts into precise MM:SS chapters and topic labels.</li>
+                <li>Keep viewers engaged with clear navigation across your video.</li>
+                <li>Reuse timestamp lists for your description, blog posts, or show notes.</li>
+              </ul>
+            </article>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Thumbnail & creative direction</h3>
+              <p>Pair metadata with visual ideas to increase click-through rate.</p>
+              <ul className={styles.featureList}>
+                <li>Receive 10 thumbnail concepts aligned with your topic and hook.</li>
+                <li>Send thumbnail prompts straight to the Creator Tool Hub generator.</li>
+                <li>Share references with collaborators so every asset stays on brand.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
 
         {error && (
           <div className={styles.errorCard} data-testid="video-seo-error">
@@ -251,6 +335,29 @@ export default function VideoSEOPage() {
                 </div>
               </section>
 
+              {result.timestamps && result.timestamps.length > 0 && (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <h3 className={styles.sectionTitle}>Timestamps & Chapters ({result.timestamps.length})</h3>
+                    <button
+                      type="button"
+                      className={styles.buttonSecondary}
+                      onClick={() => void copyToClipboard(result.timestamps.join('\n'), "timestamps")}
+                      disabled={!result.timestamps.length}
+                      aria-label="Copy generated timestamps"
+                    >
+                      {copied.timestamps ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <div
+                    className={styles.contentBox}
+                    data-testid="generated-timestamps"
+                  >
+                    {result.timestamps.join('\n')}
+                  </div>
+                </section>
+              )}
+
               {/* Thumbnail Ideas */}
               {result.thumbnailIdeas && result.thumbnailIdeas.length > 0 && (
                 <section className={styles.section}>
@@ -295,6 +402,18 @@ export default function VideoSEOPage() {
             </div>
           </div>
         )}
+
+        <section className={styles.faqSection} aria-labelledby="videoSeoFaq">
+          <div className={styles.faqCard}>
+            <h2 id="videoSeoFaq" className={styles.featureHeading}>Video SEO FAQ</h2>
+            {faqItems.map((item) => (
+              <details key={item.question} className={styles.faqItem}>
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   );

@@ -59,6 +59,114 @@
   line-height: 1.5;
 }
 
+.heroHighlights {
+  display: grid;
+  gap: 8px;
+  list-style: disc;
+  text-align: left;
+  max-width: 640px;
+  margin: 0 auto;
+  padding-left: 1.25rem;
+  color: var(--nb-fg);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.featuresSection {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-card);
+  box-shadow: 6px 6px 0 var(--nb-border);
+  border-radius: 12px;
+  padding: 32px;
+  display: grid;
+  gap: 24px;
+}
+
+.featureHeading {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--nb-fg);
+  text-align: center;
+}
+
+.featureIntro {
+  color: var(--nb-fg);
+  text-align: center;
+  max-width: 70ch;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.featureGrid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.featureCard {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-card);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 var(--nb-border);
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.featureTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nb-fg);
+}
+
+.featureList {
+  list-style: disc;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 8px;
+  color: var(--nb-fg);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.faqSection {
+  margin-top: 32px;
+}
+
+.faqCard {
+  border: 3px solid var(--nb-border);
+  background: var(--nb-card);
+  box-shadow: 6px 6px 0 var(--nb-border);
+  border-radius: 12px;
+  padding: 32px;
+  display: grid;
+  gap: 16px;
+}
+
+.faqItem {
+  border: 2px solid var(--nb-border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  background: var(--nb-card);
+  box-shadow: 3px 3px 0 var(--nb-border);
+  color: var(--nb-fg);
+}
+
+.faqItem > summary {
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.faqItem > p {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--nb-fg);
+}
+
+
 .newBadge {
   display: inline-block;
   border: 3px solid var(--nb-border);
@@ -414,5 +522,22 @@
 
   .thumbnailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .featuresSection,
+  .faqCard {
+    padding: 24px 20px;
+  }
+
+  .featureHeading {
+    font-size: 20px;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroHighlights {
+    font-size: 14px;
   }
 }
