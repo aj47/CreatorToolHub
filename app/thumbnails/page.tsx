@@ -22,6 +22,25 @@ const DEFAULT_PROMPT = "";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
+const thumbnailFaqItems: { question: string; answer: string }[] = [
+  {
+    question: "How does the AI YouTube thumbnail generator work?",
+    answer: "Upload frames or images, pick a template, and our AI designs multiple thumbnail concepts you can refine in seconds.",
+  },
+  {
+    question: "Can I use my own images and reference styles?",
+    answer: "Yes. Drop in frames from your video, add reference images, and Creator Tool Hub will blend them into on-brand layouts.",
+  },
+  {
+    question: "Do the thumbnails follow YouTube size requirements?",
+    answer: "Every image exports at 1280×720 in the preferred aspect ratio, so you can publish immediately without manual resizing.",
+  },
+  {
+    question: "Do I need design experience to create thumbnails?",
+    answer: "No design background required—select a template, describe your hook, and iterate with guided refinements until it looks perfect.",
+  },
+];
+
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -66,6 +85,24 @@ export default function Home() {
   const [results, setResults] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
+
+  const faqJsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: thumbnailFaqItems.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
+      }),
+    []
+  );
+
   const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1254,8 +1291,54 @@ export default function Home() {
 
       <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
         <div className={styles.hero}>
-          <h1 className={styles.title}>Thumbnail Creator</h1>
+          <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
+          <p className={styles.subtitle}>
+            Capture frames, apply on-brand templates, and export 1280x720 thumbnails your audience will click.
+          </p>
+          <ul className={styles.heroHighlights}>
+            <li>Upload frames, screenshots, or images and remix them with AI styling.</li>
+            <li>Reference proven layouts to generate YouTube-ready compositions in seconds.</li>
+            <li>Export multiple thumbnail variants and iterate with guided refinements.</li>
+          </ul>
         </div>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: faqJsonLd }}
+        />
+
+        <section className={styles.featuresSection} aria-labelledby="thumbnailBenefits">
+          <h2 id="thumbnailBenefits" className={styles.featureHeading}>Why creators choose Creator Tool Hub for YouTube thumbnails</h2>
+          <p className={styles.featureIntro}>
+            Combine AI design assistance with your footage to deliver click-worthy thumbnails that follow YouTube best practices.
+          </p>
+          <div className={styles.featureGrid}>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Instant frame capture & uploads</h3>
+              <ul className={styles.featureList}>
+                <li>Pull stills directly from your video or drop in PNG, JPG, and WebP images.</li>
+                <li>Store subject frames in hybrid cloud or local storage for quick reuse.</li>
+                <li>Keep everything synchronized while you experiment with new layouts.</li>
+              </ul>
+            </article>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Template-driven AI layouts</h3>
+              <ul className={styles.featureList}>
+                <li>Choose from curated templates or build your own presets for every channel.</li>
+                <li>Blend reference images and color palettes so every thumbnail stays on brand.</li>
+                <li>Generate multiple variants per run to test different hooks and headlines.</li>
+              </ul>
+            </article>
+            <article className={styles.featureCard}>
+              <h3 className={styles.featureTitle}>Refine & export fast</h3>
+              <ul className={styles.featureList}>
+                <li>Iterate with natural-language feedback until every detail is dialed in.</li>
+                <li>Download or copy thumbnails optimized for YouTube in a single click.</li>
+                <li>Track generations and refinements so you can revisit winning designs.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
 
         {/* Stepper */}
         <nav className={styles.stepper} aria-label="Thumbnail creation steps">
@@ -1817,6 +1900,18 @@ export default function Home() {
             )}
           </section>
         )}
+
+        <section className={styles.faqSection} aria-labelledby="thumbnailFaq">
+          <div className={styles.faqCard}>
+            <h2 id="thumbnailFaq" className={styles.featureHeading}>YouTube thumbnail generator FAQ</h2>
+            {thumbnailFaqItems.map((item) => (
+              <details key={item.question} className={styles.faqItem}>
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   );
