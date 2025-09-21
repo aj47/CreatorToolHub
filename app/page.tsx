@@ -4,10 +4,11 @@ export default function Home() {
       <section className="nb-hero">
         <div className="nb-hero-grid">
           <div>
-            <h1 className="nb-hero-title">Create bold, scroll-stopping YouTube thumbnails</h1>
-            <p className="nb-hero-sub">Capture frames or import images, apply template-exact prompts, and generate multiple variants with clean, legible layouts.</p>
+            <h1 className="nb-hero-title">Optimize your videos and thumbnails in one place</h1>
+            <p className="nb-hero-sub">Capture frames for thumb designs, and now generate SEO-friendly titles and descriptions straight from your YouTube transcript.</p>
             <div className="nb-hero-ctas">
               <a className="nb-btn nb-btn--accent" href="/thumbnails">Open Thumbnail Creator</a>
+              <a className="nb-btn" href="/video-optimizer">Try Video Optimizer</a>
             </div>
           </div>
           <div className="nb-card nb-hero-preview">
@@ -46,11 +47,11 @@ export default function Home() {
                 <p>Generate several options in a single run.</p>
               </div>
             </li>
-            <li className="nb-tl-item">
+            <li className="nb-tl-item nb-tl--done">
               <div className="nb-tl-node" />
               <div className="nb-tl-content">
-                <div className="nb-feature-title">Title, description, and timestamps from video <span className="nb-badge">Planned</span></div>
-                <p>Give us a video and we’ll generate a compelling title, a keyword-rich description, and a chapter timestamp outline.</p>
+                <div className="nb-feature-title">Title & description optimizer <span className="nb-badge nb-badge--done">Done</span></div>
+                <p>Drop in a YouTube URL and get an optimized title, description, and transcript recap. <a href="/video-optimizer">Launch Video Optimizer →</a></p>
               </div>
             </li>
             <li className="nb-tl-item">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import AuthButton from "@/components/AuthButton";
+import { NavLinks } from "@/components/NavLinks";
 import { AppProvider } from "@/lib/state/providers/AppProvider";
 import { AppErrorBoundary } from "@/lib/errors/ErrorBoundary";
 
@@ -43,8 +44,7 @@ export default function RootLayout({
       <header className="nb-header">
         <Link href="/" className="nb-brand">Creator Tool Hub</Link>
         <nav className="nb-nav">
-          <Link href="/thumbnails" className="nb-navlink nb-navlink--active">Thumbnail Creator</Link>
-
+          <NavLinks />
         </nav>
         <AuthButton />
       </header>
