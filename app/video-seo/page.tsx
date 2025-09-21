@@ -30,7 +30,7 @@ export default function VideoSEOPage() {
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(0);
 
   // Auth and credits
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { customer, isLoading: customerLoading } = useCustomer({ errorOnNotFound: false });
   const isDevelopment = process.env.NODE_ENV === 'development';
 
