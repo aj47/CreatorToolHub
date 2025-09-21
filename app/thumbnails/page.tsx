@@ -486,15 +486,21 @@ export default function Home() {
   }, []);
 
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
+  const loadVideoFromFile = (file?: File | null) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
     setVideoUrl(url);
     setVideoReady(false);
 
     // Do not clear previously captured frames; allow accumulating frames across videos
     setResults([]);
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const nextVideo = Array.from(files).find((file) => file.type.startsWith("video/"));
+    loadVideoFromFile(nextVideo ?? files[0]);
   };
 
   const moveFrame = (from: number, to: number) => {
@@ -604,11 +610,22 @@ export default function Home() {
     input.value = ""; // clear after await; we cached the element
   };
 
-  const onDropImages: React.DragEventHandler<HTMLDivElement> = async (e) => {
+  const onDropMedia: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
-    const files = e.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-    await importImages(files);
+    const fileList = e.dataTransfer?.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const files = Array.from(fileList);
+    const videoFiles = files.filter((file) => file.type.startsWith("video/"));
+    const nonVideoFiles = files.filter((file) => !file.type.startsWith("video/"));
+
+    if (nonVideoFiles.length > 0) {
+      await importImages(nonVideoFiles);
+    }
+
+    if (videoFiles.length > 0) {
+      loadVideoFromFile(videoFiles[0]);
+    }
   };
 
   const onDragOver: React.DragEventHandler<HTMLDivElement> = (e) => {
@@ -1235,7 +1252,7 @@ export default function Home() {
     <div className={styles.page}>
 
 
-      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropImages}>
+      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
         <div className={styles.hero}>
           <h1 className={styles.title}>Thumbnail Creator</h1>
         </div>
