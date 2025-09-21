@@ -1,0 +1,21 @@
+# Creator Tool Hub
+
+> Creator Tool Hub is an AI workspace for YouTube creators to produce thumbnails, titles, descriptions, and timestamps that rank on YouTube.
+
+Creator Tool Hub blends creative tooling with SEO automation for YouTube teams. Each workflow runs in the browser and can be explored for free; credits are consumed only when you request new AI generations.
+
+## Core workflows
+
+- [Homepage](https://creatortoolhub.com/): High-level overview, feature tour, and entry points into every AI workflow.
+- [Thumbnail generator](https://creatortoolhub.com/thumbnails): Frame capture, template selection, AI refinements, and export guidance for 1280x720 YouTube-ready thumbnails.
+- [Video SEO suite](https://creatortoolhub.com/video-seo): Generates titles, descriptions, hashtags, and MM:SS timestamps from public YouTube transcripts.
+
+## Account & plans
+
+- [Pricing and credits](https://creatortoolhub.com/pricing): Explains the credit system, plan tiers, and billing FAQs.
+
+## Development
+
+- [Creator Tool Hub repository](https://github.com/aj47/CreatorToolHub): Next.js source code, API routes, and UI components powering the workspace.
+- [Issue tracker](https://github.com/aj47/CreatorToolHub/issues): Feature requests, bug reports, and roadmap discussions.
+
