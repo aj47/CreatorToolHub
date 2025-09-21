@@ -8,7 +8,7 @@ export default function Home() {
             <p className="nb-hero-sub">Capture frames for thumb designs, and now generate SEO-friendly titles and descriptions straight from your YouTube transcript.</p>
             <div className="nb-hero-ctas">
               <a className="nb-btn nb-btn--accent" href="/thumbnails">Open Thumbnail Creator</a>
-              <a className="nb-btn" href="/video-optimizer">Try Video Optimizer</a>
+              <a className="nb-btn" href="/video-seo">Try Video SEO</a>
             </div>
           </div>
           <div className="nb-card nb-hero-preview">
@@ -50,14 +50,14 @@ export default function Home() {
             <li className="nb-tl-item nb-tl--done">
               <div className="nb-tl-node" />
               <div className="nb-tl-content">
-                <div className="nb-feature-title">Title & description optimizer <span className="nb-badge nb-badge--done">Done</span></div>
-                <p>Drop in a YouTube URL and get an optimized title, description, and transcript recap. <a href="/video-optimizer">Launch Video Optimizer →</a></p>
+                <div className="nb-feature-title">Video SEO optimizer <span className="nb-badge nb-badge--done">Done</span></div>
+                <p>Drop in a YouTube URL and get SEO-optimized titles, descriptions, and transcript recap. <a href="/video-seo">Launch Video SEO →</a></p>
               </div>
             </li>
-            <li className="nb-tl-item">
+            <li className="nb-tl-item nb-tl--done">
               <div className="nb-tl-node" />
               <div className="nb-tl-content">
-                <div className="nb-feature-title">Iterate with feedback on generated thumbnails <span className="nb-badge">Planned</span></div>
+                <div className="nb-feature-title">Iterate with feedback on generated thumbnails <span className="nb-badge nb-badge--done">Done</span></div>
                 <p>Provide follow-up prompts to tweak style, layout, and text so you can refine thumbnails without starting over.</p>
               </div>
             </li>
