@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
       connectSrc.push('http://localhost:8787');
     }
 
+    const frameSrc = [
+      "'self'",
+      "https://www.youtube.com",
+      "https://youtube.com",
+      "https://www.youtube-nocookie.com",
+    ];
+
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -28,7 +35,7 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: https: blob:",
       "media-src 'self' blob: data:",
       `connect-src ${connectSrc.join(' ')}`,
-      "frame-src 'none'",
+      `frame-src ${frameSrc.join(' ')}`,
     ].join('; ');
 
     return [
