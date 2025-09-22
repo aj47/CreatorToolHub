@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import AuthButton from "@/components/AuthButton";
-import { NavLinks } from "@/components/NavLinks";
+import AppHeader from "@/components/AppHeader";
 import { AppProvider } from "@/lib/state/providers/AppProvider";
 import { AppErrorBoundary } from "@/lib/errors/ErrorBoundary";
 
@@ -97,17 +95,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isDevelopment = process.env.NODE_ENV === 'development';
 
   const content = (
     <>
-      <header className="nb-header">
-        <Link href="/" className="nb-brand">Creator Tool Hub</Link>
-        <nav className="nb-nav">
-          <NavLinks />
-        </nav>
-        <AuthButton />
-      </header>
+      <AppHeader />
       {children}
       <footer className="nb-footer">
         <span>Open source on </span>
