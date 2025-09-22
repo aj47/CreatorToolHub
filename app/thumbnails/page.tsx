@@ -13,7 +13,7 @@ import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
-import { enforceYouTubeDimensionsBatch, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
+import { enforceYouTubeDimensionsBatch, fitImageToYouTubeTransparent, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
 
 type Frame = { dataUrl: string; b64: string; kind: "frame" | "image"; filename?: string; hash?: string; importedAt?: number };
@@ -272,10 +272,9 @@ export default function Home() {
   const refsFull = refFrames.length >= MAX_ITEMS;
 
 
-  // Client-side image downscaling/compression to reduce payload sizes
-  const MAX_DIMENSION = 768; // limit max width/height in pixels
-  const TARGET_MIME: "image/jpeg" | "image/png" = "image/jpeg";
-  const JPEG_QUALITY = 0.82; // 0..1
+  // Client-side image normalization to YouTube-friendly dimensions
+  const MAX_DIMENSION = YOUTUBE_THUMBNAIL.WIDTH; // limit max width/height in pixels
+  const TARGET_MIME = "image/png" as const;
 
   const computeTargetSize = (w: number, h: number) => {
     const maxD = Math.max(w, h);
@@ -284,22 +283,27 @@ export default function Home() {
     return { tw: Math.round(w * scale), th: Math.round(h * scale) };
   };
 
-  const downscaleDataUrl = (dataUrl: string, mime: string = TARGET_MIME, quality = JPEG_QUALITY) => new Promise<string>((resolve, reject) => {
+  const downscaleDataUrl = (dataUrl: string) => new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       try {
         const { naturalWidth: w, naturalHeight: h } = img;
         const { tw, th } = computeTargetSize(w, h);
+        if (tw === w && th === h) {
+          resolve(dataUrl);
+          return;
+        }
         const c = document.createElement("canvas");
         c.width = tw; c.height = th;
         const ctx = c.getContext("2d");
-        if (!ctx) return reject(new Error("ctx"));
-        ctx.drawImage(img, 0, 0, w, h, 0, 0, tw, th);
-        if (mime === "image/jpeg") {
-          resolve(c.toDataURL("image/jpeg", quality));
-        } else {
-          resolve(c.toDataURL("image/png"));
+        if (!ctx) {
+          reject(new Error("ctx"));
+          return;
         }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h, 0, 0, tw, th);
+        resolve(c.toDataURL("image/png"));
       } catch (e) {
         reject(e);
       }
@@ -308,14 +312,19 @@ export default function Home() {
     img.src = dataUrl;
   });
 
-  const fileToResizedDataUrl = (file: File, mime: string = TARGET_MIME, quality = JPEG_QUALITY) => new Promise<string>((resolve, reject) => {
+  const normalizeToYouTubeDataUrl = async (dataUrl: string) => {
+    const resized = await downscaleDataUrl(dataUrl);
+    return fitImageToYouTubeTransparent(resized);
+  };
+
+  const fileToResizedDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
     const fr = new FileReader();
     fr.onerror = () => reject(new Error("read"));
     fr.onload = async () => {
       try {
         const base = String(fr.result || "");
-        const out = await downscaleDataUrl(base, mime, quality);
-        resolve(out);
+        const normalized = await normalizeToYouTubeDataUrl(base);
+        resolve(normalized);
       } catch (e) {
         reject(e);
       }
@@ -560,8 +569,8 @@ export default function Home() {
     return bufToHex(digest);
   };
 
-  // Back-compat name: now resizes and outputs JPEG by default
-  const fileToPngDataUrl = (file: File) => fileToResizedDataUrl(file, TARGET_MIME, JPEG_QUALITY);
+  // Back-compat name: now normalizes to 1280x720 transparent PNG
+  const fileToPngDataUrl = (file: File) => fileToResizedDataUrl(file);
 
   const importImages = async (files: FileList | File[], target: "frames" | "refs" = "frames") => {
     const list = Array.from(files);
@@ -689,12 +698,16 @@ export default function Home() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, w, h, 0, 0, tw, th);
-    const dataUrl = TARGET_MIME === "image/jpeg"
-      ? canvas.toDataURL("image/jpeg", JPEG_QUALITY)
-      : canvas.toDataURL("image/png");
-    const b64 = dataUrl.split(",")[1] || "";
+    const baseDataUrl = canvas.toDataURL("image/png");
+    let normalizedDataUrl = baseDataUrl;
+    try {
+      normalizedDataUrl = await normalizeToYouTubeDataUrl(baseDataUrl);
+    } catch (error) {
+      console.error("Failed to normalize captured frame:", error);
+    }
+    const b64 = normalizedDataUrl.split(",")[1] || "";
 
-    const newFrame = { dataUrl, b64, kind: "frame" as const };
+    const newFrame = { dataUrl: normalizedDataUrl, b64, kind: "frame" as const };
     setFrames((prev) => [...prev, newFrame]);
 
     // Also add to hybrid storage
@@ -832,8 +845,8 @@ export default function Home() {
                   fr.onload = () => resolve(String(fr.result || ""));
                   fr.readAsDataURL(blob);
                 }));
-              const resized = await downscaleDataUrl(dataUrl, TARGET_MIME, JPEG_QUALITY);
-              const b64 = resized.split(",")[1] || "";
+              const normalized = await normalizeToYouTubeDataUrl(dataUrl);
+              const b64 = normalized.split(",")[1] || "";
               if (b64) refB64.push(b64);
             } catch {}
           }
@@ -859,7 +872,26 @@ export default function Home() {
           combinedFrames = frames.map((f) => f.b64).slice(0, 3);
         }
 
-        const body = { prompt: finalPrompt, frames: combinedFrames, framesMime: TARGET_MIME, variants: count };
+        let normalizedFrames = combinedFrames;
+        try {
+          normalizedFrames = await Promise.all(
+            combinedFrames.map(async (b64) => {
+              if (!b64) return b64;
+              try {
+                const normalizedDataUrl = await normalizeToYouTubeDataUrl(toDataUrlString(b64, TARGET_MIME));
+                return normalizedDataUrl.split(",")[1] || b64;
+              } catch (error) {
+                console.error("Failed to normalize frame for Gemini request:", error);
+                return b64;
+              }
+            })
+          );
+        } catch (error) {
+          console.error("Failed to normalize frames for Gemini request:", error);
+          normalizedFrames = combinedFrames;
+        }
+
+        const body = { prompt: finalPrompt, frames: normalizedFrames, framesMime: TARGET_MIME, variants: count };
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
