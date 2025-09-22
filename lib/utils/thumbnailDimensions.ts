@@ -27,47 +27,51 @@ export async function enforceYouTubeDimensions(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    
+
     img.onload = () => {
       try {
         // Create canvas with exact YouTube dimensions
         const canvas = document.createElement('canvas');
         canvas.width = YOUTUBE_THUMBNAIL.WIDTH;
         canvas.height = YOUTUBE_THUMBNAIL.HEIGHT;
-        
+
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new Error('Could not get canvas context'));
           return;
         }
 
-        // Calculate scaling to maintain aspect ratio while filling the canvas
-        const sourceAspect = img.width / img.height;
-        const targetAspect = YOUTUBE_THUMBNAIL.ASPECT_RATIO;
-        
-        let drawWidth, drawHeight, offsetX, offsetY;
-        
-        if (sourceAspect > targetAspect) {
-          // Source is wider - fit to height, crop width
-          drawHeight = YOUTUBE_THUMBNAIL.HEIGHT;
-          drawWidth = drawHeight * sourceAspect;
-          offsetX = (YOUTUBE_THUMBNAIL.WIDTH - drawWidth) / 2;
-          offsetY = 0;
-        } else {
-          // Source is taller - fit to width, crop height
-          drawWidth = YOUTUBE_THUMBNAIL.WIDTH;
-          drawHeight = drawWidth / sourceAspect;
-          offsetX = 0;
-          offsetY = (YOUTUBE_THUMBNAIL.HEIGHT - drawHeight) / 2;
-        }
+        const targetWidth = YOUTUBE_THUMBNAIL.WIDTH;
+        const targetHeight = YOUTUBE_THUMBNAIL.HEIGHT;
 
-        // Fill with black background (in case of letterboxing)
+        // Prefill canvas in case filters leave transparent edges
         ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, YOUTUBE_THUMBNAIL.WIDTH, YOUTUBE_THUMBNAIL.HEIGHT);
-        
-        // Draw the image scaled and centered
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-        
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+        // Draw a blurred background using cover scaling so edges are filled
+        const coverScale = Math.max(targetWidth / img.width, targetHeight / img.height);
+        const coverWidth = img.width * coverScale;
+        const coverHeight = img.height * coverScale;
+        const coverX = (targetWidth - coverWidth) / 2;
+        const coverY = (targetHeight - coverHeight) / 2;
+
+        ctx.save();
+        ctx.filter = 'blur(40px)';
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(img, 0, 0, img.width, img.height, coverX, coverY, coverWidth, coverHeight);
+        ctx.restore();
+
+        // Now draw the original image using contain scaling so nothing is cropped
+        const containScale = Math.min(targetWidth / img.width, targetHeight / img.height);
+        const drawWidth = img.width * containScale;
+        const drawHeight = img.height * containScale;
+        const offsetX = (targetWidth - drawWidth) / 2;
+        const offsetY = (targetHeight - drawHeight) / 2;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawWidth, drawHeight);
+
         // Convert to JPEG with specified quality
         const dataUrl = canvas.toDataURL(YOUTUBE_THUMBNAIL.MIME_TYPE, quality);
         const base64Data = dataUrl.split(',')[1];
@@ -82,9 +86,9 @@ export async function enforceYouTubeDimensions(
         reject(error);
       }
     };
-    
+
     img.onerror = () => reject(new Error('Failed to load image'));
-    
+
     // Handle different input formats
     if (imageData.startsWith('data:')) {
       img.src = imageData;
@@ -96,6 +100,60 @@ export async function enforceYouTubeDimensions(
 }
 
 /**
+ * Fits an image into the YouTube canvas using contain scaling with transparent padding.
+ * Returns a PNG data URL sized exactly 1280x720 without introducing background blur.
+ */
+export async function fitImageToYouTubeTransparent(imageData: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        if (!img.width || !img.height) {
+          reject(new Error('Invalid image dimensions'));
+          return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = YOUTUBE_THUMBNAIL.WIDTH;
+        canvas.height = YOUTUBE_THUMBNAIL.HEIGHT;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        const offsetX = (canvas.width - drawWidth) / 2;
+        const offsetY = (canvas.height - drawHeight) / 2;
+
+        ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawWidth, drawHeight);
+
+        resolve(canvas.toDataURL('image/png'));
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image'));
+
+    if (imageData.startsWith('data:')) {
+      img.src = imageData;
+    } else {
+      img.src = `data:image/png;base64,${imageData}`;
+    }
+  });
+}
+
+
+/**
  * Enforces YouTube dimensions on multiple images in parallel
  * @param imageDataArray Array of base64 image data or data URLs
  * @param quality JPEG quality (0-1), defaults to 0.9
@@ -105,10 +163,10 @@ export async function enforceYouTubeDimensionsBatch(
   imageDataArray: string[],
   quality: number = YOUTUBE_THUMBNAIL.QUALITY
 ): Promise<string[]> {
-  const promises = imageDataArray.map(imageData => 
+  const promises = imageDataArray.map(imageData =>
     enforceYouTubeDimensions(imageData, quality)
   );
-  
+
   return Promise.all(promises);
 }
 
@@ -125,12 +183,12 @@ export async function validateYouTubeDimensions(imageData: string): Promise<{
 }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    
+
     img.onload = () => {
       const aspectRatio = img.width / img.height;
-      const isValid = img.width === YOUTUBE_THUMBNAIL.WIDTH && 
+      const isValid = img.width === YOUTUBE_THUMBNAIL.WIDTH &&
                      img.height === YOUTUBE_THUMBNAIL.HEIGHT;
-      
+
       resolve({
         isValid,
         width: img.width,
@@ -138,9 +196,9 @@ export async function validateYouTubeDimensions(imageData: string): Promise<{
         aspectRatio
       });
     };
-    
+
     img.onerror = () => reject(new Error('Failed to load image'));
-    
+
     if (imageData.startsWith('data:')) {
       img.src = imageData;
     } else {
