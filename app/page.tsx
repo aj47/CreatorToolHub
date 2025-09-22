@@ -64,7 +64,12 @@ export default function Home() {
           </div>
           <div className="nb-card nb-hero-preview">
             <div className="nb-thumb-demo">
-              <span>Your AI-powered YouTube toolkit</span>
+              <iframe
+                src="https://www.youtube.com/embed/0flgKnOcLWQ"
+                title="Creator Tool Hub demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
