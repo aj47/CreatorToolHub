@@ -681,6 +681,46 @@ export default function Home() {
     }
   };
 
+  // Clipboard paste handler for images
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Only handle paste when we're on step 1 (input step) and not at max capacity
+    if (currentStep !== 1 || framesFull) return;
+
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+
+    if (imageItems.length === 0) return;
+
+    e.preventDefault();
+
+    try {
+      const files: File[] = [];
+      for (const item of imageItems) {
+        const file = item.getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+
+      if (files.length > 0) {
+        await importImages(files);
+      }
+    } catch (error) {
+      console.error('Failed to paste images from clipboard:', error);
+      setError('Failed to paste images from clipboard. Please try again.');
+    }
+  }, [currentStep, framesFull, importImages]);
+
+  // Add paste event listener
+  useEffect(() => {
+    const handlePasteEvent = (e: ClipboardEvent) => handlePaste(e);
+    document.addEventListener('paste', handlePasteEvent);
+
+    return () => {
+      document.removeEventListener('paste', handlePasteEvent);
+    };
+  }, [handlePaste]);
+
 
   const captureFrame = async () => {
     const video = videoRef.current;
@@ -1403,7 +1443,7 @@ export default function Home() {
           </div>
 
           <div style={{ fontSize: 12, color: "#666", textAlign: "center" }}>
-            We send at most 3 images per generation. Tip: Drag and drop images anywhere below.
+            We send at most 3 images per generation. Tip: Drag and drop images anywhere below, or paste from clipboard (Ctrl+V/Cmd+V).
           </div>
 
           {importing && (
