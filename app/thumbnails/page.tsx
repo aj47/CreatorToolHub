@@ -851,8 +851,18 @@ export default function Home() {
         return;
       }
 
+
+        // Initialize overall progress across all selected templates
+        const perTemplate = Math.max(1, count);
+        const overallTotal = perTemplate * ids.length;
+        let overallDone = 0;
+        setProgressTotal(overallTotal);
+        setProgressDone(0);
+
       // For each selected template, we will stream NDJSON and update UI incrementally
       for (const tid of ids) {
+        let batchDone = 0; // Track progress within this template
+
         const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
         const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
@@ -990,8 +1000,8 @@ export default function Home() {
           } catch {
             setResults((prev) => [...prev, ...processedImages]);
           }
-          setProgressTotal(processedImages.length);
-          setProgressDone(processedImages.length);
+          overallDone += processedImages.length;
+          setProgressDone(overallDone);
         } else {
           // Stream NDJSON response: handle start/progress/image/done events
           if (!res.body) throw new Error("No response body");
@@ -1010,12 +1020,12 @@ export default function Home() {
               let evt: any = null;
               try { evt = JSON.parse(line); } catch { continue; }
               if (evt.type === "start") {
-                setProgressTotal(Number(evt.total) || 0);
-                setProgressDone(0);
+                // Keep overall total; reflect current cumulative progress
+                setProgressDone(overallDone);
               } else if (evt.type === "progress") {
-                if (typeof evt.done === 'number' && typeof evt.total === 'number') {
-                  setProgressDone(evt.done);
-                  setProgressTotal(evt.total);
+                if (typeof evt.done === 'number') {
+                  batchDone = Math.max(batchDone, evt.done);
+                  setProgressDone(overallDone + batchDone);
                 }
               } else if (evt.type === "image") {
                 try {
@@ -1035,8 +1045,16 @@ export default function Home() {
                   const blobUrl = URL.createObjectURL(blob);
                   setResults((prev) => [...prev, blobUrl]);
                   setBlobUrls((prev) => [...prev, blobUrl]);
+                  // Update cumulative progress for each streamed image (success path)
+                  batchDone += 1;
+                  setProgressDone(overallDone + batchDone);
+
                 } catch {
                   setResults((prev) => [...prev, evt.dataUrl]);
+                  // Update cumulative progress for each streamed image (fallback path)
+                  batchDone += 1;
+                  setProgressDone(overallDone + batchDone);
+
                 }
               } else if (evt.type === "variant_error") {
                 // Could surface per-variant errors if desired
@@ -1048,6 +1066,9 @@ export default function Home() {
               }
             }
           }
+          // Accumulate progress for this template before moving to the next
+          overallDone += batchDone;
+
         }
       }
     } catch (err: unknown) {
