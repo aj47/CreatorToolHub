@@ -1346,10 +1346,7 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <AuthGuard
-        message="You need to be signed in to create thumbnails. It's free after you sign up and you'll get credits to start generating immediately."
-      >
-        <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
+      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
         <header className={styles.hero}>
           <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
           <p className={styles.subtitle}>
@@ -1362,8 +1359,10 @@ export default function Home() {
           dangerouslySetInnerHTML={{ __html: faqJsonLd }}
         />
 
-
-        {/* Stepper */}
+        <AuthGuard
+          message="You need to be signed in to create thumbnails. It's free after you sign up and you'll get credits to start generating immediately."
+        >
+          {/* Stepper */}
         <nav className={styles.stepper} aria-label="Thumbnail creation steps">
           {[1,2,3].map((n) => {
             const unlocked = canGoTo(n);
@@ -1923,7 +1922,7 @@ export default function Home() {
             )}
           </section>
         )}
-
+        </AuthGuard>
 
         <section className={styles.faqSection} aria-labelledby="thumbnailFaq">
           <div className={styles.faqCard}>
@@ -1936,8 +1935,7 @@ export default function Home() {
             ))}
           </div>
         </section>
-        </main>
-      </AuthGuard>
+      </main>
     </div>
   );
 }

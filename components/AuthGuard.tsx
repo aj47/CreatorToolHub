@@ -51,11 +51,11 @@ function AuthPrompt({ message, onSignIn }: AuthPromptProps) {
         .auth-guard-prompt {
           display: flex;
           justify-content: center;
-          align-items: center;
-          min-height: 400px;
-          padding: 2rem;
+          align-items: flex-start;
+          padding: 2rem 0;
+          margin: 2rem 0;
         }
-        
+
         .auth-guard-content {
           background: #fff;
           color: #111;
@@ -63,25 +63,27 @@ function AuthPrompt({ message, onSignIn }: AuthPromptProps) {
           border-radius: 12px;
           border: 3px solid var(--nb-border, #333);
           box-shadow: 8px 8px 0 var(--nb-border, #333);
-          max-width: 480px;
+          max-width: 600px;
+          width: 100%;
           text-align: center;
         }
-        
+
         .auth-guard-header h2 {
           margin: 0 0 1rem 0;
           font-size: 1.5rem;
           font-weight: 800;
         }
-        
+
         .auth-guard-message {
           margin-bottom: 1.5rem;
         }
-        
+
         .auth-guard-message p {
           margin: 0;
           line-height: 1.5;
+          font-size: 1.1rem;
         }
-        
+
         .auth-guard-actions {
           display: flex;
           justify-content: center;
@@ -110,11 +112,11 @@ export default function AuthGuard({
           .auth-guard-loading {
             display: flex;
             justify-content: center;
-            align-items: center;
-            min-height: 400px;
-            padding: 2rem;
+            align-items: flex-start;
+            padding: 2rem 0;
+            margin: 2rem 0;
           }
-          
+
           .auth-guard-content {
             background: #fff;
             color: #111;
@@ -122,6 +124,8 @@ export default function AuthGuard({
             border-radius: 12px;
             border: 3px solid var(--nb-border, #333);
             box-shadow: 8px 8px 0 var(--nb-border, #333);
+            max-width: 600px;
+            width: 100%;
             text-align: center;
           }
         `}</style>
