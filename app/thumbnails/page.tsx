@@ -11,6 +11,8 @@ import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
 import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
+import AuthGuard from "@/components/AuthGuard";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { enforceYouTubeDimensionsBatch, fitImageToYouTubeTransparent, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
@@ -134,43 +136,7 @@ export default function Home() {
 
   // Authentication and credits state
   const isDevelopment = process.env.NODE_ENV === 'development';
-  const [user, setUser] = useState<{ email: string; name: string; picture: string } | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isDevelopment) {
-        // In development, use a mock user
-        setUser({
-          email: 'dev@example.com',
-          name: 'Dev User',
-          picture: '',
-        });
-        setAuthLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/auth/session');
-        const data = await response.json();
-
-        if (data.authenticated && data.user) {
-          setUser({
-            email: data.user.email,
-            name: data.user.name || '',
-            picture: data.user.picture || '',
-          });
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [isDevelopment]);
+  const { user, loading: authLoading } = useAuth();
 
   const { customer, isLoading: customerLoading } = useCustomer({ errorOnNotFound: false });
 
@@ -1380,9 +1346,10 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-
-
-      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
+      <AuthGuard
+        message="You need to be signed in to create thumbnails. It's free after you sign up and you'll get credits to start generating immediately."
+      >
+        <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
         <header className={styles.hero}>
           <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
           <p className={styles.subtitle}>
@@ -1969,7 +1936,8 @@ export default function Home() {
             ))}
           </div>
         </section>
-      </main>
+        </main>
+      </AuthGuard>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import AppHeader from "@/components/AppHeader";
 import { AppProvider } from "@/lib/state/providers/AppProvider";
 import { AppErrorBoundary } from "@/lib/errors/ErrorBoundary";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 
 import { AutumnProvider } from "autumn-js/react";
 import "./globals.css";
@@ -119,11 +120,13 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AppErrorBoundary>
-          <AppProvider>
-            <AutumnProvider includeCredentials={true}>
-              {content}
-            </AutumnProvider>
-          </AppProvider>
+          <AuthProvider>
+            <AppProvider>
+              <AutumnProvider includeCredentials={true}>
+                {content}
+              </AutumnProvider>
+            </AppProvider>
+          </AuthProvider>
         </AppErrorBoundary>
       </body>
     </html>
