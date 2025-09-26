@@ -52,6 +52,8 @@ export interface AuthMenuItemsProps {
 
 export default function AuthMenuItems({ onNavigate }: AuthMenuItemsProps) {
   const { user, loading, signIn } = useAuth();
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const credits = useCredits(isDevelopment);
 
   if (loading) {
     return <span className="nb-navlink nb-navlink--loading">Loading…</span>;
@@ -65,7 +67,7 @@ export default function AuthMenuItems({ onNavigate }: AuthMenuItemsProps) {
         title="Open dashboard"
         onClick={onNavigate}
       >
-        Dashboard
+        credits: {credits}
       </Link>
     );
   }
