@@ -4,7 +4,7 @@ import { useCustomer } from "autumn-js/react";
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { CloudGeneration } from "@/lib/storage/client";
 import AuthGuard from "@/components/AuthGuard";
-import styles from "./page.module.css";
+import { Textarea } from "@/components/ui/textarea";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
@@ -133,7 +133,7 @@ function DashboardContent() {
         {/* Recent Generations Section */}
         <AuthGuard>
           <div className="nb-card" style={{ maxWidth: 1400, margin: "2rem auto 0" }}>
-            <div className={styles.generationsHeader}>
+            <div className="flex justify-between items-start mb-6 gap-4 flex-wrap">
               <div>
                 <h2 className="nb-feature-title">Recent Generations</h2>
                 <p className="nb-muted">Your latest thumbnail generations</p>
@@ -141,61 +141,61 @@ function DashboardContent() {
               <button
                 onClick={handleRefreshGenerations}
                 disabled={hybridStorage.isLoading}
-                className={styles.refreshButton}
+                className="nb-btn nb-btn--accent"
               >
                 {hybridStorage.isLoading ? "Loading..." : "Refresh"}
               </button>
             </div>
 
             {!hybridStorage.isCloudEnabled ? (
-              <div className={styles.emptyState}>
-                <p>Please sign in to view your generation history.</p>
+              <div className="text-center py-12 text-gray-600">
+                <p className="text-lg">Please sign in to view your generation history.</p>
               </div>
             ) : hybridStorage.generations.length === 0 ? (
-              <div className={styles.emptyState}>
-                <p>No generations yet. Create your first thumbnail!</p>
+              <div className="text-center py-12 text-gray-600">
+                <p className="text-lg">No generations yet. Create your first thumbnail!</p>
               </div>
             ) : (
               <>
-                <div className={styles.grid}>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 mb-6">
                   {hybridStorage.generations.slice(0, 6).map((gen) => {
                     const preview = gen.preview_url || gen.outputs?.[0]?.url;
                     return (
                       <div
                         key={gen.id}
-                        className={styles.card}
+                        className="nb-card cursor-pointer transition-transform hover:-translate-y-1 p-0 overflow-hidden"
                         onClick={() => setSelectedGeneration(gen)}
                       >
                         {preview ? (
-                          <div className={styles.imageContainer}>
+                          <div className="relative w-full h-[160px] overflow-hidden bg-gray-100">
                             <img
                               src={preview}
                               alt={gen.prompt ? gen.prompt.slice(0, 60) : `Generation ${gen.id}`}
-                              className={styles.image}
+                              className="w-full h-full object-cover"
                             />
                             <div
-                              className={styles.statusBadge}
+                              className="absolute top-2 right-2 px-3 py-1 rounded text-white text-xs font-semibold uppercase"
                               style={{ backgroundColor: getStatusColor(gen.status) }}
                             >
                               {gen.status}
                             </div>
                           </div>
                         ) : (
-                          <div className={styles.noPreview}>
+                          <div className="w-full h-[160px] flex items-center justify-center bg-gray-100 text-gray-400 text-sm">
                             <span>No preview</span>
                           </div>
                         )}
 
-                        <div className={styles.cardContent}>
-                          <div className={styles.date}>
+                        <div className="p-4">
+                          <div className="text-[13px] font-semibold text-[var(--nb-fg)] mb-2">
                             {new Date(gen.created_at).toLocaleDateString()} at{" "}
                             {new Date(gen.created_at).toLocaleTimeString()}
                           </div>
-                          <div className={styles.meta}>
+                          <div className="text-xs text-gray-600 mb-2">
                             Variants: {gen.outputs?.length ?? gen.variants_requested ?? 0}
                           </div>
                           {gen.prompt && (
-                            <div className={styles.prompt}>
+                            <div className="text-xs text-gray-600 leading-relaxed">
                               {gen.prompt.length > 80
                                 ? `${gen.prompt.substring(0, 80)}...`
                                 : gen.prompt}
@@ -208,7 +208,7 @@ function DashboardContent() {
                 </div>
 
                 {hybridStorage.generations.length > 6 && (
-                  <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                  <div className="text-center mt-4">
                     <a href="/generations" className="nb-btn">
                       View All Generations
                     </a>
@@ -368,24 +368,35 @@ function GenerationDetailModal({
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h2>Generation Details</h2>
-          <button onClick={onClose} className={styles.closeButton}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] p-4"
+      onClick={onClose}
+    >
+      <div
+        className="nb-card max-w-[900px] w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex justify-between items-center pb-6 border-b-3 border-[var(--nb-border)] mb-6">
+          <h2 className="text-2xl font-bold text-[var(--nb-fg)]">Generation Details</h2>
+          <button
+            onClick={onClose}
+            className="text-4xl leading-none text-gray-600 hover:text-gray-900 w-8 h-8 flex items-center justify-center border-0 bg-transparent cursor-pointer"
+          >
             ×
           </button>
         </div>
 
-        <div className={styles.modalContent}>
-          <div className={styles.detailRow}>
-            <strong>Created:</strong>
+        {/* Modal Content */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Created:</strong>
             <span>
               {new Date(generation.created_at).toLocaleString()}
             </span>
           </div>
-          <div className={styles.detailRow}>
-            <strong>Status:</strong>
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Status:</strong>
             <span style={{
               color: generation.status === "complete" ? "#28a745" :
                      generation.status === "failed" ? "#dc3545" : "#6c757d"
@@ -394,40 +405,42 @@ function GenerationDetailModal({
             </span>
           </div>
           {generation.error_message && (
-            <div className={styles.detailRow}>
-              <strong>Error:</strong>
-              <span style={{ color: "#dc3545" }}>{generation.error_message}</span>
+            <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+              <strong className="text-[var(--nb-fg)]">Error:</strong>
+              <span className="text-red-600">{generation.error_message}</span>
             </div>
           )}
-          <div className={styles.detailRow}>
-            <strong>Prompt:</strong>
-            <p className={styles.fullPrompt}>{generation.prompt}</p>
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Prompt:</strong>
+            <p className="m-0 leading-relaxed text-gray-600">{generation.prompt}</p>
           </div>
 
           {/* Outputs */}
           {generation.outputs && generation.outputs.length > 0 && (
-            <div className={styles.outputsSection}>
-              <strong>Generated Images ({generation.outputs.length}):</strong>
-              <div className={styles.outputsGrid}>
+            <div className="mt-8 pt-6 border-t-3 border-[var(--nb-border)]">
+              <strong className="block mb-4 text-lg text-[var(--nb-fg)]">
+                Generated Images ({generation.outputs.length}):
+              </strong>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4 mb-8">
                 {generation.outputs.map((output, index) => (
-                  <div key={output.id} className={styles.outputCard}>
+                  <div key={output.id} className="nb-card p-0 overflow-hidden">
                     <img
                       src={output.url}
                       alt={`Variant ${index + 1}`}
-                      className={styles.outputImage}
+                      className="w-full h-[150px] object-cover block"
                     />
-                    <div className={styles.outputActions}>
+                    <div className="flex flex-col gap-2 p-2">
                       <button
                         onClick={() => handleDownload(output.url!, index)}
                         disabled={downloadingIndex === index}
-                        className={styles.actionButton}
+                        className="nb-btn nb-btn--accent w-full"
                       >
                         {downloadingIndex === index ? "Downloading..." : "Download"}
                       </button>
                       <button
                         onClick={() => handleCopy(output.url!, index)}
                         disabled={copyingIndex === index}
-                        className={styles.actionButton}
+                        className="nb-btn w-full"
                       >
                         {copyingIndex === index ? "Copying..." : "Copy"}
                       </button>
@@ -437,31 +450,36 @@ function GenerationDetailModal({
               </div>
 
               {/* Refinement Section */}
-              <div className={styles.refinementSection}>
-                <h3>Refine a Variant</h3>
-                <p className="nb-muted" style={{ fontSize: "14px", marginBottom: "12px" }}>
+              <div className="mt-8 pt-6 border-t-3 border-[var(--nb-border)]">
+                <h3 className="text-lg font-bold text-[var(--nb-fg)] mb-2">Refine a Variant</h3>
+                <p className="nb-muted text-sm mb-4">
                   Enter feedback to refine any of the variants above
                 </p>
-                <textarea
+                <Textarea
                   value={feedbackPrompt}
                   onChange={(e) => setFeedbackPrompt(e.target.value)}
                   placeholder="e.g., make the text larger, change background to blue, add more contrast..."
-                  className={styles.feedbackInput}
                   disabled={isRefining}
                   rows={3}
+                  className="border-3 border-[var(--nb-border)] mb-4"
                 />
                 {refinementError && (
-                  <div style={{ color: "#dc3545", fontSize: "14px", marginTop: "8px" }}>
+                  <div className="text-red-600 text-sm mb-4">
                     {refinementError}
                   </div>
                 )}
-                <div className={styles.refinementButtons}>
+                <div className="flex gap-3 flex-wrap">
                   {generation.outputs.map((output, index) => (
                     <button
                       key={output.id}
                       onClick={() => handleRefine(output.url!, index)}
                       disabled={isRefining || !feedbackPrompt.trim()}
-                      className={styles.refineButton}
+                      className="nb-btn"
+                      style={{
+                        background: isRefining || !feedbackPrompt.trim() ? "#6c757d" : "#28a745",
+                        color: "white",
+                        opacity: isRefining || !feedbackPrompt.trim() ? 0.6 : 1
+                      }}
                     >
                       {isRefining ? "Refining..." : `Refine Variant ${index + 1}`}
                     </button>

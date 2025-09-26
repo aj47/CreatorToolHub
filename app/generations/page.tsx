@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { CloudGeneration } from "@/lib/storage/client";
 import AuthGuard from "@/components/AuthGuard";
-import styles from "./page.module.css";
+import { Input } from "@/components/ui/input";
 
 export default function GenerationsPage() {
   const hybridStorage = useHybridStorage();
@@ -73,112 +73,119 @@ export default function GenerationsPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <main className={styles.main}>
+    <div className="min-h-screen">
+      <main className="max-w-[1400px] mx-auto px-4 py-8">
         <AuthGuard>
-          <div className={styles.header}>
+          {/* Header */}
+          <div className="flex justify-between items-start mb-8 gap-4 flex-wrap">
             <div>
-              <h1 className={styles.title}>Generation History</h1>
-              <p className={styles.subtitle}>
+              <h1 className="text-4xl font-extrabold mb-2 text-[var(--nb-fg)]">Generation History</h1>
+              <p className="text-lg text-gray-600">
                 Browse and access all your past thumbnail generations
               </p>
             </div>
             <button
               onClick={handleRefresh}
               disabled={hybridStorage.isLoading}
-              className={styles.refreshButton}
+              className="nb-btn nb-btn--accent"
             >
               {hybridStorage.isLoading ? "Loading..." : "Refresh"}
             </button>
           </div>
 
           {/* Filters */}
-          <div className={styles.filters}>
-            <div className={styles.filterGroup}>
-              <label htmlFor="status-filter">Status:</label>
-              <select 
-                id="status-filter"
-                value={statusFilter} 
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className={styles.select}
-              >
-                <option value="all">All</option>
-                <option value="complete">Complete</option>
-                <option value="failed">Failed</option>
-                <option value="running">Running</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-            <div className={styles.filterGroup}>
-              <label htmlFor="search-input">Search:</label>
-              <input
-                id="search-input"
-                type="text"
-                placeholder="Search by prompt..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.searchInput}
-              />
+          <div className="nb-card mb-8">
+            <div className="flex gap-6 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label htmlFor="status-filter" className="font-semibold text-[var(--nb-fg)]">
+                  Status:
+                </label>
+                <select
+                  id="status-filter"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border-3 border-[var(--nb-border)] rounded-lg px-4 py-2 bg-white cursor-pointer"
+                >
+                  <option value="all">All</option>
+                  <option value="complete">Complete</option>
+                  <option value="failed">Failed</option>
+                  <option value="running">Running</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 flex-1 min-w-[250px]">
+                <label htmlFor="search-input" className="font-semibold text-[var(--nb-fg)]">
+                  Search:
+                </label>
+                <Input
+                  id="search-input"
+                  type="text"
+                  placeholder="Search by prompt..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="border-3 border-[var(--nb-border)]"
+                />
+              </div>
             </div>
           </div>
 
           {/* Generations Grid */}
           {!hybridStorage.isCloudEnabled ? (
-            <div className={styles.emptyState}>
-              <p>Please sign in to view your generation history.</p>
+            <div className="text-center py-16 text-gray-600">
+              <p className="text-xl">Please sign in to view your generation history.</p>
             </div>
           ) : filteredGenerations.length === 0 ? (
-            <div className={styles.emptyState}>
-              <p>No generations found.</p>
+            <div className="text-center py-16 text-gray-600">
+              <p className="text-xl mb-2">No generations found.</p>
               {hybridStorage.generations.length > 0 && (
-                <p className={styles.emptyHint}>
+                <p className="opacity-70">
                   Try adjusting your filters or search query.
                 </p>
               )}
             </div>
           ) : (
             <>
-              <div className={styles.grid}>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6 mb-8">
                 {filteredGenerations.map((gen) => {
                   const preview = gen.preview_url || gen.outputs?.[0]?.url;
                   return (
                     <div
                       key={gen.id}
-                      className={styles.card}
+                      className="nb-card cursor-pointer transition-transform hover:-translate-y-1 p-0 overflow-hidden"
                       onClick={() => handleSelectGeneration(gen)}
                     >
                       {/* Preview Image */}
                       {preview ? (
-                        <div className={styles.imageContainer}>
+                        <div className="relative w-full h-[180px] overflow-hidden bg-gray-100">
                           <img
                             src={preview}
                             alt={gen.prompt ? gen.prompt.slice(0, 60) : `Generation ${gen.id}`}
-                            className={styles.image}
+                            className="w-full h-full object-cover"
                           />
-                          <div 
-                            className={styles.statusBadge}
+                          <div
+                            className="absolute top-2 right-2 px-3 py-1 rounded text-white text-xs font-semibold uppercase"
                             style={{ backgroundColor: getStatusColor(gen.status) }}
                           >
                             {gen.status}
                           </div>
                         </div>
                       ) : (
-                        <div className={styles.noPreview}>
+                        <div className="w-full h-[180px] flex items-center justify-center bg-gray-100 text-gray-400 text-sm">
                           <span>No preview</span>
                         </div>
                       )}
 
                       {/* Generation Info */}
-                      <div className={styles.cardContent}>
-                        <div className={styles.date}>
+                      <div className="p-4">
+                        <div className="text-sm font-semibold text-[var(--nb-fg)] mb-2">
                           {new Date(gen.created_at).toLocaleDateString()} at{" "}
                           {new Date(gen.created_at).toLocaleTimeString()}
                         </div>
-                        <div className={styles.meta}>
+                        <div className="text-xs text-gray-600 mb-2">
                           Variants: {gen.outputs?.length ?? gen.variants_requested ?? 0}
                         </div>
                         {gen.prompt && (
-                          <div className={styles.prompt}>
+                          <div className="text-xs text-gray-600 leading-relaxed">
                             {gen.prompt.length > 80
                               ? `${gen.prompt.substring(0, 80)}...`
                               : gen.prompt}
@@ -192,11 +199,11 @@ export default function GenerationsPage() {
 
               {/* Load More Button */}
               {hasMore && statusFilter === "all" && searchQuery === "" && (
-                <div className={styles.loadMoreContainer}>
+                <div className="flex justify-center py-8">
                   <button
                     onClick={handleLoadMore}
                     disabled={isLoadingMore || hybridStorage.isLoading}
-                    className={styles.loadMoreButton}
+                    className="nb-btn"
                   >
                     {isLoadingMore || hybridStorage.isLoading ? "Loading..." : "Load More"}
                   </button>
@@ -244,57 +251,70 @@ function GenerationDetailModal({
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h2>Generation Details</h2>
-          <button onClick={onClose} className={styles.closeButton}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000] p-4"
+      onClick={onClose}
+    >
+      <div
+        className="nb-card max-w-[900px] w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="flex justify-between items-center pb-6 border-b-3 border-[var(--nb-border)] mb-6">
+          <h2 className="text-2xl font-bold text-[var(--nb-fg)]">Generation Details</h2>
+          <button
+            onClick={onClose}
+            className="text-4xl leading-none text-gray-600 hover:text-gray-900 w-8 h-8 flex items-center justify-center border-0 bg-transparent cursor-pointer"
+          >
             ×
           </button>
         </div>
 
-        <div className={styles.modalContent}>
-          <div className={styles.detailRow}>
-            <strong>Created:</strong>
+        {/* Modal Content */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Created:</strong>
             <span>
               {new Date(generation.created_at).toLocaleString()}
             </span>
           </div>
-          <div className={styles.detailRow}>
-            <strong>Status:</strong>
-            <span style={{ 
-              color: generation.status === "complete" ? "#28a745" : 
-                     generation.status === "failed" ? "#dc3545" : "#6c757d" 
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Status:</strong>
+            <span style={{
+              color: generation.status === "complete" ? "#28a745" :
+                     generation.status === "failed" ? "#dc3545" : "#6c757d"
             }}>
               {generation.status}
             </span>
           </div>
           {generation.error_message && (
-            <div className={styles.detailRow}>
-              <strong>Error:</strong>
-              <span style={{ color: "#dc3545" }}>{generation.error_message}</span>
+            <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+              <strong className="text-[var(--nb-fg)]">Error:</strong>
+              <span className="text-red-600">{generation.error_message}</span>
             </div>
           )}
-          <div className={styles.detailRow}>
-            <strong>Prompt:</strong>
-            <p className={styles.fullPrompt}>{generation.prompt}</p>
+          <div className="grid grid-cols-[120px_1fr] gap-4 items-start">
+            <strong className="text-[var(--nb-fg)]">Prompt:</strong>
+            <p className="m-0 leading-relaxed text-gray-600">{generation.prompt}</p>
           </div>
 
           {/* Outputs */}
           {generation.outputs && generation.outputs.length > 0 && (
-            <div className={styles.outputsSection}>
-              <strong>Generated Images ({generation.outputs.length}):</strong>
-              <div className={styles.outputsGrid}>
+            <div className="mt-8 pt-6 border-t-3 border-[var(--nb-border)]">
+              <strong className="block mb-4 text-lg text-[var(--nb-fg)]">
+                Generated Images ({generation.outputs.length}):
+              </strong>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                 {generation.outputs.map((output, index) => (
-                  <div key={output.id} className={styles.outputCard}>
+                  <div key={output.id} className="nb-card p-0 overflow-hidden">
                     <img
                       src={output.url}
                       alt={`Variant ${index + 1}`}
-                      className={styles.outputImage}
+                      className="w-full h-[150px] object-cover block"
                     />
                     <button
                       onClick={() => handleDownload(output.url!, index)}
-                      className={styles.downloadButton}
+                      className="nb-btn nb-btn--accent w-full rounded-none"
                     >
                       Download
                     </button>
