@@ -147,7 +147,7 @@ export default {
       }), ['GET']);
 
       // Add secure R2 proxy route
-      middlewareStack.route('/api/r2-proxy', createRouteHandler(async (req, env) => {
+      middlewareStack.route('/api/r2-proxy/*', createRouteHandler(async (req, env) => {
         return await handleR2Proxy(req, env);
       }), ['GET']);
 
@@ -513,14 +513,17 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
 
 // Secure R2 proxy handler
 async function handleR2Proxy(request: AuthenticatedRequest, env: Env): Promise<Response> {
-  // Extract key from URL path
+  // Extract key from URL path: /api/r2-proxy/{encodedKey}
   const url = new URL(request.url);
   const pathParts = url.pathname.split('/');
-  const key = decodeURIComponent(pathParts[pathParts.length - 1]);
+  // Path should be: ['', 'api', 'r2-proxy', '{encodedKey}']
+  const encodedKey = pathParts[3];
 
-  if (!key) {
+  if (!encodedKey) {
     return errorResponse('Missing file key', 400, 'MISSING_KEY');
   }
+
+  const key = decodeURIComponent(encodedKey);
 
   // Check expiration
   const expires = url.searchParams.get('expires');

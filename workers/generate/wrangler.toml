@@ -24,9 +24,10 @@ ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,htt
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
 # AUTUMN_SECRET_KEY - Set with: wrangler secret put AUTUMN_SECRET_KEY
 
-# Routes for both generation and user data APIs
+# Routes for generation, user data, and R2 proxy APIs
 routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
-  { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" }
+  { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
+  { pattern = "creatortoolhub.com/api/r2-proxy/*", zone_name = "creatortoolhub.com" }
 ]
 
