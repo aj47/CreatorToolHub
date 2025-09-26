@@ -4,7 +4,7 @@ import { useCustomer } from "autumn-js/react";
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { CloudGeneration, CloudGenerationOutput } from "@/lib/storage/client";
 import AuthGuard from "@/components/AuthGuard";
-import { Textarea } from "@/components/ui/textarea";
+
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
@@ -22,7 +22,7 @@ function DashboardContent() {
   const [downloadingIndex, setDownloadingIndex] = useState<string | null>(null);
 
   // Authentication
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const isAuthenticated = isDevelopment || !!user; // In development, always consider authenticated
 
   // Refinement history management
@@ -90,15 +90,7 @@ function DashboardContent() {
     );
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "complete": return "#28a745";
-      case "failed": return "#dc3545";
-      case "running": return "#ffc107";
-      case "pending": return "#6c757d";
-      default: return "#6c757d";
-    }
-  };
+
 
   // Download handler for individual thumbnails
   const handleDownload = async (url: string, index: string) => {
@@ -583,7 +575,7 @@ function DashboardContent() {
                             {new Date(gen.created_at).toLocaleTimeString()}
                           </div>
                           <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
-                            Variant {index + 1} of {gen.outputs.length}
+                            Variant {index + 1} of {gen.outputs?.length || 0}
                           </div>
                           {gen.prompt && (
                             <div style={{ fontSize: 11, color: '#666', lineHeight: 1.3 }}>
