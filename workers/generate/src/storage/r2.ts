@@ -2,7 +2,7 @@
 import { generateR2Key, isValidImageType, isValidFileSize, calculateFileHash } from './utils';
 
 export class R2StorageService {
-  constructor(private r2: any) {}
+  constructor(private r2: any, private env?: any) {}
 
   /**
    * Upload a template reference image to R2 storage
@@ -97,7 +97,6 @@ export class R2StorageService {
 
   /**
    * Generate a signed URL for accessing the file
-   * Note: This is a placeholder - actual signed URL generation requires additional setup
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development mode, serve mock images for seeded data
@@ -105,32 +104,33 @@ export class R2StorageService {
       return this.getMockImageUrl(key);
     }
 
-    // For now, return a placeholder URL
-    // In production, you'd implement proper signed URL generation
-    // For development, also use mock images for non-mock keys
+    // For development, use mock images for non-mock keys
     if (this.isDevelopmentMode()) {
       return `https://picsum.photos/1280/720?random=${Date.now()}`;
     }
-    return `https://your-r2-domain.com/${key}?expires=${Date.now() + expiresIn * 1000}`;
+
+    // Production: use R2 public domain
+    const publicDomain = this.env?.R2_PUBLIC_DOMAIN;
+    if (publicDomain) {
+      return `https://${publicDomain}/${key}`;
+    }
+
+    // Fallback: construct URL using account ID (this won't work without public access enabled)
+    console.warn('R2_PUBLIC_DOMAIN not configured, using fallback URL that may not work');
+    return `https://pub-9a4725557b2acbac23f3fba92d096149.r2.dev/${key}`;
   }
 
   /**
    * Check if we're in development mode
    */
   private isDevelopmentMode(): boolean {
-    // Check if we're running in local development
-    // In local development, the worker runs on localhost
-    try {
-      // Check if we're in a local development environment
-      return typeof globalThis !== 'undefined' &&
-             ((globalThis as any).location?.hostname === 'localhost' ||
-              (globalThis as any).ENVIRONMENT === 'development' ||
-              // Fallback: assume development if we can't determine otherwise
-              true);
-    } catch {
-      // If we can't determine, assume development for safety
-      return true;
+    // Check environment variable first
+    if (this.env?.NODE_ENV) {
+      return this.env.NODE_ENV !== 'production';
     }
+
+    // Fallback: assume production for safety
+    return false;
   }
 
   /**

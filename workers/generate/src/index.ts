@@ -19,6 +19,7 @@ export interface Env {
   DB: any; // Cloudflare D1 database binding
   R2: any;   // Cloudflare R2 bucket binding
   NODE_ENV?: string;
+  R2_PUBLIC_DOMAIN?: string; // R2 public domain for file URLs
 }
 
 
@@ -175,7 +176,7 @@ async function handleUserAPI(request: AuthenticatedRequest, env: Env): Promise<R
 
   try {
     const db = new DatabaseService(env.DB);
-    const r2 = new R2StorageService(env.R2);
+    const r2 = new R2StorageService(env.R2, env);
     const userAPI = new UserAPI(db, r2, env);
     return await userAPI.handleRequest(request);
   } catch (error) {
@@ -243,7 +244,7 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
 
   const userId = deriveUserId(user.email);
   const db = new DatabaseService(env.DB);
-  const r2 = new R2StorageService(env.R2);
+  const r2 = new R2StorageService(env.R2, env);
 
   // Ensure user exists in database before proceeding
   try {
