@@ -3,7 +3,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import AuthMenuItems, { CreditsBadge } from "@/components/AuthButton";
+import AuthMenuItems from "@/components/AuthButton";
 import { NavLinks } from "@/components/NavLinks";
 
 const NAV_ID = "nb-primary-navigation";
@@ -48,7 +48,6 @@ export default function AppHeader() {
         <NavLinks />
         <AuthMenuItems onNavigate={handleNavSelection} />
       </nav>
-      <CreditsBadge />
     </header>
   );
 }
