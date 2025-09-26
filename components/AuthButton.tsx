@@ -40,9 +40,14 @@ export function CreditsBadge() {
   }
 
   return (
-    <span className="nb-credits" aria-label="credits remaining">
+    <Link
+      href="/dashboard"
+      className="nb-credits nb-credits--link"
+      aria-label="View dashboard and credits"
+      title="View dashboard"
+    >
       credits: {credits}
-    </span>
+    </Link>
   );
 }
 
@@ -53,21 +58,15 @@ export interface AuthMenuItemsProps {
 export default function AuthMenuItems({ onNavigate }: AuthMenuItemsProps) {
   const { user, loading, signIn } = useAuth();
 
+  // Don't show anything while loading (CreditsBadge handles loading state)
   if (loading) {
-    return <span className="nb-navlink nb-navlink--loading">Loading…</span>;
+    return null;
   }
 
   if (user) {
-    return (
-      <Link
-        href="/dashboard"
-        className="nb-btn nb-btn--accent nb-navlink-btn"
-        title="Open dashboard"
-        onClick={onNavigate}
-      >
-        Dashboard
-      </Link>
-    );
+    // When user is logged in, don't show dashboard button here
+    // It's now shown as the credits badge
+    return null;
   }
 
   return (
