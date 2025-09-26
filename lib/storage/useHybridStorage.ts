@@ -89,7 +89,7 @@ export function useHybridStorage(): UseHybridStorageReturn {
   // Check if user is authenticated and cloud storage is available
   useEffect(() => {
     const checkCloudAvailability = async () => {
-      // In development mode, create a mock auth token for testing
+      // In development, ensure a mock token exists so local dev works without SSO
       if (process.env.NODE_ENV === 'development') {
         const mockToken = btoa(JSON.stringify({
           email: 'dev@example.com',
@@ -98,24 +98,20 @@ export function useHybridStorage(): UseHybridStorageReturn {
           exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
         }));
         document.cookie = `auth-token=${mockToken}; path=/; max-age=86400`;
+      }
 
-        try {
-          // Check if we can connect to the cloud storage API
-          const isAvailable = await storage.checkConnection();
-          if (isAvailable) {
-            setIsCloudEnabled(true);
-            console.log('Cloud storage available');
-          } else {
-            console.log('Cloud storage not available, using localStorage fallback');
-            setIsCloudEnabled(false);
-          }
-        } catch (error) {
-          console.log('Cloud storage not available, using localStorage fallback:', error);
+      try {
+        // Check if we can connect to the cloud storage API
+        const isAvailable = await storage.checkConnection();
+        if (isAvailable) {
+          setIsCloudEnabled(true);
+          console.log('Cloud storage available');
+        } else {
+          console.log('Cloud storage not available, using localStorage fallback');
           setIsCloudEnabled(false);
         }
-      } else {
-        // Temporarily disable cloud storage in production until issues are resolved
-        console.log('Cloud storage temporarily disabled in production');
+      } catch (error) {
+        console.log('Cloud storage not available, using localStorage fallback:', error);
         setIsCloudEnabled(false);
       }
     };
