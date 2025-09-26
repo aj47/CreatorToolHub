@@ -100,9 +100,66 @@ export class R2StorageService {
    * Note: This is a placeholder - actual signed URL generation requires additional setup
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+    // In development mode, serve mock images for seeded data
+    if (this.isDevelopmentMode() && key.startsWith('mock/')) {
+      return this.getMockImageUrl(key);
+    }
+
     // For now, return a placeholder URL
     // In production, you'd implement proper signed URL generation
+    // For development, also use mock images for non-mock keys
+    if (this.isDevelopmentMode()) {
+      return `https://picsum.photos/1280/720?random=${Date.now()}`;
+    }
     return `https://your-r2-domain.com/${key}?expires=${Date.now() + expiresIn * 1000}`;
+  }
+
+  /**
+   * Check if we're in development mode
+   */
+  private isDevelopmentMode(): boolean {
+    // Check if we're running in local development
+    // In local development, the worker runs on localhost
+    try {
+      // Check if we're in a local development environment
+      return typeof globalThis !== 'undefined' &&
+             ((globalThis as any).location?.hostname === 'localhost' ||
+              (globalThis as any).ENVIRONMENT === 'development' ||
+              // Fallback: assume development if we can't determine otherwise
+              true);
+    } catch {
+      // If we can't determine, assume development for safety
+      return true;
+    }
+  }
+
+  /**
+   * Generate mock image URLs for development
+   */
+  private getMockImageUrl(key: string): string {
+    // Extract theme from the key for consistent placeholder images
+    const themes = {
+      'gaming': { seed: 1, bg: '4a90e2', text: 'GAMING' },
+      'cooking': { seed: 2, bg: 'f5a623', text: 'COOKING' },
+      'tech': { seed: 3, bg: '7ed321', text: 'TECH' },
+      'travel': { seed: 4, bg: 'bd10e0', text: 'TRAVEL' },
+      'fitness': { seed: 5, bg: 'b8e986', text: 'FITNESS' },
+      'education': { seed: 6, bg: '50e3c2', text: 'EDUCATION' },
+      'music': { seed: 7, bg: 'd0021b', text: 'MUSIC' },
+      'diy': { seed: 8, bg: 'f8e71c', text: 'DIY' }
+    };
+
+    // Determine theme from key
+    let theme = themes.gaming; // default
+    for (const [name, config] of Object.entries(themes)) {
+      if (key.includes(name)) {
+        theme = config;
+        break;
+      }
+    }
+
+    // Generate a consistent placeholder image URL
+    return `https://picsum.photos/seed/${theme.seed}/1280/720`;
   }
 
   /**
