@@ -19,7 +19,6 @@ export interface Env {
   DB: any; // Cloudflare D1 database binding
   R2: any;   // Cloudflare R2 bucket binding
   NODE_ENV?: string;
-  R2_PUBLIC_DOMAIN?: string; // R2 public domain for file URLs
 }
 
 
@@ -145,6 +144,11 @@ export default {
       // Add health check route
       middlewareStack.route('/api/health', createRouteHandler(async (req, env) => {
         return jsonResponse({ status: 'healthy', timestamp: Date.now() });
+      }), ['GET']);
+
+      // Add secure R2 proxy route
+      middlewareStack.route('/api/r2-proxy', createRouteHandler(async (req, env) => {
+        return await handleR2Proxy(req, env);
       }), ['GET']);
 
       // Process request through middleware stack
@@ -505,5 +509,57 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
       "X-Accel-Buffering": "no"
     }
   });
+}
+
+// Secure R2 proxy handler
+async function handleR2Proxy(request: AuthenticatedRequest, env: Env): Promise<Response> {
+  // Extract key from URL path
+  const url = new URL(request.url);
+  const pathParts = url.pathname.split('/');
+  const key = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+  if (!key) {
+    return errorResponse('Missing file key', 400, 'MISSING_KEY');
+  }
+
+  // Check expiration
+  const expires = url.searchParams.get('expires');
+  if (expires && parseInt(expires) < Date.now()) {
+    return errorResponse('URL expired', 403, 'URL_EXPIRED');
+  }
+
+  // Verify authentication
+  const user = request.user;
+  if (!user?.email) {
+    return errorResponse('Authentication required', 401, 'UNAUTHORIZED');
+  }
+
+  // Verify user has access to this file (check if key starts with their user ID)
+  const userId = deriveUserId(user.email);
+  if (!key.startsWith(`users/${userId}/`)) {
+    return errorResponse('Access denied', 403, 'ACCESS_DENIED');
+  }
+
+  try {
+    // Get file from R2
+    const object = await env.R2.get(key);
+    if (!object) {
+      return errorResponse('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // Return file with appropriate headers
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+    headers.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    headers.set('ETag', object.httpEtag || '');
+
+    return new Response(object.body, {
+      headers,
+      status: 200
+    });
+  } catch (error) {
+    console.error('R2 proxy error:', error);
+    return errorResponse('Failed to retrieve file', 500, 'R2_ERROR');
+  }
 }
 

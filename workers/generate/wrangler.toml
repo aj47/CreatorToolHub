@@ -19,8 +19,6 @@ NODE_ENV = "production"
 FEATURE_ID = "credits"
 MODEL_ID = "gemini-2.5-flash-image-preview"
 ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000"
-# R2 public domain - will be set to the actual domain once Public Development URL is enabled
-R2_PUBLIC_DOMAIN = "pub-9a4725557b2acbac23f3fba92d096149.r2.dev"
 
 # Secrets (these need to be set separately with `wrangler secret put`)
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY

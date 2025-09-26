@@ -109,15 +109,29 @@ export class R2StorageService {
       return `https://picsum.photos/1280/720?random=${Date.now()}`;
     }
 
-    // Production: use R2 public domain
-    const publicDomain = this.env?.R2_PUBLIC_DOMAIN;
-    if (publicDomain) {
-      return `https://${publicDomain}/${key}`;
-    }
+    // Production: Generate proper signed URL through R2 API
+    try {
+      // Use R2's built-in signed URL generation if available
+      if (typeof this.r2.sign === 'function') {
+        return await this.r2.sign(key, { expiresIn });
+      }
 
-    // Fallback: construct URL using account ID (this won't work without public access enabled)
-    console.warn('R2_PUBLIC_DOMAIN not configured, using fallback URL that may not work');
-    return `https://pub-9a4725557b2acbac23f3fba92d096149.r2.dev/${key}`;
+      // Alternative: serve through worker endpoint with authentication
+      return this.generateWorkerProxyUrl(key, expiresIn);
+    } catch (error) {
+      console.error('Failed to generate signed URL:', error);
+      // Fallback to worker proxy
+      return this.generateWorkerProxyUrl(key, expiresIn);
+    }
+  }
+
+  /**
+   * Generate a URL that proxies through the worker with authentication
+   */
+  private generateWorkerProxyUrl(key: string, expiresIn: number): string {
+    const expires = Date.now() + (expiresIn * 1000);
+    // Use the same domain as the worker (creatortoolhub.com in production)
+    return `/api/r2-proxy/${encodeURIComponent(key)}?expires=${expires}`;
   }
 
   /**
