@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 const NAV_LINKS = [
   { href: "/thumbnails", label: "Thumbnail Creator" },
   { href: "/video-seo", label: "Video SEO" },
-  { href: "/generations", label: "Generation History" },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
