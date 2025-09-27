@@ -2,51 +2,36 @@
 export const runtime = "edge";
 
 import { getUser } from "@/lib/auth";
-import { GoogleGenAI } from "@google/genai";
+// Pollinations: no SDK required
 import { Autumn } from "autumn-js";
 
-// Use Gemini 2.5 Flash Image via generateContent (lightweight, "Nano/Banana" family)
-const MODEL_ID = "gemini-2.5-flash-image-preview";
-
-async function generateImagesWithGemini(
-  apiKey: string,
+// Pollinations image generation
+async function generateImageWithPollinations(
   prompt: string,
-  _frames: string[],
-  imageMime: string = "image/png",
-  _layoutImage?: string
-): Promise<string[]> {
-  const genAI = new GoogleGenAI({ apiKey });
+  width: number = 1280,
+  height: number = 720,
+  seed?: number,
+  referrer?: string
+): Promise<string> {
+  const params = new URLSearchParams();
+  params.set("width", String(width));
+  params.set("height", String(height));
+  params.set("model", "flux");
+  if (typeof seed === "number") params.set("seed", String(seed));
+  const ref = referrer || process.env.NEXT_PUBLIC_APP_REFERRER;
+  if (ref) params.set("referrer", ref);
 
-  try {
-    // Build request parts: inlineData frames first (up to 3), then the text prompt
-    const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
-    for (const b64 of (_frames ?? []).slice(0, 3)) {
-      if (typeof b64 === "string" && b64.length > 0) {
-        reqParts.push({ inlineData: { mimeType: imageMime || "image/png", data: b64 } });
-      }
-    }
-    reqParts.push({ text: prompt });
-
-    const result = await genAI.models.generateContent({
-      model: MODEL_ID,
-      contents: [{ parts: reqParts }],
-    });
-
-    // Extract base64 image data from inlineData parts
-    const images: string[] = [];
-    const resParts: any[] = (result as any)?.candidates?.[0]?.content?.parts ?? [];
-    for (const part of resParts) {
-      const b64 = part?.inlineData?.data as string | undefined;
-      if (typeof b64 === 'string' && b64.length > 0) {
-        images.push(b64);
-      }
-    }
-
-    return images;
-  } catch (error) {
-    console.error("Error generating images:", error);
-    return [];
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params.toString()}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(`Pollinations request failed: ${res.status} ${res.statusText}`);
   }
+  const ab = await res.arrayBuffer();
+  // Return base64 (caller will wrap as data URL)
+  // Pollinations typically returns JPEG
+  // Edge runtimes support Buffer via polyfill; if not available, use btoa on binary string
+  const b64 = Buffer.from(ab).toString("base64");
+  return b64;
 }
 
 export async function POST(req: Request) {
@@ -67,20 +52,14 @@ export async function POST(req: Request) {
 
     const { prompt, frames = [], layoutImage, variants, framesMime } = await req.json();
 
-    if (!prompt || !Array.isArray(frames) || frames.length === 0) {
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return Response.json(
-        { error: "Missing prompt or frames" },
+        { error: "Missing prompt" },
         { status: 400 }
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      return Response.json(
-        { error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
-      );
-    }
+    // Frames are optional for Pollinations; we keep accepting them for compatibility but do not require
 
     // Autumn credit check: gate by feature balance
     const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
@@ -133,11 +112,14 @@ export async function POST(req: Request) {
     const imagesAll: string[] = [];
     for (let i = 0; i < count; i += CONCURRENCY) {
       const batchSize = Math.min(CONCURRENCY, count - i);
-      const batch = Array.from({ length: batchSize }, () =>
-        generateImagesWithGemini(apiKey, prompt, frames, imageMime, layoutImage)
-      );
+      const batch = Array.from({ length: batchSize }, () => {
+        const seed = Math.floor(Math.random() * 1_000_000);
+        return generateImageWithPollinations(prompt, 1280, 720, seed, process.env.NEXT_PUBLIC_APP_REFERRER);
+      });
       const settled = await Promise.allSettled(batch);
-      imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+      for (const s of settled) {
+        if (s.status === "fulfilled" && s.value) imagesAll.push(s.value);
+      }
     }
 
     if (imagesAll.length === 0) {
@@ -158,7 +140,7 @@ export async function POST(req: Request) {
 
     // Return images as data URLs for direct client use
     // Note: Dimension enforcement will be handled on the client side
-    const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);
+    const dataUrls = imagesAll.map(base64 => `data:image/jpeg;base64,${base64}`);
 
     return Response.json({ images: dataUrls });
   } catch (err: unknown) {

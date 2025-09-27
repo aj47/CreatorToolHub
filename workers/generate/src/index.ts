@@ -102,27 +102,25 @@ function deriveCustomerId(email: string): string {
 }
 
 
-async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      safetySettings: [
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-      ]
-    }),
-  });
+async function callPollinationsGenerate(prompt: string, width: number = 1280, height: number = 720, referrer?: string): Promise<string> {
+  const params = new URLSearchParams();
+  params.set("width", String(width));
+  params.set("height", String(height));
+  params.set("model", "flux");
+  params.set("seed", String(Math.floor(Math.random() * 1_000_000)));
+  const ref = referrer || (typeof (globalThis as any).process !== 'undefined' ? (process as any).env?.NEXT_PUBLIC_APP_REFERRER : undefined);
+  if (ref) params.set("referrer", ref);
+
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?${params.toString()}`;
+  const resp = await fetch(url, { method: "GET" });
   if (!resp.ok) {
     const text = await resp.text();
-    console.error(`Gemini API error: ${resp.status} ${resp.statusText}`, text.substring(0, 1000));
-    throw new Error(`Gemini error ${resp.status}: ${text}`);
+    console.error(`Pollinations API error: ${resp.status} ${resp.statusText}`, text.substring(0, 1000));
+    throw new Error(`Pollinations error ${resp.status}: ${text}`);
   }
-  return resp.json();
+  const ab = await resp.arrayBuffer();
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+  return `data:image/jpeg;base64,${b64}`;
 }
 
 export default {
@@ -218,10 +216,6 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
   }
 
-  const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return errorResponse("Missing GEMINI_API_KEY", 500, "MISSING_API_KEY");
-  }
   const model = env.MODEL_ID || DEFAULT_MODEL;
   const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
   const count = Math.max(1, Math.min(Number(variants) || 1, 8));
@@ -380,17 +374,11 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
         for (let i = 0; i < count; i += CONCURRENCY) {
           const batchSize = Math.min(CONCURRENCY, count - i);
           const batch = Array.from({ length: batchSize }, async () => {
-            const json = await callGeminiGenerate(apiKey, model, reqParts);
-            const cand = json?.candidates?.[0];
-            const parts = cand?.content?.parts ?? [];
-            const imgs: string[] = [];
-            for (const p of parts) {
-              if (p?.inlineData?.data && p?.inlineData?.mimeType) {
-                const { data, mimeType } = p.inlineData;
-                imgs.push(`data:${mimeType};base64,${data}`);
-              }
-            }
-            return imgs;
+            const dataUrl = await (async () => {
+              const b64 = await callPollinationsGenerate(prompt, 1280, 720);
+              return `data:image/jpeg;base64,${b64}`;
+            })();
+            return [dataUrl];
           });
 
           const settled = await Promise.allSettled(batch);

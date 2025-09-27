@@ -2,12 +2,11 @@
 export const runtime = "edge";
 
 import { getUser } from "@/lib/auth";
-import { GoogleGenAI } from "@google/genai";
+// Pollinations: no SDK required
 import { Autumn } from "autumn-js";
 import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils } from "@/lib/types/refinement";
 
-// Use Gemini 2.5 Flash Image via generateContent
-const MODEL_ID = "gemini-2.5-flash-image-preview";
+// Refinement powered by Pollinations image API
 
 // Function to create a mock refined image for development mode
 async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: string): Promise<string> {
@@ -51,49 +50,29 @@ async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: s
   }
 }
 
-async function refineImageWithGemini(
-  apiKey: string,
-  baseImageData: string,
+async function refineImageWithPollinations(
   combinedPrompt: string,
-  imageMime: string = "image/png"
+  width: number = 1280,
+  height: number = 720,
+  seed?: number,
+  referrer?: string
 ): Promise<string> {
-  const genAI = new GoogleGenAI({ apiKey });
+  const params = new URLSearchParams();
+  params.set("width", String(width));
+  params.set("height", String(height));
+  params.set("model", "flux");
+  if (typeof seed === "number") params.set("seed", String(seed));
+  const ref = referrer || process.env.NEXT_PUBLIC_APP_REFERRER;
+  if (ref) params.set("referrer", ref);
 
-  try {
-    // Build request parts: base image first, then the combined prompt
-    const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
-    
-    // Add the base image
-    reqParts.push({ inlineData: { mimeType: imageMime, data: baseImageData } });
-    
-    // Add the combined prompt
-    reqParts.push({ text: combinedPrompt });
-
-    const result = await genAI.models.generateContent({
-      model: MODEL_ID,
-      contents: [{ parts: reqParts }],
-    });
-
-    // Extract generated images from response (same format as generation API)
-    const images: string[] = [];
-    const resParts: any[] = (result as any)?.candidates?.[0]?.content?.parts ?? [];
-    for (const part of resParts) {
-      const b64 = part?.inlineData?.data as string | undefined;
-      if (typeof b64 === 'string' && b64.length > 0) {
-        images.push(b64);
-      }
-    }
-
-    if (images.length === 0) {
-      throw new Error("No images generated");
-    }
-
-    // Return the first generated image
-    return images[0];
-  } catch (error) {
-    console.error("Gemini refinement error:", error);
-    throw new Error(`Image refinement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(combinedPrompt)}?${params.toString()}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(`Pollinations refinement failed: ${res.status} ${res.statusText}`);
   }
+  const ab = await res.arrayBuffer();
+  const b64 = Buffer.from(ab).toString("base64");
+  return b64;
 }
 
 export async function POST(req: Request) {
@@ -130,14 +109,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get API key
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      return Response.json(
-        { success: false, error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
-      );
-    }
+
 
     // Autumn credit check: each refinement costs 1 credit
     const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
@@ -209,20 +181,22 @@ Please apply the refinement request to modify the image while maintaining the ov
     // Check if we're in development mode - use mock for testing UI flow
     let refinedImageBase64: string;
 
-    // Only use mock when API key is placeholder, not based on NODE_ENV
-    const isDevelopment = apiKey === 'placeholder-for-testing';
+    // Use mock in non-production to preserve fast UI iteration
+    const isDevelopment = process.env.NODE_ENV !== 'production';
 
     if (isDevelopment) {
       // In development mode, create a mock refined image by applying a simple visual modification
       // This simulates the refinement process for UI testing
       refinedImageBase64 = await createMockRefinedImage(baseImageData, feedbackPrompt);
     } else {
-      // Generate refined image using real Gemini API
-      refinedImageBase64 = await refineImageWithGemini(
-        apiKey,
-        baseImageData,
+      // Generate refined image using Pollinations API
+      const seed = Math.floor(Math.random() * 1_000_000);
+      refinedImageBase64 = await refineImageWithPollinations(
         combinedPrompt,
-        "image/png"
+        1280,
+        720,
+        seed,
+        process.env.NEXT_PUBLIC_APP_REFERRER
       );
     }
 
@@ -240,7 +214,7 @@ Please apply the refinement request to modify the image while maintaining the ov
     const iterationId = RefinementUtils.generateIterationId();
 
     // Determine the correct MIME type based on development vs production
-    const mimeType = isDevelopment ? 'image/svg+xml' : 'image/png';
+    const mimeType = isDevelopment ? 'image/svg+xml' : 'image/jpeg';
     const refinedImageUrl = `data:${mimeType};base64,${refinedImageBase64}`;
 
     const iteration: RefinementIteration = {
