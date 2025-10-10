@@ -1,17 +1,11 @@
-export type ProfileId =
-  | 'vlog'
-  | 'podcast'
-  | 'screencast'
-  | 'news'
-  | 'gaming'
-  | 'interview';
-
 export type ProfileSpec = {
   title: string;
   prompt: string; // exact prompt to be given to model
 };
 
-export const profiles: Record<ProfileId, ProfileSpec> = {
+// Single source of truth: define profiles here
+// ProfileId type is automatically derived from this object
+export const profiles = {
   vlog: {
     title: 'Vlog',
     prompt:
@@ -20,28 +14,22 @@ export const profiles: Record<ProfileId, ProfileSpec> = {
   podcast: {
     title: 'Podcast',
     prompt:
-      'Design a podcast thumbnail featuring the host(s) with professional presentation. Use side-by-side or split-screen layout for multiple hosts with clear visual separation. Include subtle audio-themed elements (waveforms, microphones) without overwhelming the composition. Apply balanced lighting and consistent color palette. Keep headlines short, bold, and highly legible.',
+      'Design a podcast thumbnail featuring the host(s) with professional presentation. Include multiple hosts together, possibly in a side by side or split-screen layout. Apply balanced lighting and consistent color palette. Keep headlines short, bold, and highly legible.',
   },
   screencast: {
     title: 'Tech Screen Cast',
     prompt:
-      'Design a tech screencast thumbnail featuring the presenter with excitement or engagement. Position the person using rule of thirds with stylized UI/interface elements in the background. Highlight key technical elements with subtle glowing effects. Use energetic but professional styling with bold, readable typography. Apply tech-appropriate color schemes and maintain high contrast for mobile viewing.',
-  },
-  news: {
-    title: 'News/Commentary',
-    prompt:
-      'Authoritative news-style layout with strong color bars or a subtle ticker/lower-third motif. Headline is bold and highly legible with clear hierarchy. Use either a studio-style portrait or an abstract gradient background; keep the composition clean and uncluttered. Emphasize credibility and clarity over flashiness.',
+      'Design a tech screencast thumbnail featuring the presenter with excitement or engagement. Position the person using rule of thirds with stylized UI/interface elements in the background. Highlight key technical elements with subtle glowing effects. Use energetic styling with bold, readable typography.  Maintain high contrast for mobile viewing along with highlights and shadows.',
   },
   gaming: {
-    title: 'Gaming',
+    title: 'Vibrant',
     prompt:
       'High-saturation gaming aesthetic with a character or avatar cutout as the focal subject. Add neon accents, motion streaks, and dynamic lighting for energy. Use bold numbers/emotes or a short callout if appropriate. Maintain extreme contrast and ensure everything reads on mobile.',
   },
-  interview: {
-    title: 'Interview',
-    prompt:
-      'Design a polished interview thumbnail featuring two presenters in a clean split layout. Use complementary lighting, a sleek studio or gradient background, and contrasting name tags or lower-thirds that highlight each speaker. Keep typography bold and legible, emphasizing the topic or guest name with a color accent.',
-  },
-};
+} as const satisfies Record<string, ProfileSpec>;
+
+// Derive ProfileId type from the profiles object keys
+// This ensures ProfileId is always in sync with the actual profiles
+export type ProfileId = keyof typeof profiles;
 
 

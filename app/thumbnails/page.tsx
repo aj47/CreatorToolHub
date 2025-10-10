@@ -368,7 +368,7 @@ export default function Home() {
       img.onerror = () => reject(new Error("img"));
       img.src = blobUrl;
     });
-  const recentGenerations = useMemo(() => hybridStorage.generations.slice(0, 5), [hybridStorage.generations]);
+  const recentGenerations = useMemo(() => hybridStorage.generations.slice(0, 10), [hybridStorage.generations]);
 
 
 

@@ -2,6 +2,7 @@
 .DS_Store
 *.swp
 *.swo
+.idea/
 
 # Node/Next.js
 node_modules/

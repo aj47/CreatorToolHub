@@ -42,8 +42,6 @@ function svgDataUrl(label: string, bg: string, fg = "#ffffff"): string {
 }
 
 const builtinCards: StyleCard[] = Object.entries(profiles)
-  // Exclude certain built-in profiles from the gallery (still available elsewhere)
-  .filter(([id]) => id !== "interview")
   .map(([id, p], i) => ({
     id,
     title: p.title,
