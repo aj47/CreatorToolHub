@@ -13,8 +13,9 @@ export async function GET(
     // Reconstruct the file path from the params
     const filePath = path.join("/");
 
-    // Proxy the request to the worker
-    const workerUrl = `https://creator-tool-hub.techfren.workers.dev/api/r2/${filePath}`;
+    // Proxy the request to the worker through the custom domain
+    // The worker routes in wrangler.toml handle creatortoolhub.com/api/r2/*
+    const workerUrl = `https://creatortoolhub.com/api/r2/${filePath}`;
 
     const response = await fetch(workerUrl, {
       method: "GET",
