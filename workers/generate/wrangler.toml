@@ -31,6 +31,7 @@ routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/auth/*", zone_name = "creatortoolhub.com" },
+  { pattern = "creatortoolhub.com/api/autumn/*", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/r2/*", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/r2/*", zone_name = "creatortoolhub.com" }
 ]

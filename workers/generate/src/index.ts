@@ -172,10 +172,10 @@ export default {
           authenticated: !!user,
           user: user || null
         });
-      }), ['GET']);
+      }), ['GET', 'HEAD']);
 
       middlewareStack.route(/^\/api\/auth\/signin/, createRouteHandler(async (req, env) => {
-        if (req.method !== 'GET') {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
           return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
         }
         const googleClientId = env.GOOGLE_CLIENT_ID || '';
@@ -187,7 +187,7 @@ export default {
           status: 302,
           headers: { 'Location': googleAuthUrl }
         });
-      }), ['GET']);
+      }), ['GET', 'HEAD']);
 
       middlewareStack.route(/^\/api\/auth\/signout/, createRouteHandler(async (req, env) => {
         const signOutCookie = 'auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 UTC; HttpOnly; Secure; SameSite=Lax';
@@ -209,7 +209,73 @@ export default {
         }
 
         return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
-      }), ['GET', 'POST']);
+      }), ['GET', 'POST', 'HEAD']);
+
+      // Autumn API routes - proxy to autumn-js service
+      middlewareStack.route(/^\/api\/autumn\//, createRouteHandler(async (req, env) => {
+        const user = getUser(req);
+        const autumnSecretKey = env.AUTUMN_SECRET_KEY;
+
+        // In development, return 404
+        if (!autumnSecretKey || env.NODE_ENV === 'development') {
+          return errorResponse('Not Found', 404, 'NOT_FOUND');
+        }
+
+        // Derive customer ID from user email
+        const deriveCustomerId = (email: string) => {
+          const raw = email.toLowerCase();
+          const cleaned = raw
+            .replace(/[^a-z0-9_-]/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^[-_]+/, "")
+            .replace(/[-_]+$/, "");
+          return ("u-" + cleaned).slice(0, 40);
+        };
+
+        const customerId = user ? deriveCustomerId(user.email) : null;
+        const featureId = env.FEATURE_ID || "credits";
+
+        // Parse the request path to determine the autumn endpoint
+        const url = new URL(req.url);
+        const pathname = url.pathname;
+
+        // Handle /api/autumn/customers
+        if (pathname === '/api/autumn/customers' || pathname.startsWith('/api/autumn/customers/')) {
+          if (req.method === 'GET') {
+            // Get customer info
+            if (!customerId) {
+              return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+            }
+            const autumn = new Autumn({ secretKey: autumnSecretKey });
+            try {
+              const checkRes = await autumn.check({ customer_id: customerId, feature_id: featureId });
+              return jsonResponse({
+                id: customerId,
+                balance: checkRes?.data?.balance || 0,
+                allowed: checkRes?.data?.allowed || false
+              });
+            } catch (e) {
+              return errorResponse('Billing service error', 503, 'BILLING_ERROR');
+            }
+          } else if (req.method === 'POST') {
+            // Create/update customer
+            if (!customerId) {
+              return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
+            }
+            return jsonResponse({ id: customerId, created: true });
+          }
+        }
+
+        // Handle /api/autumn/products
+        if (pathname === '/api/autumn/products' || pathname.startsWith('/api/autumn/products/')) {
+          if (req.method === 'GET') {
+            // Return empty products list (autumn-js handles this)
+            return jsonResponse({ products: [] });
+          }
+        }
+
+        return errorResponse('Not Found', 404, 'NOT_FOUND');
+      }), ['GET', 'POST', 'HEAD']);
 
       // Process request through middleware stack
       return await middlewareStack.handle(request as AuthenticatedRequest, env);
