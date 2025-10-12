@@ -5,6 +5,7 @@ pages_build_output_dir = ".next"
 
 [env.production]
 compatibility_flags = ["nodejs_compat"]
+vars = { NEXT_PUBLIC_WORKER_API_URL = "https://creator-tool-hub.techfren.workers.dev" }
 
 [env.preview]
 compatibility_flags = ["nodejs_compat"]
