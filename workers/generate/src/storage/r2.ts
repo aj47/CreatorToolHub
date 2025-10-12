@@ -98,21 +98,23 @@ export class R2StorageService {
   /**
    * Generate a signed URL for accessing the file
    * In local development, returns a local proxy URL
-   * In production, uses PUBLIC_FILE_BASE_URL environment variable
+   * In production, uses R2 public URL
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    // Determine the base URL based on environment
-    const base =
-      (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV)
-        ? 'http://localhost:8787'
-        : (this.env?.PUBLIC_FILE_BASE_URL || '');
+    // In development, use local proxy
+    if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
+      return `http://localhost:8787/r2/${encodeURIComponent(key)}`;
+    }
 
+    // In production, use R2 public URL
+    // The R2 bucket is configured with a public URL at: https://pub-<account-id>.r2.dev/<bucket-name>/
+    // For now, we'll use the worker proxy URL as fallback
+    const base = this.env?.PUBLIC_FILE_BASE_URL || '';
     if (!base) {
       console.warn('PUBLIC_FILE_BASE_URL not configured in production');
       return '';
     }
 
-    // Use /r2/ path instead of /api/files/ to avoid conflicts with Next.js API routes
     return `${base}/r2/${encodeURIComponent(key)}`;
   }
 
