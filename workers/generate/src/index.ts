@@ -146,10 +146,10 @@ export default {
         return jsonResponse({ status: 'healthy', timestamp: Date.now() });
       }), ['GET']);
 
-      // Add file proxy route for local development
+      // Add file proxy route
       // Include OPTIONS for CORS preflight requests
-      // Use /cdn/ path to avoid conflicts with Next.js API routes
-      middlewareStack.route(/^\/cdn\//, createRouteHandler(async (req, env) => {
+      // Use /api/files/ path which is handled by the worker
+      middlewareStack.route(/^\/api\/files\//, createRouteHandler(async (req, env) => {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
 

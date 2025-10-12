@@ -98,24 +98,18 @@ export class R2StorageService {
   /**
    * Generate a signed URL for accessing the file
    * In local development, returns a local proxy URL
-   * In production, uses R2 public URL
+   * In production, uses worker proxy URL
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
     if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
-      return `http://localhost:8787/cdn/${encodeURIComponent(key)}`;
+      return `http://localhost:8787/api/files/${encodeURIComponent(key)}`;
     }
 
-    // In production, use R2 public URL
-    // The R2 bucket is configured with a public URL at: https://pub-<account-id>.r2.dev/<bucket-name>/
-    // For now, we'll use the worker proxy URL as fallback
-    const base = this.env?.PUBLIC_FILE_BASE_URL || '';
-    if (!base) {
-      console.warn('PUBLIC_FILE_BASE_URL not configured in production');
-      return '';
-    }
-
-    return `${base}/cdn/${encodeURIComponent(key)}`;
+    // In production, use worker proxy URL
+    // Use /api/files/ path which is handled by the worker
+    const base = this.env?.PUBLIC_FILE_BASE_URL || 'https://creatortoolhub.com';
+    return `${base}/api/files/${encodeURIComponent(key)}`;
   }
 
   /**
