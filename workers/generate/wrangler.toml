@@ -29,7 +29,7 @@ PUBLIC_FILE_BASE_URL = "https://creatortoolhub.com"
 routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
-  { pattern = "creatortoolhub.com/api/files/*", zone_name = "creatortoolhub.com" }
+  { pattern = "creatortoolhub.com/r2/*", zone_name = "creatortoolhub.com" }
 ]
 
 # Development environment configuration

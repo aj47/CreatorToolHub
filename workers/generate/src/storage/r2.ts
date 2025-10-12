@@ -112,7 +112,8 @@ export class R2StorageService {
       return '';
     }
 
-    return `${base}/api/files/${encodeURIComponent(key)}`;
+    // Use /r2/ path instead of /api/files/ to avoid conflicts with Next.js API routes
+    return `${base}/r2/${encodeURIComponent(key)}`;
   }
 
   /**
