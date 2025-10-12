@@ -19,6 +19,10 @@ export interface Env {
   DB: any; // Cloudflare D1 database binding
   R2: any;   // Cloudflare R2 bucket binding
   NODE_ENV?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  NEXTAUTH_URL?: string;
+  NEXTAUTH_SECRET?: string;
 }
 
 
@@ -157,6 +161,55 @@ export default {
       middlewareStack.route(/^\/api\/r2\//, createRouteHandler(async (req, env) => {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
+
+      // Add auth routes
+      middlewareStack.route('/api/auth/session', createRouteHandler(async (req, env) => {
+        if (req.method !== 'GET') {
+          return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
+        }
+        const user = getUser(req);
+        return jsonResponse({
+          authenticated: !!user,
+          user: user || null
+        });
+      }), ['GET']);
+
+      middlewareStack.route(/^\/api\/auth\/signin/, createRouteHandler(async (req, env) => {
+        if (req.method !== 'GET') {
+          return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
+        }
+        const googleClientId = env.GOOGLE_CLIENT_ID || '';
+        const nextAuthUrl = env.NEXTAUTH_URL || 'https://creatortoolhub.com';
+        const redirectUri = `${nextAuthUrl}/api/auth/callback`;
+        const scope = 'openid email profile';
+        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=signin`;
+        return new Response(null, {
+          status: 302,
+          headers: { 'Location': googleAuthUrl }
+        });
+      }), ['GET']);
+
+      middlewareStack.route(/^\/api\/auth\/signout/, createRouteHandler(async (req, env) => {
+        const signOutCookie = 'auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 UTC; HttpOnly; Secure; SameSite=Lax';
+
+        if (req.method === 'GET') {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              'Location': '/',
+              'Set-Cookie': signOutCookie
+            }
+          });
+        }
+
+        if (req.method === 'POST') {
+          return jsonResponse({ success: true }, {
+            'Set-Cookie': signOutCookie
+          });
+        }
+
+        return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
+      }), ['GET', 'POST']);
 
       // Process request through middleware stack
       return await middlewareStack.handle(request as AuthenticatedRequest, env);

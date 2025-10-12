@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bash scripts/dev-local-stack.sh",
     "dev:frontend-only": "next dev --turbopack",
-    "build": "next build --turbopack && node scripts/copy-routes.js",
+    "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
