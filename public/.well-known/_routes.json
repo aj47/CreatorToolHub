@@ -4,7 +4,7 @@
     "/*"
   ],
   "exclude": [
-    "/cdn/*"
+    "/api/files/*"
   ]
 }
 
