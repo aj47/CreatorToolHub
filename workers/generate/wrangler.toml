@@ -30,3 +30,18 @@ routes = [
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" }
 ]
 
+# Development environment configuration
+[env.development]
+vars = { NODE_ENV = "development", FEATURE_ID = "credits", MODEL_ID = "gemini-2.5-flash-image-preview", ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000" }
+
+# Database configuration for development
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "creator-tool-hub-db"
+database_id = "89b83057-3c64-489e-97de-152a7197cd91"
+
+# R2 bucket configuration for development
+[[env.development.r2_buckets]]
+binding = "R2"
+bucket_name = "creator-tool-hub-user-data"
+

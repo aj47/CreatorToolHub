@@ -907,7 +907,13 @@ export default function Home() {
           normalizedFrames = combinedFrames;
         }
 
-        const body = { prompt: finalPrompt, frames: normalizedFrames, framesMime: TARGET_MIME, variants: count };
+        const body = {
+          prompt: finalPrompt,
+          frames: normalizedFrames,
+          framesMime: TARGET_MIME,
+          variants: count,
+          source: "thumbnails"
+        };
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

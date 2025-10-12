@@ -2,7 +2,7 @@
 import { generateR2Key, isValidImageType, isValidFileSize, calculateFileHash } from './utils';
 
 export class R2StorageService {
-  constructor(private r2: any) {}
+  constructor(private r2: any, private env?: any) {}
 
   /**
    * Upload a template reference image to R2 storage
@@ -97,12 +97,22 @@ export class R2StorageService {
 
   /**
    * Generate a signed URL for accessing the file
-   * Note: This is a placeholder - actual signed URL generation requires additional setup
+   * In local development, returns a local proxy URL
+   * In production, uses PUBLIC_FILE_BASE_URL environment variable
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-    // For now, return a placeholder URL
-    // In production, you'd implement proper signed URL generation
-    return `https://your-r2-domain.com/${key}?expires=${Date.now() + expiresIn * 1000}`;
+    // Determine the base URL based on environment
+    const base =
+      (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV)
+        ? 'http://localhost:8787'
+        : (this.env?.PUBLIC_FILE_BASE_URL || '');
+
+    if (!base) {
+      console.warn('PUBLIC_FILE_BASE_URL not configured in production');
+      return '';
+    }
+
+    return `${base}/api/files/${encodeURIComponent(key)}`;
   }
 
   /**

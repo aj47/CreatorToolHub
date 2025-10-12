@@ -28,11 +28,21 @@ const nextConfig: NextConfig = {
       "https://www.youtube-nocookie.com",
     ];
 
+    const imgSrc = ["'self'", 'data:', 'https:', 'blob:'];
+    if (workerOrigin) {
+      // Allow images from configured worker origin
+      imgSrc.push(workerOrigin);
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      // Allow images from local worker in development
+      imgSrc.push('http://localhost:8787');
+    }
+
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https: blob:",
+      `img-src ${imgSrc.join(' ')}`,
       "media-src 'self' blob: data:",
       `connect-src ${connectSrc.join(' ')}`,
       `frame-src ${frameSrc.join(' ')}`,

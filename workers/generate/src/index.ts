@@ -146,6 +146,12 @@ export default {
         return jsonResponse({ status: 'healthy', timestamp: Date.now() });
       }), ['GET']);
 
+      // Add file proxy route for local development
+      // Include OPTIONS for CORS preflight requests
+      middlewareStack.route(/^\/api\/files\//, createRouteHandler(async (req, env) => {
+        return await handleFileProxy(req, env);
+      }), ['GET', 'OPTIONS']);
+
       // Process request through middleware stack
       return await middlewareStack.handle(request as AuthenticatedRequest, env);
     } catch (error) {
@@ -161,6 +167,47 @@ export default {
 };
 
 // Handler functions
+async function handleFileProxy(request: AuthenticatedRequest, env: Env): Promise<Response> {
+  try {
+    // Extract the file key from the URL
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const encodedKey = pathParts[pathParts.length - 1];
+    const key = decodeURIComponent(encodedKey);
+
+    if (!env.R2) {
+      return errorResponse('Storage not configured', 500, 'R2_NOT_CONFIGURED');
+    }
+
+    // Fetch the file from R2
+    const object = await env.R2.get(key);
+    if (!object) {
+      return errorResponse('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // Get the file content
+    const arrayBuffer = await object.arrayBuffer();
+    const contentType = object.httpMetadata?.contentType || 'application/octet-stream';
+
+    // Return the file with appropriate headers
+    // CORS headers are handled by corsMiddleware, not here
+    return new Response(arrayBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600',
+      }
+    });
+  } catch (error) {
+    console.error('File proxy error:', error);
+    return errorResponse(
+      error instanceof Error ? error.message : 'Failed to fetch file',
+      500,
+      'FILE_PROXY_ERROR'
+    );
+  }
+}
+
 async function handleUserAPI(request: AuthenticatedRequest, env: Env): Promise<Response> {
   // Validate environment bindings
   if (!env.DB) {
@@ -175,7 +222,7 @@ async function handleUserAPI(request: AuthenticatedRequest, env: Env): Promise<R
 
   try {
     const db = new DatabaseService(env.DB);
-    const r2 = new R2StorageService(env.R2);
+    const r2 = new R2StorageService(env.R2, env);
     const userAPI = new UserAPI(db, r2, env);
     return await userAPI.handleRequest(request);
   } catch (error) {
@@ -243,7 +290,7 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
 
   const userId = deriveUserId(user.email);
   const db = new DatabaseService(env.DB);
-  const r2 = new R2StorageService(env.R2);
+  const r2 = new R2StorageService(env.R2, env);
 
   // Ensure user exists in database before proceeding
   try {

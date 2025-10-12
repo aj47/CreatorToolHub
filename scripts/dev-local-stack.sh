@@ -3,7 +3,7 @@
 # Local Full Stack Development Script
 # Runs both frontend and backend locally with proper integration
 
-set -e
+set -o pipefail
 
 echo "🚀 Starting Local Full Stack Development Environment"
 echo "=================================================="
@@ -46,8 +46,22 @@ fi
 # 2. Start Cloudflare Worker locally
 echo ""
 echo "⚡ Starting Cloudflare Worker (local mode)..."
-npm run dev -- --local --port 8787 &
+
+# Load environment variables from .env file if it exists
+if [ -f "workers/generate/.env" ]; then
+    echo "   Loading environment variables from workers/generate/.env..."
+    export $(cat workers/generate/.env | grep -v '^#' | xargs)
+fi
+
+# Start worker with environment variables
+# Note: Wrangler doesn't support secrets in local mode, so we pass them as env vars
+# The worker code will read them from process.env
+GEMINI_API_KEY="${GEMINI_API_KEY}" \
+AUTUMN_SECRET_KEY="${AUTUMN_SECRET_KEY}" \
+npx --prefix workers/generate wrangler dev --local --port 8787 --env development &
 WORKER_PID=$!
+
+
 
 # Wait for worker to start
 echo "   Waiting for worker to start..."
@@ -88,7 +102,7 @@ fi
 # 4. Start frontend
 echo ""
 echo "🌐 Starting Next.js frontend..."
-npm run dev &
+npm run dev:frontend-only &
 FRONTEND_PID=$!
 
 echo ""
