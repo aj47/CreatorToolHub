@@ -1,0 +1,14 @@
+# Secrets and environment files
+.dev.vars
+.env
+.env.*
+
+# Wrangler
+.wrangler/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+
