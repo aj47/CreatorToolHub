@@ -98,18 +98,18 @@ export class R2StorageService {
   /**
    * Generate a signed URL for accessing the file
    * In local development, returns a local proxy URL
-   * In production, uses /r2/ path which is handled by the worker
+   * In production, uses /api/r2/ path which is handled by the worker
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
     if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
-      return `http://localhost:8787/r2/${encodeURIComponent(key)}`;
+      return `http://localhost:8787/api/r2/${encodeURIComponent(key)}`;
     }
 
-    // In production, use /r2/ path which is handled by the worker
+    // In production, use /api/r2/ path which is handled by the worker
     // This path is configured in wrangler.toml to be routed to the worker
     const base = this.env?.PUBLIC_FILE_BASE_URL || 'https://creatortoolhub.com';
-    return `${base}/r2/${encodeURIComponent(key)}`;
+    return `${base}/api/r2/${encodeURIComponent(key)}`;
   }
 
   /**
