@@ -30,6 +30,7 @@ R2_PUBLIC_URL = "https://pub-d8e8e8e8e8e8e8e8.r2.dev"
 routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
+  { pattern = "creatortoolhub.com/api/r2/*", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/r2/*", zone_name = "creatortoolhub.com" }
 ]
 
