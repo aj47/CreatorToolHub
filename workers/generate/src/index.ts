@@ -172,8 +172,8 @@ async function handleFileProxy(request: AuthenticatedRequest, env: Env): Promise
   try {
     // Extract the file key from the URL
     const url = new URL(request.url);
-    const pathParts = url.pathname.split('/');
-    const encodedKey = pathParts[pathParts.length - 1];
+    // Remove the /cdn/ prefix to get the encoded key
+    const encodedKey = url.pathname.replace(/^\/cdn\//, '');
     const key = decodeURIComponent(encodedKey);
 
     if (!env.R2) {
