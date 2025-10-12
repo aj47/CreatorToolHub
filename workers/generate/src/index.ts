@@ -189,6 +189,108 @@ export default {
         });
       }), ['GET', 'HEAD']);
 
+      // OAuth callback handler
+      middlewareStack.route('/api/auth/callback', createRouteHandler(async (req, env) => {
+        if (req.method !== 'GET') {
+          return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
+        }
+
+        const url = new URL(req.url);
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        const error = url.searchParams.get('error');
+
+        const googleClientId = env.GOOGLE_CLIENT_ID || '';
+        const googleClientSecret = env.GOOGLE_CLIENT_SECRET || '';
+        const nextAuthUrl = env.NEXTAUTH_URL || 'https://creatortoolhub.com';
+
+        // Handle OAuth errors
+        if (error) {
+          return new Response(null, {
+            status: 302,
+            headers: { 'Location': `${nextAuthUrl}/?error=${error}` }
+          });
+        }
+
+        // Check for authorization code
+        if (!code) {
+          return new Response(null, {
+            status: 302,
+            headers: { 'Location': `${nextAuthUrl}/?error=no_code` }
+          });
+        }
+
+        // Check if OAuth is configured
+        if (!googleClientId || !googleClientSecret) {
+          return new Response(null, {
+            status: 302,
+            headers: { 'Location': `${nextAuthUrl}/?error=oauth_config` }
+          });
+        }
+
+        try {
+          // Exchange code for token
+          const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: googleClientId,
+              client_secret: googleClientSecret,
+              code,
+              grant_type: 'authorization_code',
+              redirect_uri: `${nextAuthUrl}/api/auth/callback`,
+            }).toString(),
+          });
+
+          const tokens = await tokenResponse.json();
+
+          if (!tokens.access_token) {
+            return new Response(null, {
+              status: 302,
+              headers: { 'Location': `${nextAuthUrl}/?error=no_token` }
+            });
+          }
+
+          // Get user info
+          const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          });
+          const user = await userResponse.json();
+
+          // Validate user data
+          if (!user.email) {
+            return new Response(null, {
+              status: 302,
+              headers: { 'Location': `${nextAuthUrl}/?error=no_email` }
+            });
+          }
+
+          // Create auth token
+          const payload = {
+            email: user.email,
+            name: user.name || '',
+            picture: user.picture || '',
+            exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+          };
+          const token = btoa(JSON.stringify(payload));
+          const authCookie = `auth-token=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`;
+
+          return new Response(null, {
+            status: 302,
+            headers: {
+              'Location': nextAuthUrl,
+              'Set-Cookie': authCookie
+            }
+          });
+        } catch (error) {
+          console.error('OAuth callback error:', error);
+          return new Response(null, {
+            status: 302,
+            headers: { 'Location': `${nextAuthUrl}/?error=oauth_error` }
+          });
+        }
+      }), ['GET']);
+
       middlewareStack.route(/^\/api\/auth\/signout/, createRouteHandler(async (req, env) => {
         const signOutCookie = 'auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 UTC; HttpOnly; Secure; SameSite=Lax';
 
@@ -203,7 +305,7 @@ export default {
         }
 
         if (req.method === 'POST') {
-          return jsonResponse({ success: true }, {
+          return jsonResponse({ success: true }, 200, {
             'Set-Cookie': signOutCookie
           });
         }
