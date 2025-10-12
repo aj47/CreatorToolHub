@@ -1,7 +1,7 @@
 name = "creator-tool-hub"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
+pages_build_output_dir = ".next"
 
 [env.production]
 compatibility_flags = ["nodejs_compat"]
