@@ -28,7 +28,7 @@ function getEnvVars() {
     GOOGLE_CLIENT_SECRET: getEnvVar('GOOGLE_CLIENT_SECRET', 'your-google-client-secret-here'),
     NEXTAUTH_URL: getEnvVar('NEXTAUTH_URL', 'https://creatortoolhub.com'),
     NEXTAUTH_SECRET: getEnvVar('NEXTAUTH_SECRET', 'your-secure-nextauth-secret-key-here-32-chars'),
-    AUTUMN_SECRET_KEY: getEnvVar('AUTUMN_SECRET_KEY', '***REMOVED***')
+    AUTUMN_SECRET_KEY: getEnvVar('AUTUMN_SECRET_KEY', 'your-autumn-secret-key-here')
   };
 }
 
