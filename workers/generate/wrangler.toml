@@ -20,6 +20,7 @@ FEATURE_ID = "credits"
 MODEL_ID = "gemini-2.5-flash-image-preview"
 ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000"
 PUBLIC_FILE_BASE_URL = "https://creatortoolhub.com"
+R2_PUBLIC_URL = "https://pub-d8e8e8e8e8e8e8e8.r2.dev"
 
 # Secrets (these need to be set separately with `wrangler secret put`)
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
@@ -29,7 +30,7 @@ PUBLIC_FILE_BASE_URL = "https://creatortoolhub.com"
 routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
-  { pattern = "creatortoolhub.com/cdn/*", zone_name = "creatortoolhub.com" }
+  { pattern = "creatortoolhub.com/api/r2/*", zone_name = "creatortoolhub.com" }
 ]
 
 # Development environment configuration

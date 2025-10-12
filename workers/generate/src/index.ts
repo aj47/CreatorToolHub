@@ -148,8 +148,8 @@ export default {
 
       // Add file proxy route
       // Include OPTIONS for CORS preflight requests
-      // Use /cdn/ path which is handled by the worker (not intercepted by Next.js)
-      middlewareStack.route(/^\/cdn\//, createRouteHandler(async (req, env) => {
+      // Use /api/r2/ path which is handled by the worker (not intercepted by Next.js)
+      middlewareStack.route(/^\/api\/r2\//, createRouteHandler(async (req, env) => {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
 
@@ -172,8 +172,8 @@ async function handleFileProxy(request: AuthenticatedRequest, env: Env): Promise
   try {
     // Extract the file key from the URL
     const url = new URL(request.url);
-    // Remove the /cdn/ prefix to get the encoded key
-    const encodedKey = url.pathname.replace(/^\/cdn\//, '');
+    // Remove the /api/r2/ prefix to get the encoded key
+    const encodedKey = url.pathname.replace(/^\/api\/r2\//, '');
     const key = decodeURIComponent(encodedKey);
 
     if (!env.R2) {
