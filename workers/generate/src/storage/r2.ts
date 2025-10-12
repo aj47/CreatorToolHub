@@ -103,13 +103,13 @@ export class R2StorageService {
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
     if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
-      return `http://localhost:8787/api/files/${encodeURIComponent(key)}`;
+      return `http://localhost:8787/cdn/${encodeURIComponent(key)}`;
     }
 
     // In production, use worker proxy URL
-    // Use /api/files/ path which is handled by the worker
+    // Use /cdn/ path which is handled by the worker (not intercepted by Next.js)
     const base = this.env?.PUBLIC_FILE_BASE_URL || 'https://creatortoolhub.com';
-    return `${base}/api/files/${encodeURIComponent(key)}`;
+    return `${base}/cdn/${encodeURIComponent(key)}`;
   }
 
   /**
