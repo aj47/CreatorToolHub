@@ -192,8 +192,6 @@ export default function Home() {
   const [headline, setHeadline] = useState<string>("");
   const [colors, setColors] = useState<string[]>([]);
 
-  const [isRefreshingGenerations, setIsRefreshingGenerations] = useState(false);
-
   // Wizard/stepper state
   const [currentStep, setCurrentStep] = useState<number>(1);
   const step1Done = frames.length > 0; // at least one subject image/frame
@@ -214,19 +212,6 @@ export default function Home() {
 
   // Image import controls and limits
   const [importing, setImporting] = useState<{ total: number; done: number; errors: string[] } | null>(null);
-  const handleRefreshGenerations = useCallback(async () => {
-    if (!hybridStorage.isCloudEnabled) {
-      return;
-    }
-    setIsRefreshingGenerations(true);
-    try {
-      await hybridStorage.refreshGenerations();
-    } catch (error) {
-      console.error('Failed to refresh generation history:', error);
-    } finally {
-      setIsRefreshingGenerations(false);
-    }
-  }, [hybridStorage]);
 
 
   const [cancelImport, setCancelImport] = useState(false);
@@ -368,10 +353,6 @@ export default function Home() {
       img.onerror = () => reject(new Error("img"));
       img.src = blobUrl;
     });
-  const recentGenerations = useMemo(() => hybridStorage.generations.slice(0, 10), [hybridStorage.generations]);
-
-
-
 
   // Template consists of: title, exact prompt, colors, reference images
   type Preset = {
@@ -1631,58 +1612,6 @@ export default function Home() {
 
           {currentStep === 3 && step1Done && step2Done && (
             <section id="step3" style={{ display: "grid", gap: 8 }}>
-              {hybridStorage.isCloudEnabled && (
-                <div className={styles.callout} style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <strong>Recent cloud generations</strong>
-                    <button
-                      type="button"
-                      onClick={handleRefreshGenerations}
-                      disabled={isRefreshingGenerations || hybridStorage.isLoading}
-                      style={{ fontSize: 12 }}
-                    >
-                      {isRefreshingGenerations ? 'Refreshing…' : 'Refresh'}
-                    </button>
-                  </div>
-                  {recentGenerations.length === 0 ? (
-                    <p style={{ fontSize: 12, opacity: 0.7, margin: 0 }}>
-                      Run a generation to see it appear here.
-                    </p>
-                  ) : (
-                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
-                      {recentGenerations.map((gen) => {
-                        const preview = gen.preview_url || gen.outputs?.[0]?.url;
-                        return (
-                          <li key={gen.id} style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                            {preview ? (
-                              <img
-                                src={preview}
-                                alt={gen.prompt ? gen.prompt.slice(0, 60) : `Generation ${gen.id}`}
-                                style={{ width: 96, height: 54, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(0,0,0,0.1)' }}
-                              />
-                            ) : (
-                              <div style={{ width: 96, height: 54, borderRadius: 6, border: '1px solid rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'rgba(0,0,0,0.45)' }}>
-                                No preview
-                              </div>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 500 }}>{new Date(gen.created_at).toLocaleString()}</div>
-                              <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.6)' }}>
-                                Status: {gen.status || 'unknown'} • Variants: {gen.outputs?.length ?? gen.variants_requested ?? 0}
-                              </div>
-                              {gen.prompt && (
-                                <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {gen.prompt}
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              )}
               {!loading && results.length === 0 && (
                 <>
                   <label className={styles.formGroup}>
