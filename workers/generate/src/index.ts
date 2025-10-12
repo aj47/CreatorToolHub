@@ -153,6 +153,11 @@ export default {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
 
+      // Add /api/r2/ route for file proxy (alternative path)
+      middlewareStack.route(/^\/api\/r2\//, createRouteHandler(async (req, env) => {
+        return await handleFileProxy(req, env);
+      }), ['GET', 'OPTIONS']);
+
       // Process request through middleware stack
       return await middlewareStack.handle(request as AuthenticatedRequest, env);
     } catch (error) {
@@ -172,8 +177,12 @@ async function handleFileProxy(request: AuthenticatedRequest, env: Env): Promise
   try {
     // Extract the file key from the URL
     const url = new URL(request.url);
-    // Remove the /r2/ prefix to get the encoded key
-    const encodedKey = url.pathname.replace(/^\/r2\//, '');
+    // Remove the /r2/ or /api/r2/ prefix to get the encoded key
+    let encodedKey = url.pathname.replace(/^\/api\/r2\//, '');
+    if (encodedKey === url.pathname) {
+      // If /api/r2/ didn't match, try /r2/
+      encodedKey = url.pathname.replace(/^\/r2\//, '');
+    }
     const key = decodeURIComponent(encodedKey);
 
     if (!env.R2) {
