@@ -14,7 +14,7 @@ export async function GET(
     const filePath = path.join("/");
 
     // Proxy the request to the worker
-    const workerUrl = `https://creator-tool-hub.techfren.workers.dev/r2/${filePath}`;
+    const workerUrl = `https://creator-tool-hub.techfren.workers.dev/api/r2/${filePath}`;
 
     const response = await fetch(workerUrl, {
       method: "GET",
