@@ -148,8 +148,8 @@ export default {
 
       // Add file proxy route
       // Include OPTIONS for CORS preflight requests
-      // Use /_r2/ path which is less likely to be intercepted by Cloudflare Pages
-      middlewareStack.route(/^\/_r2\//, createRouteHandler(async (req, env) => {
+      // Use /r2/ path which is handled by the worker route
+      middlewareStack.route(/^\/r2\//, createRouteHandler(async (req, env) => {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
 
@@ -172,8 +172,8 @@ async function handleFileProxy(request: AuthenticatedRequest, env: Env): Promise
   try {
     // Extract the file key from the URL
     const url = new URL(request.url);
-    // Remove the /_r2/ prefix to get the encoded key
-    const encodedKey = url.pathname.replace(/^\/_r2\//, '');
+    // Remove the /r2/ prefix to get the encoded key
+    const encodedKey = url.pathname.replace(/^\/r2\//, '');
     const key = decodeURIComponent(encodedKey);
 
     if (!env.R2) {

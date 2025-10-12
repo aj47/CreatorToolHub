@@ -98,18 +98,18 @@ export class R2StorageService {
   /**
    * Generate a signed URL for accessing the file
    * In local development, returns a local proxy URL
-   * In production, uses worker proxy URL with /_r2/ path
+   * In production, uses worker proxy URL with /r2/ path
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
     if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
-      return `http://localhost:8787/_r2/${encodeURIComponent(key)}`;
+      return `http://localhost:8787/r2/${encodeURIComponent(key)}`;
     }
 
-    // In production, use worker proxy URL with /_r2/ path
-    // This path is less likely to be intercepted by Cloudflare Pages
+    // In production, use worker proxy URL with /r2/ path
+    // This path is handled by the worker route
     const base = this.env?.PUBLIC_FILE_BASE_URL || 'https://creatortoolhub.com';
-    return `${base}/_r2/${encodeURIComponent(key)}`;
+    return `${base}/r2/${encodeURIComponent(key)}`;
   }
 
   /**
