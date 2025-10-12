@@ -103,7 +103,7 @@ export class R2StorageService {
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
     if (this.env?.NODE_ENV === 'development' || !this.env?.NODE_ENV) {
-      return `http://localhost:8787/r2/${encodeURIComponent(key)}`;
+      return `http://localhost:8787/files/${encodeURIComponent(key)}`;
     }
 
     // In production, use R2 public URL
@@ -115,7 +115,7 @@ export class R2StorageService {
       return '';
     }
 
-    return `${base}/r2/${encodeURIComponent(key)}`;
+    return `${base}/files/${encodeURIComponent(key)}`;
   }
 
   /**

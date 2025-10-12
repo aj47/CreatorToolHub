@@ -148,8 +148,8 @@ export default {
 
       // Add file proxy route for local development
       // Include OPTIONS for CORS preflight requests
-      // Use /r2/ path to avoid conflicts with Next.js API routes
-      middlewareStack.route(/^\/r2\//, createRouteHandler(async (req, env) => {
+      // Use /files/ path to avoid conflicts with Next.js API routes
+      middlewareStack.route(/^\/files\//, createRouteHandler(async (req, env) => {
         return await handleFileProxy(req, env);
       }), ['GET', 'OPTIONS']);
 
