@@ -98,7 +98,7 @@ export class R2StorageService {
   /**
    * Generate a signed URL for accessing the file
    * In local development, returns a local proxy URL
-   * In production, uses /api/r2/ path which is handled by the Next.js API route
+   * In production, uses the worker's direct domain for file serving
    */
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     // In development, use local proxy
@@ -106,10 +106,9 @@ export class R2StorageService {
       return `http://localhost:8787/api/r2/${encodeURIComponent(key)}`;
     }
 
-    // In production, use /api/r2/ path which is handled by the Next.js API route
-    // The API route proxies requests to the worker
-    const base = this.env?.PUBLIC_FILE_BASE_URL || 'https://creatortoolhub.com';
-    return `${base}/api/r2/${encodeURIComponent(key)}`;
+    // In production, use the worker's direct domain
+    // This avoids the Next.js API route proxy which doesn't work with Cloudflare Pages
+    return `https://creator-tool-hub.techfren.workers.dev/api/r2/${encodeURIComponent(key)}`;
   }
 
   /**
