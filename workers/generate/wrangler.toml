@@ -19,6 +19,7 @@ NODE_ENV = "production"
 FEATURE_ID = "credits"
 MODEL_ID = "gemini-2.5-flash-image-preview"
 ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000"
+PUBLIC_FILE_BASE_URL = "https://creatortoolhub.com"
 
 # Secrets (these need to be set separately with `wrangler secret put`)
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
@@ -27,12 +28,13 @@ ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,htt
 # Routes for both generation and user data APIs
 routes = [
   { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
-  { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" }
+  { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
+  { pattern = "creatortoolhub.com/api/files/*", zone_name = "creatortoolhub.com" }
 ]
 
 # Development environment configuration
 [env.development]
-vars = { NODE_ENV = "development", FEATURE_ID = "credits", MODEL_ID = "gemini-2.5-flash-image-preview", ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000" }
+vars = { NODE_ENV = "development", FEATURE_ID = "credits", MODEL_ID = "gemini-2.5-flash-image-preview", ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000", PUBLIC_FILE_BASE_URL = "http://localhost:8787" }
 
 # Database configuration for development
 [[env.development.d1_databases]]
