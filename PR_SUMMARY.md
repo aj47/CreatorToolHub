@@ -1,8 +1,16 @@
 # PR Summary: R2 File Proxy & Generation Dashboard
 
-**Commit**: `fe12b15`  
-**Branch**: `main`  
+**Latest Commit**: `8f0188d`
+**Branch**: `main`
 **Status**: ✅ Merged to main
+
+## Latest Changes (Commit 8f0188d)
+
+Removed generation history from the thumbnails page to keep it exclusive to the dashboard:
+- Removed "Recent cloud generations" section from `/thumbnails`
+- Removed unused state and functions: `isRefreshingGenerations`, `handleRefreshGenerations`, `recentGenerations`
+- Simplified thumbnails page to focus on the generation workflow
+- Generation history now only appears in `/dashboard`
 
 ## Overview
 

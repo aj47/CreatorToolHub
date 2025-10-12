@@ -4,6 +4,8 @@
 
 This PR implements a file proxy endpoint in the Cloudflare Worker to serve preview images from R2 storage, enabling the generation dashboard to display thumbnails. The implementation works in local development but requires configuration adjustments for production.
 
+**Latest Update**: Generation history has been removed from the thumbnails page and is now exclusive to the dashboard at `/dashboard`.
+
 ## Changes Made
 
 ### 1. Worker File Proxy Endpoint
