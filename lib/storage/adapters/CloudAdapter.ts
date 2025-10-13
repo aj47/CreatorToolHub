@@ -7,7 +7,8 @@ export class CloudAdapter implements StorageAdapter {
   private timeout: number;
 
   constructor(baseUrl?: string, timeout: number = 10000) {
-    this.baseUrl = baseUrl || this.getDefaultBaseUrl();
+    // Always use same-origin relative API paths in the browser
+    this.baseUrl = '';
     this.timeout = timeout;
   }
 
@@ -113,10 +114,8 @@ export class CloudAdapter implements StorageAdapter {
 
   // Utility methods
   private getDefaultBaseUrl(): string {
-    if (typeof window !== 'undefined') {
-      return process.env.NEXT_PUBLIC_WORKER_API_URL || window.location.origin;
-    }
-    return process.env.NEXT_PUBLIC_WORKER_API_URL || '';
+    // Unused after constructor change; kept for backward compatibility
+    return '';
   }
 
   private async fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {

@@ -78,15 +78,9 @@ export class CloudStorageService {
   private baseUrl: string;
 
   constructor(baseUrl: string = '') {
-    // In production, use same-domain routing to avoid CORS/cookie issues
-    // The worker routes are configured in wrangler.toml to handle /api/user/* on the same domain
-    if (typeof window !== 'undefined') {
-      // Client-side: use current origin for same-domain requests
-      this.baseUrl = baseUrl || process.env.NEXT_PUBLIC_WORKER_API_URL || window.location.origin;
-    } else {
-      // Server-side: use provided baseUrl or environment variable
-      this.baseUrl = baseUrl || process.env.NEXT_PUBLIC_WORKER_API_URL || '';
-    }
+    // Always use same-origin relative API paths to avoid leaking absolute dev URLs into client bundles
+    // This guarantees production never calls localhost regardless of build-time env
+    this.baseUrl = '';
   }
 
   // Template operations
@@ -211,15 +205,12 @@ export class CloudStorageService {
       throw new Error('Cloud storage not configured - baseUrl is empty');
     }
 
-    const url = new URL(`${this.baseUrl}/api/user/generations`);
-    if (params.limit !== undefined) {
-      url.searchParams.set('limit', String(params.limit));
-    }
-    if (params.before) {
-      url.searchParams.set('before', params.before);
-    }
+    const search = new URLSearchParams();
+    if (params.limit !== undefined) search.set('limit', String(params.limit));
+    if (params.before) search.set('before', params.before);
+    const url = `/api/user/generations${search.toString() ? `?${search.toString()}` : ''}`;
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       credentials: 'include'
     });
 
