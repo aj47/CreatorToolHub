@@ -76,9 +76,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'RECORD_REQUEST':
       const newCount = state.performance.requestCount + 1;
-      const newAverage = 
+      const newAverage =
         (state.performance.averageResponseTime * state.performance.requestCount + action.payload.responseTime) / newCount;
-      
+
       return {
         ...state,
         performance: {
@@ -150,6 +150,23 @@ export function AppProvider({ children }: AppProviderProps) {
     });
 
     initialize();
+  }, []);
+
+  // Temporary client-side safeguard: rewrite any stale localhost worker URLs to same-origin
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      try {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (typeof url === 'string' && url.startsWith('http://localhost:8787/')) {
+          const newUrl = url.replace('http://localhost:8787', '');
+          return originalFetch(newUrl, init);
+        }
+      } catch {}
+      return originalFetch(input as any, init);
+    };
+    return () => { (window as any).fetch = originalFetch; };
   }, []);
 
   // Update feature flag
