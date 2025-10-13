@@ -125,7 +125,7 @@ deploy_worker() {
 setup_secrets() {
     echo ""
     echo "🔐 Setting up Secrets..."
-    
+
     # Check if GEMINI_API_KEY is set
     if [ -z "$GEMINI_API_KEY" ]; then
         echo "⚠️  GEMINI_API_KEY environment variable not set"
@@ -136,7 +136,7 @@ setup_secrets() {
         echo "$GEMINI_API_KEY" | wrangler secret put GEMINI_API_KEY
         echo "✅ GEMINI_API_KEY set"
     fi
-    
+
     # Check if AUTUMN_SECRET_KEY is set (optional)
     if [ -z "$AUTUMN_SECRET_KEY" ]; then
         echo "⚠️  AUTUMN_SECRET_KEY not set (optional for billing)"
@@ -146,6 +146,39 @@ setup_secrets() {
         echo "Setting AUTUMN_SECRET_KEY..."
         echo "$AUTUMN_SECRET_KEY" | wrangler secret put AUTUMN_SECRET_KEY
         echo "✅ AUTUMN_SECRET_KEY set"
+    fi
+
+    # Check if GOOGLE_CLIENT_ID is set
+    if [ -z "$GOOGLE_CLIENT_ID" ]; then
+        echo "⚠️  GOOGLE_CLIENT_ID environment variable not set"
+        echo "   You can set it manually later with:"
+        echo "   wrangler secret put GOOGLE_CLIENT_ID"
+    else
+        echo "Setting GOOGLE_CLIENT_ID..."
+        echo "$GOOGLE_CLIENT_ID" | wrangler secret put GOOGLE_CLIENT_ID
+        echo "✅ GOOGLE_CLIENT_ID set"
+    fi
+
+    # Check if GOOGLE_CLIENT_SECRET is set
+    if [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+        echo "⚠️  GOOGLE_CLIENT_SECRET environment variable not set"
+        echo "   You can set it manually later with:"
+        echo "   wrangler secret put GOOGLE_CLIENT_SECRET"
+    else
+        echo "Setting GOOGLE_CLIENT_SECRET..."
+        echo "$GOOGLE_CLIENT_SECRET" | wrangler secret put GOOGLE_CLIENT_SECRET
+        echo "✅ GOOGLE_CLIENT_SECRET set"
+    fi
+
+    # Check if NEXTAUTH_SECRET is set
+    if [ -z "$NEXTAUTH_SECRET" ]; then
+        echo "⚠️  NEXTAUTH_SECRET environment variable not set"
+        echo "   You can set it manually later with:"
+        echo "   wrangler secret put NEXTAUTH_SECRET"
+    else
+        echo "Setting NEXTAUTH_SECRET..."
+        echo "$NEXTAUTH_SECRET" | wrangler secret put NEXTAUTH_SECRET
+        echo "✅ NEXTAUTH_SECRET set"
     fi
 }
 

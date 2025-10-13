@@ -102,6 +102,9 @@ main() {
     echo "🔑 Ensuring critical secrets are set..."
     ensure_secret "GEMINI_API_KEY" "GEMINI_API_KEY"
     ensure_secret "AUTUMN_SECRET_KEY" "AUTUMN_SECRET_KEY"
+    ensure_secret "GOOGLE_CLIENT_ID" "GOOGLE_CLIENT_ID"
+    ensure_secret "GOOGLE_CLIENT_SECRET" "GOOGLE_CLIENT_SECRET"
+    ensure_secret "NEXTAUTH_SECRET" "NEXTAUTH_SECRET"
     echo ""
     
     # Step 3: Deploy the worker
@@ -120,6 +123,9 @@ main() {
     echo "3. If secrets are missing, set them with:"
     echo "   wrangler secret put GEMINI_API_KEY"
     echo "   wrangler secret put AUTUMN_SECRET_KEY"
+    echo "   wrangler secret put GOOGLE_CLIENT_ID"
+    echo "   wrangler secret put GOOGLE_CLIENT_SECRET"
+    echo "   wrangler secret put NEXTAUTH_SECRET"
     echo ""
     echo "🔗 Worker URL: https://creator-tool-hub.techfren.workers.dev"
     echo "🔗 Production API: https://creatortoolhub.com/api/generate"
