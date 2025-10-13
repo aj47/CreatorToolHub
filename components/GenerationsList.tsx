@@ -24,9 +24,7 @@ export default function GenerationsList({ onRefresh }: GenerationsListProps) {
       setIsLoading(true);
       setError(null);
 
-      const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-      const base = isLocal ? (process.env.NEXT_PUBLIC_WORKER_API_URL || "") : "";
-      const url = `${base}/api/user/generations?limit=${limit}`;
+      const url = `/api/user/generations?limit=${limit}`;
 
       const response = await fetch(url, {
         credentials: "include",
@@ -54,9 +52,7 @@ export default function GenerationsList({ onRefresh }: GenerationsListProps) {
     if (!confirm("Are you sure you want to delete this generation?")) return;
 
     try {
-      const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-      const base = isLocal ? (process.env.NEXT_PUBLIC_WORKER_API_URL || "") : "";
-      const url = `${base}/api/user/generations/${generationId}`;
+      const url = `/api/user/generations/${generationId}`;
 
       const response = await fetch(url, {
         method: "DELETE",

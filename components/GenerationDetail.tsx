@@ -21,9 +21,7 @@ export default function GenerationDetail({
   useEffect(() => {
     const fetchInputs = async () => {
       try {
-        const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-        const base = isLocal ? (process.env.NEXT_PUBLIC_WORKER_API_URL || "") : "";
-        const url = `${base}/api/user/generations/${generation.id}`;
+        const url = `/api/user/generations/${generation.id}`;
 
         const response = await fetch(url, { credentials: "include" });
         if (response.ok) {
