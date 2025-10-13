@@ -6,6 +6,7 @@ import GenerationDetail from "./GenerationDetail";
 import styles from "./GenerationsList.module.css";
 
 // Trigger rebuild to ensure correct environment variables are used
+// NODE_ENV=production should read from .env.production
 
 interface GenerationsListProps {
   onRefresh?: () => void;
