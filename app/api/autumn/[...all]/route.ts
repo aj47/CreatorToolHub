@@ -55,7 +55,9 @@ async function customPOST(request: Request) {
   // If the response is successful, try to add balance information
   if (response.status === 200) {
     try {
-      const data = await response.json();
+      // Clone the response so we can read the body
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.json();
       const user = getUser(request);
 
       if (user && process.env.AUTUMN_SECRET_KEY) {
