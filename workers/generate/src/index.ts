@@ -364,7 +364,18 @@ export default {
             if (!customerId) {
               return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
             }
-            return jsonResponse({ id: customerId, created: true });
+            const autumn = new Autumn({ secretKey: autumnSecretKey });
+            try {
+              const checkRes = await autumn.check({ customer_id: customerId, feature_id: featureId });
+              return jsonResponse({
+                id: customerId,
+                created: true,
+                balance: checkRes?.data?.balance || 0,
+                allowed: checkRes?.data?.allowed || false
+              });
+            } catch (e) {
+              return errorResponse('Billing service error', 503, 'BILLING_ERROR');
+            }
           }
         }
 
