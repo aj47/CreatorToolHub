@@ -113,6 +113,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Early runtime shim to neutralize any stale localhost worker URLs in old bundles */}
+        <script dangerouslySetInnerHTML={{ __html: `(() => { try {
+          if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = (input, init) => {
+              try {
+                const url = typeof input === 'string' ? input : (input && input.url) || '';
+                if (typeof url === 'string' && url.startsWith('http://localhost:8787/')) {
+                  const newUrl = url.replace('http://localhost:8787', '');
+                  return originalFetch(newUrl, init);
+                }
+              } catch {}
+              return originalFetch(input, init);
+            };
+          }
+        } catch {} })();` }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
