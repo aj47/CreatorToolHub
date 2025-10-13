@@ -294,7 +294,7 @@ export class DatabaseService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await this.db.prepare(`
+        const result = await this.db.prepare(`
           INSERT INTO generations (id, user_id, template_id, prompt, variants_requested, status, source, parent_generation_id, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
@@ -310,11 +310,13 @@ export class DatabaseService {
           now
         ).run();
 
+        console.log(`Generation INSERT successful: ${generationId} for user ${userId}`);
         // Success - break out of retry loop
         break;
 
       } catch (error: any) {
         lastError = error;
+        console.error(`Generation INSERT attempt ${attempt} failed:`, error?.message);
 
         // Handle foreign key constraint errors
         if (error?.message?.includes('FOREIGN KEY constraint failed')) {
@@ -345,12 +347,35 @@ export class DatabaseService {
       }
     }
 
-    const row = await this.db.prepare(`
-      SELECT * FROM generations WHERE id = ?
-    `).bind(generationId).first();
+    // Retry SELECT to handle D1 eventual consistency
+    let row = null;
+    for (let selectAttempt = 1; selectAttempt <= 3; selectAttempt++) {
+      try {
+        row = await this.db.prepare(`
+          SELECT * FROM generations WHERE id = ?
+        `).bind(generationId).first();
+
+        if (row) {
+          console.log(`Generation SELECT successful on attempt ${selectAttempt}: ${generationId}`);
+          break;
+        }
+
+        if (selectAttempt < 3) {
+          console.log(`SELECT attempt ${selectAttempt}: Generation ${generationId} not found, retrying...`);
+          const delay = Math.min(100 * Math.pow(2, selectAttempt - 1), 1000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      } catch (selectError) {
+        console.error(`SELECT attempt ${selectAttempt} error:`, selectError);
+        if (selectAttempt === 3) {
+          throw selectError;
+        }
+      }
+    }
 
     if (!row) {
-      throw new Error('Failed to load generation after insert');
+      console.error(`Failed to load generation after insert - eventual consistency timeout for ${generationId}`);
+      throw new Error('Failed to load generation after insert - eventual consistency timeout');
     }
 
     return convertGenerationRow(row as GenerationRow);

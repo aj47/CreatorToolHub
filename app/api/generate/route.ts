@@ -67,8 +67,8 @@ export async function POST(req: Request) {
 
     const { prompt, frames = [], layoutImage, variants, framesMime, source } = await req.json();
 
-    // In development, proxy to worker API for database persistence
-    if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_WORKER_API_URL) {
+    // Proxy to worker API for database persistence (both development and production)
+    if (process.env.NEXT_PUBLIC_WORKER_API_URL) {
       const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL;
 
       // Create auth token for worker API
