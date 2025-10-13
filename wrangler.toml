@@ -3,6 +3,9 @@ compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".next"
 
+[vars]
+NEXT_PUBLIC_WORKER_API_URL = "https://creator-tool-hub.techfren.workers.dev"
+
 [env.production]
 compatibility_flags = ["nodejs_compat"]
 
