@@ -5,6 +5,8 @@ import { CloudGeneration } from "@/lib/storage/client";
 import GenerationDetail from "./GenerationDetail";
 import styles from "./GenerationsList.module.css";
 
+// Trigger rebuild to ensure correct environment variables are used
+
 interface GenerationsListProps {
   onRefresh?: () => void;
 }
