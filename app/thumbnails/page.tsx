@@ -142,16 +142,24 @@ export default function Home() {
 
   const credits = useMemo(() => {
     if (isDevelopment) return 999;
-    if (!customer?.features) return 0;
-    const feature = customer.features[FEATURE_ID as string] as {
-      balance?: number;
-      included_usage?: number;
-      usage?: number;
-    } | undefined;
-    if (!feature) return 0;
-    if (typeof feature.balance === "number") return feature.balance;
-    if (typeof feature.included_usage === "number" && typeof feature.usage === "number") {
-      return Math.max(0, (feature.included_usage ?? 0) - (feature.usage ?? 0));
+    if (!customer) return 0;
+
+    // Handle flat balance structure (from Autumn API)
+    const customerAny = customer as any;
+    if (typeof customerAny.balance === "number") return customerAny.balance;
+
+    // Handle nested features structure (expected by autumn-js)
+    if (customer.features) {
+      const feature = customer.features[FEATURE_ID as string] as {
+        balance?: number;
+        included_usage?: number;
+        usage?: number;
+      } | undefined;
+      if (!feature) return 0;
+      if (typeof feature.balance === "number") return feature.balance;
+      if (typeof feature.included_usage === "number" && typeof feature.usage === "number") {
+        return Math.max(0, (feature.included_usage ?? 0) - (feature.usage ?? 0));
+      }
     }
     return 0;
   }, [customer, isDevelopment]);

@@ -20,12 +20,20 @@ function DashboardContent() {
 
   const credits = useMemo(() => {
     if (isDevelopment) return 999; // Mock credits in development
-    if (!customer?.features) return 0;
-    const f = customer.features[FEATURE_ID];
-    // Prefer balance; if null/undefined, fall back to included_usage - usage
-    if (typeof f?.balance === "number") return f.balance;
-    if (typeof f?.included_usage === "number" && typeof f?.usage === "number") {
-      return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+    if (!customer) return 0;
+
+    // Handle flat balance structure (from Autumn API)
+    const customerAny = customer as any;
+    if (typeof customerAny.balance === "number") return customerAny.balance;
+
+    // Handle nested features structure (expected by autumn-js)
+    if (customer.features) {
+      const f = customer.features[FEATURE_ID];
+      // Prefer balance; if null/undefined, fall back to included_usage - usage
+      if (typeof f?.balance === "number") return f.balance;
+      if (typeof f?.included_usage === "number" && typeof f?.usage === "number") {
+        return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+      }
     }
     return 0;
   }, [customer, isDevelopment]);

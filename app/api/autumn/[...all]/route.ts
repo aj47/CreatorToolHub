@@ -30,6 +30,10 @@ const productionHandlers = autumnHandler({
     // Ensure starts with a letter prefix and keep length conservative (<= 40)
     const safeId = ("u-" + cleaned).slice(0, 40);
 
+    // Debug logging
+    console.log(`[Autumn] Deriving customer ID for email: ${user.email}`);
+    console.log(`[Autumn] Derived customer ID: ${safeId}`);
+
     return {
       customerId: safeId,
       customerData: { name: user.name || "", email: user.email },
