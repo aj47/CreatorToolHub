@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
-    "pages:build": "npm run build && npx @cloudflare/next-on-pages@latest",
+    "pages:build": "NODE_ENV=production npm run build && npx @cloudflare/next-on-pages@latest",
     "pages:dev": "wrangler pages dev .vercel/output/static --functions .vercel/output/functions",
     "dev:local": "bash scripts/dev-local-stack.sh",
     "test:full-stack": "node scripts/test-full-stack.js",
