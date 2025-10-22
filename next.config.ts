@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     ];
     // Add Clarity only if configured
     if (process.env.NEXT_PUBLIC_CLARITY_ID) {
-      scriptSrc.push('https://www.clarity.ms');
+      scriptSrc.push('https://www.clarity.ms', 'https://scripts.clarity.ms');
     }
 
     const connectSrc = [
@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
     ];
     // Add Clarity only if configured
     if (process.env.NEXT_PUBLIC_CLARITY_ID) {
-      connectSrc.push('https://www.clarity.ms');
+      connectSrc.push('https://*.clarity.ms', 'https://c.bing.com');
     }
     if (workerOrigin) connectSrc.push(workerOrigin);
     if (process.env.NODE_ENV !== 'production') {
@@ -55,6 +55,7 @@ const nextConfig: NextConfig = {
     const csp = [
       "default-src 'self'",
       `script-src ${scriptSrc.join(' ')}`,
+      `script-src-elem ${scriptSrc.join(' ')}`,
       "style-src 'self' 'unsafe-inline'",
       `img-src ${imgSrc.join(' ')}`,
       "media-src 'self' blob: data:",
