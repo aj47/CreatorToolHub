@@ -14,8 +14,8 @@ const nextConfig: NextConfig = {
       "'unsafe-inline'",
       "'unsafe-eval'",
     ];
-    // Add Clarity only if configured
-    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
+    // Add Clarity only if configured and in production
+    if (process.env.NEXT_PUBLIC_CLARITY_ID && process.env.NODE_ENV === 'production') {
       scriptSrc.push('https://www.clarity.ms', 'https://scripts.clarity.ms');
     }
 
@@ -25,8 +25,8 @@ const nextConfig: NextConfig = {
       'https://www.googleapis.com',
       'https://generativelanguage.googleapis.com',
     ];
-    // Add Clarity only if configured
-    if (process.env.NEXT_PUBLIC_CLARITY_ID) {
+    // Add Clarity only if configured and in production
+    if (process.env.NEXT_PUBLIC_CLARITY_ID && process.env.NODE_ENV === 'production') {
       connectSrc.push('https://*.clarity.ms', 'https://c.bing.com');
     }
     if (workerOrigin) connectSrc.push(workerOrigin);
