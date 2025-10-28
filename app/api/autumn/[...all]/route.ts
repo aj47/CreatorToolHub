@@ -5,7 +5,7 @@ import { getUser } from "@/lib/auth";
 // In development mode, return mock data
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-const AUTUMN_API_BASE = "https://api.useautumn.com";
+const AUTUMN_API_BASE = "https://api.useautumn.com/v1"; // Fixed: added /v1
 const AUTUMN_SECRET_KEY = process.env.AUTUMN_SECRET_KEY;
 
 // Helper to derive customer ID from email
@@ -50,10 +50,12 @@ export async function GET(request: Request) {
     // In development, return mock data
     if (isDevelopment) {
       if (path === "/products") {
-        return new Response(JSON.stringify([
-          { id: "creator", name: "Creator Plan", price: 1000 },
-          { id: "pro", name: "Pro Plan", price: 5000 },
-        ]), {
+        return new Response(JSON.stringify({
+          list: [
+            { id: "creator", name: "Creator Plan", items: [] },
+            { id: "pro", name: "Pro Plan", items: [] },
+          ]
+        }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
