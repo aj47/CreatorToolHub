@@ -18,10 +18,16 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Env
-.env*
-!.env
-!.env.production
-.env.*.local
+# Ignore all .env files everywhere by default
+**/.env
+**/.env.*
+# Allow only root-level non-secret templates or config
+!/.env.production
+!/.env.local.example
+!/.env.production.example
+# Always ignore local overrides
+**/.env.local
+**/.env.*.local
 
 .wrangler/
 .vercel/

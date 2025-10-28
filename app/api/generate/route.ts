@@ -68,16 +68,17 @@ export async function POST(req: Request) {
     const { prompt, frames = [], layoutImage, variants, framesMime, source } = await req.json();
 
     // Proxy to worker API for database persistence (both development and production)
-    if (process.env.NEXT_PUBLIC_WORKER_API_URL) {
-      const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL;
+    const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
+    if (workerUrl) {
 
-      // Create auth token for worker API
-      const authToken = Buffer.from(JSON.stringify({
+      // Create auth token for worker API using btoa (Edge runtime compatible)
+      const tokenData = JSON.stringify({
         email: user.email,
         name: user.name || '',
         picture: user.picture || '',
         exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour expiry
-      })).toString('base64');
+      });
+      const authToken = btoa(tokenData);
 
       const workerRes = await fetch(`${workerUrl}/api/generate`, {
         method: 'POST',
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
       });
 
       if (!workerRes.ok) {
-        const error = await workerRes.json().catch(() => ({ error: 'Worker API error' }));
+        const error = await workerRes.json().catch(() => ({ error: `Worker API error (status: ${workerRes.status}, url: ${workerUrl})` }));
         return Response.json(error, { status: workerRes.status });
       }
 
