@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
-    "pages:build": "rm -rf .next .vercel/output && NODE_ENV=production npm run build",
+    "pages:build": "npx @cloudflare/next-on-pages",
     "pages:dev": "wrangler pages dev .vercel/output/static --functions .vercel/output/functions",
     "dev:local": "bash scripts/dev-local-stack.sh",
     "test:full-stack": "node scripts/test-full-stack.js",
@@ -26,6 +26,7 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20",
@@ -35,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vercel": "^47.0.4"
   }
 }
