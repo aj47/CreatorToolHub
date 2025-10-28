@@ -20,7 +20,6 @@ export class LocalAdapter implements StorageAdapter {
 
       return JSON.parse(item) as T;
     } catch (error) {
-      console.error('LocalAdapter get error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to get item from localStorage: ${key}`,
@@ -36,8 +35,7 @@ export class LocalAdapter implements StorageAdapter {
       
       localStorage.setItem(fullKey, serialized);
     } catch (error) {
-      console.error('LocalAdapter set error:', error);
-      
+
       // Check if it's a quota exceeded error
       if (error instanceof DOMException && error.code === 22) {
         throw this.createError(
@@ -60,7 +58,6 @@ export class LocalAdapter implements StorageAdapter {
       const fullKey = this.getFullKey(key);
       localStorage.removeItem(fullKey);
     } catch (error) {
-      console.error('LocalAdapter delete error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to delete item from localStorage: ${key}`,
@@ -84,7 +81,6 @@ export class LocalAdapter implements StorageAdapter {
       
       return keys;
     } catch (error) {
-      console.error('LocalAdapter list error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to list items from localStorage with prefix: ${prefix}`,
@@ -106,7 +102,6 @@ export class LocalAdapter implements StorageAdapter {
       
       keysToRemove.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-      console.error('LocalAdapter clear error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         'Failed to clear localStorage',

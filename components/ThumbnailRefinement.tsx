@@ -152,7 +152,6 @@ export default function ThumbnailRefinement({
           };
         }
       } catch (error) {
-        console.error("Failed to enforce YouTube dimensions on refined image:", error);
         // Continue with original iteration if dimension enforcement fails
       }
 
@@ -170,7 +169,6 @@ export default function ThumbnailRefinement({
       });
 
     } catch (error) {
-      console.error("Refinement error:", error);
       onUpdateRefinementState({
         refinementError: error instanceof Error ? error.message : "Refinement failed"
       });
@@ -290,7 +288,6 @@ export default function ThumbnailRefinement({
         setTimeout(() => URL.revokeObjectURL(revokeTemp!), 100);
       }
     } catch (e) {
-      console.error("Failed to download refined image", e);
       // Fallback: try simple download
       const a = document.createElement("a");
       a.href = src;
@@ -341,7 +338,6 @@ export default function ThumbnailRefinement({
       await navigator.clipboard.write([clipboardItem]);
 
     } catch (error) {
-      console.error('Failed to copy refined image to clipboard:', error);
 
       // Fallback: try to copy as text (data URL)
       try {
@@ -351,7 +347,6 @@ export default function ThumbnailRefinement({
           throw new Error('No clipboard access available');
         }
       } catch (fallbackError) {
-        console.error('Clipboard fallback also failed:', fallbackError);
       }
     } finally {
       onUpdateRefinementState({ isCopying: false });

@@ -136,7 +136,6 @@ export function AppProvider({ children }: AppProviderProps) {
         },
       });
     } catch (error) {
-      console.error('App initialization failed:', error);
       dispatch({ type: 'SET_INITIALIZED', payload: true }); // Initialize anyway
     }
   };

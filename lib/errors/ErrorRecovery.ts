@@ -31,11 +31,9 @@ export class ErrorRecovery {
         try {
           const recovered = await strategy.recover(error);
           if (recovered) {
-            console.log(`Successfully recovered from error using ${strategy.constructor.name}`);
             return true;
           }
         } catch (recoveryError) {
-          console.warn(`Recovery strategy ${strategy.constructor.name} failed:`, recoveryError);
         }
       }
     }
@@ -148,7 +146,6 @@ class StorageRecoveryStrategy implements RecoveryStrategy {
         this.clearOldStorageData();
         return true;
       } catch (clearError) {
-        console.warn('Failed to clear storage:', clearError);
         return false;
       }
     }
@@ -171,7 +168,6 @@ class StorageRecoveryStrategy implements RecoveryStrategy {
         }
       }
     } catch (error) {
-      console.warn('Failed to clean refinement histories:', error);
     }
 
     // Clear other old data
@@ -188,7 +184,6 @@ class StorageRecoveryStrategy implements RecoveryStrategy {
           localStorage.removeItem(key);
         }
       } catch (error) {
-        console.warn(`Failed to check/clear ${key}:`, error);
       }
     });
   }
@@ -226,7 +221,6 @@ class AuthenticationRecoveryStrategy implements RecoveryStrategy {
 
       return false;
     } catch (sessionError) {
-      console.warn('Session recovery failed:', sessionError);
       return false;
     }
   }

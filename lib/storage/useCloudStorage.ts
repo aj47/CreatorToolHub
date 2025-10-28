@@ -64,7 +64,6 @@ export function useCloudStorage(options: UseCloudStorageOptions = {}): UseCloudS
 
   // Error handling
   const handleError = useCallback((error: unknown, operation: string) => {
-    console.error(`Cloud storage error (${operation}):`, error);
     const message = error instanceof Error ? error.message : `Failed to ${operation}`;
     setError(message);
 

@@ -67,7 +67,6 @@ export async function GET(request: Request) {
     authUrl.searchParams.set('scope', 'openid email profile');
     authUrl.searchParams.set('state', 'signin');
 
-    console.log('Redirecting to Google OAuth:', authUrl.toString());
     return new Response(null, {
       status: 302,
       headers: { 'Location': authUrl.toString() },

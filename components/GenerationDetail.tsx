@@ -29,7 +29,6 @@ export default function GenerationDetail({
           setInputs(data.inputs || []);
         }
       } catch (err) {
-        console.error("Failed to fetch generation inputs:", err);
       }
     };
 

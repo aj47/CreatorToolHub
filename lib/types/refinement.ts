@@ -175,7 +175,6 @@ export const RefinementUtils = {
             // Remove items larger than 100KB
             if (value && value.length > 100000) {
               localStorage.removeItem(key);
-              console.log(`Removed large localStorage item: ${key}`);
             }
           } catch (e) {
             // If we can't access the item, remove it
@@ -184,9 +183,7 @@ export const RefinementUtils = {
         }
       });
 
-      console.log('localStorage cleanup completed');
     } catch (error) {
-      console.error('Failed to cleanup localStorage:', error);
     }
   },
 };

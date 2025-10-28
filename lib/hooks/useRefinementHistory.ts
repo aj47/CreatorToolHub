@@ -24,7 +24,6 @@ export function useRefinementHistory(): UseRefinementHistoryReturn {
   // Load histories from localStorage on mount (skip in development)
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('Development mode: Skipping refinement history loading from localStorage');
       setIsLoading(false);
       return;
     }
@@ -38,7 +37,6 @@ export function useRefinementHistory(): UseRefinementHistoryReturn {
         setHistories(sorted);
       }
     } catch (err) {
-      console.error("Failed to load refinement histories:", err);
       setError("Failed to load refinement history");
     } finally {
       setIsLoading(false);
@@ -49,7 +47,6 @@ export function useRefinementHistory(): UseRefinementHistoryReturn {
   const persistHistories = useCallback((newHistories: RefinementHistory[]) => {
     // Skip persistence in development mode to avoid localStorage quota issues
     if (process.env.NODE_ENV === 'development') {
-      console.log('Development mode: Skipping refinement history persistence');
       setError(null);
       return;
     }
@@ -68,7 +65,6 @@ export function useRefinementHistory(): UseRefinementHistoryReturn {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweightHistories));
       setError(null);
     } catch (err) {
-      console.error("Failed to save refinement histories:", err);
       setError("Storage quota exceeded - refinement history may not be saved");
     }
   }, []);
@@ -134,7 +130,6 @@ export function useRefinementHistory(): UseRefinementHistoryReturn {
       localStorage.removeItem(STORAGE_KEY);
       setError(null);
     } catch (err) {
-      console.error("Failed to clear refinement histories:", err);
       setError("Failed to clear refinement history");
     }
   }, []);

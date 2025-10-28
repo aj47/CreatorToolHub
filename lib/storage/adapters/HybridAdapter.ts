@@ -54,7 +54,6 @@ export class HybridAdapter implements StorageAdapter {
             return cloudValue;
           }
         } catch (error) {
-          console.warn('Cloud get failed, falling back to local:', error);
         }
 
         // Fallback to local
@@ -80,12 +79,10 @@ export class HybridAdapter implements StorageAdapter {
           
           return cloudValue;
         } catch (error) {
-          console.warn('Cloud get failed:', error);
           return null;
         }
       }
     } catch (error) {
-      console.error('HybridAdapter get error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to get item: ${key}`,
@@ -102,11 +99,9 @@ export class HybridAdapter implements StorageAdapter {
       if (this.config.syncOnWrite) {
         // Sync to cloud in background
         this.syncToCloud(key, value).catch(error => {
-          console.error('Background sync to cloud failed:', error);
         });
       }
     } catch (error) {
-      console.error('HybridAdapter set error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to set item: ${key}`,
@@ -126,7 +121,6 @@ export class HybridAdapter implements StorageAdapter {
         ),
       ]);
     } catch (error) {
-      console.error('HybridAdapter delete error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to delete item: ${key}`,
@@ -152,7 +146,6 @@ export class HybridAdapter implements StorageAdapter {
       const allKeys = new Set([...local, ...cloud]);
       return Array.from(allKeys);
     } catch (error) {
-      console.error('HybridAdapter list error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         `Failed to list items with prefix: ${prefix}`,
@@ -171,7 +164,6 @@ export class HybridAdapter implements StorageAdapter {
         ),
       ]);
     } catch (error) {
-      console.error('HybridAdapter clear error:', error);
       throw this.createError(
         StorageErrorType.STORAGE_ERROR,
         'Failed to clear storage',
@@ -221,7 +213,6 @@ export class HybridAdapter implements StorageAdapter {
         }
       }
     } catch (error) {
-      console.error('Sync operation failed:', error);
       throw error;
     }
   }
@@ -234,7 +225,6 @@ export class HybridAdapter implements StorageAdapter {
       );
     } catch (error) {
       // Don't throw - this is a background operation
-      console.error('Background sync to cloud failed:', error);
     }
   }
 
@@ -262,7 +252,6 @@ export class HybridAdapter implements StorageAdapter {
         this.sync(key, 'up').catch(console.error);
       }
     } catch (error) {
-      console.error('Periodic sync failed:', error);
     }
   }
 

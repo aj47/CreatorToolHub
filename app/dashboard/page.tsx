@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useCustomer } from "autumn-js/react";
 import GenerationsList from "@/components/GenerationsList";
 
@@ -18,23 +18,33 @@ function DashboardContent() {
     expand: ["invoices", "entities"]
   });
 
+
   const credits = useMemo(() => {
     if (isDevelopment) return 999; // Mock credits in development
-    if (!customer) return 0;
 
-    // Handle flat balance structure (from Autumn API)
-    const customerAny = customer as any;
-    if (typeof customerAny.balance === "number") return customerAny.balance;
+    const c = customer as any;
+    if (!c) {
+      return 0;
+    }
+
+
+    // Handle flat/minimal balance structure first
+    if (typeof c.balance === "number" && !c.features) {
+      return c.balance;
+    }
 
     // Handle nested features structure (expected by autumn-js)
-    if (customer.features) {
-      const f = customer.features[FEATURE_ID];
-      // Prefer balance; if null/undefined, fall back to included_usage - usage
-      if (typeof f?.balance === "number") return f.balance;
+    if (c.features) {
+      const f = c.features[FEATURE_ID];
+      if (typeof f?.balance === "number") {
+        return f.balance;
+      }
       if (typeof f?.included_usage === "number" && typeof f?.usage === "number") {
-        return Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+        const calculated = Math.max(0, (f.included_usage ?? 0) - (f.usage ?? 0));
+        return calculated;
       }
     }
+
     return 0;
   }, [customer, isDevelopment]);
 

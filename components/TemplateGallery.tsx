@@ -261,7 +261,6 @@ export default function TemplateGallery(props: {
                       setNewColors([]);
                       setNewRefFiles([]);
                     } catch (error) {
-                      console.error('Failed to upload reference images:', error);
                       alert('Failed to upload reference images. Please try again.');
                     } finally {
                       setUploadingRefs(false);
@@ -497,7 +496,6 @@ export default function TemplateGallery(props: {
                           setEditingId(null);
                           setEditRefFiles([]);
                         } catch (error) {
-                          console.error('Failed to upload reference images:', error);
                           alert('Failed to upload reference images. Please try again.');
                         } finally {
                           setUploadingRefs(false);

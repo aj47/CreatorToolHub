@@ -33,7 +33,6 @@ export class CloudAdapter implements StorageAdapter {
       const data = await response.json();
       return data.value as T;
     } catch (error) {
-      console.error('CloudAdapter get error:', error);
       throw this.createNetworkError(`Failed to get item from cloud storage: ${key}`, error);
     }
   }
@@ -53,7 +52,6 @@ export class CloudAdapter implements StorageAdapter {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('CloudAdapter set error:', error);
       throw this.createNetworkError(`Failed to set item in cloud storage: ${key}`, error);
     }
   }
@@ -69,7 +67,6 @@ export class CloudAdapter implements StorageAdapter {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('CloudAdapter delete error:', error);
       throw this.createNetworkError(`Failed to delete item from cloud storage: ${key}`, error);
     }
   }
@@ -91,7 +88,6 @@ export class CloudAdapter implements StorageAdapter {
       const data = await response.json();
       return data.keys || [];
     } catch (error) {
-      console.error('CloudAdapter list error:', error);
       throw this.createNetworkError(`Failed to list items from cloud storage with prefix: ${prefix}`, error);
     }
   }
@@ -107,7 +103,6 @@ export class CloudAdapter implements StorageAdapter {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('CloudAdapter clear error:', error);
       throw this.createNetworkError('Failed to clear cloud storage', error);
     }
   }

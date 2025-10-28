@@ -93,7 +93,6 @@ export class ErrorReporter {
     
     if (error.stack && process.env.NODE_ENV === 'development') {
       console.groupCollapsed('Stack trace');
-      console.error(error.stack);
       console.groupEnd();
     }
     
@@ -129,8 +128,7 @@ export class ErrorReporter {
     try {
       await this.sendToRemote(errors);
     } catch (reportingError) {
-      console.error('Failed to report errors:', reportingError);
-      
+
       // Re-queue errors for retry (up to max retries)
       const retriableErrors = errors.filter(error => 
         (error.context.retryCount || 0) < this.config.maxRetries

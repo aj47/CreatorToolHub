@@ -73,10 +73,10 @@ export async function GET(request: Request) {
 
     // Handle /products endpoint
     if (path === "/products") {
-      const products = await callAutumnAPI("/products");
+      const products = await callAutumnAPI(`/products${url.search || ""}`);
       return new Response(JSON.stringify(products), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
       });
     }
 
@@ -91,23 +91,51 @@ export async function GET(request: Request) {
       }
 
       const customerId = deriveCustomerId(user.email);
-      const customer = await callAutumnAPI(`/customers/${customerId}`);
+      const customer = await callAutumnAPI(`/customers/${customerId}?expand=rewards,entities`);
 
       return new Response(JSON.stringify(customer), {
         status: 200,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
       });
     }
 
-    // Default: proxy to Autumn API
-    const data = await callAutumnAPI(path);
+    // Handle /customers/ endpoint (trailing slash) - requires authentication
+    if (path === "/customers/") {
+      const user = getUser(request);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const customerId = deriveCustomerId(user.email);
+      const customer = await callAutumnAPI(`/customers/${customerId}?expand=rewards,entities`);
+
+      return new Response(JSON.stringify(customer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+      });
+    }
+
+
+    // Default: proxy to Autumn API (preserve query)
+    const data = await callAutumnAPI(`${path}${url.search || ""}`);
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store"
+      },
     });
 
   } catch (error) {
-    console.error("Autumn GET error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Internal server error"
     }), {
@@ -122,9 +150,10 @@ export async function POST(request: Request) {
     const url = new URL(request.url);
     const path = url.pathname.replace("/api/autumn", "");
 
+
     // In development, return mock data
     if (isDevelopment) {
-      if (path === "/customers") {
+      if (path === "/customers" || path.startsWith("/customers")) {
         return new Response(JSON.stringify({
           id: "dev-user",
           balance: 999,
@@ -137,7 +166,7 @@ export async function POST(request: Request) {
     }
 
     // Handle /customers endpoint - identify/fetch customer
-    if (path === "/customers") {
+    if (path === "/customers" || path.startsWith("/customers")) {
       const user = getUser(request);
       if (!user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -150,44 +179,52 @@ export async function POST(request: Request) {
 
       // Try to fetch existing customer first
       try {
-        const customer = await callAutumnAPI(`/customers/${customerId}`);
+        const customer = await callAutumnAPI(`/customers/${customerId}?expand=rewards,entities`);
         return new Response(JSON.stringify(customer), {
           status: 200,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
       } catch (error) {
         // If customer doesn't exist (404), create them
         if (error instanceof Error && error.message.includes("404")) {
-          const customer = await callAutumnAPI(`/customers/${customerId}`, {
+          await callAutumnAPI(`/customers/${customerId}`, {
             method: "PUT",
             body: JSON.stringify({
               email: user.email,
               name: user.name,
             }),
           });
+          // After creating, fetch the full customer data with features
+          const customer = await callAutumnAPI(`/customers/${customerId}?expand=rewards,entities`);
           return new Response(JSON.stringify(customer), {
             status: 200,
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+            },
           });
         }
         throw error;
       }
     }
 
-    // Default: proxy POST to Autumn API
+    // Default: proxy POST to Autumn API (preserve query)
     const body = await request.json();
-    const data = await callAutumnAPI(path, {
+    const data = await callAutumnAPI(`${path}${url.search || ""}`, {
       method: "POST",
       body: JSON.stringify(body),
     });
 
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store"
+      },
     });
 
   } catch (error) {
-    console.error("Autumn POST error:", error);
     return new Response(JSON.stringify({
       error: error instanceof Error ? error.message : "Internal server error"
     }), {

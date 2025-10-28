@@ -66,7 +66,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       }
     } catch (err) {
-      console.error('Session check failed:', err);
       setUser(null);
       setError('Network error during authentication check');
     } finally {
@@ -94,7 +93,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setError('Failed to sign out');
       }
     } catch (err) {
-      console.error('Sign out failed:', err);
       setError('Network error during sign out');
     }
   };

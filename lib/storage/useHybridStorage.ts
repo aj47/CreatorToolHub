@@ -104,18 +104,14 @@ export function useHybridStorage(): UseHybridStorageReturn {
           const isAvailable = await storage.checkConnection();
           if (isAvailable) {
             setIsCloudEnabled(true);
-            console.log('Cloud storage available');
           } else {
-            console.log('Cloud storage not available, using localStorage fallback');
             setIsCloudEnabled(false);
           }
         } catch (error) {
-          console.log('Cloud storage not available, using localStorage fallback:', error);
           setIsCloudEnabled(false);
         }
       } else {
         // Temporarily disable cloud storage in production until issues are resolved
-        console.log('Cloud storage temporarily disabled in production');
         setIsCloudEnabled(false);
       }
     };
@@ -158,7 +154,6 @@ export function useHybridStorage(): UseHybridStorageReturn {
         setLocalShowOnlyFavs(showOnlyFavsData === '1' || showOnlyFavsData === 'true');
       }
     } catch (error) {
-      console.error('Failed to load localStorage data:', error);
     }
   }, []);
 
@@ -192,7 +187,6 @@ export function useHybridStorage(): UseHybridStorageReturn {
       return;
     }
     cloudStorage.refreshGenerations().catch(error => {
-      console.error('Failed to refresh cloud generations:', error);
     });
   }, [isCloudEnabled, cloudStorage]);
 

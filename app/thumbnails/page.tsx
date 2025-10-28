@@ -171,7 +171,6 @@ export default function Home() {
 
   // Debug logging for selectedIds state
   useEffect(() => {
-    console.log('selectedIds state changed:', selectedIds, 'length:', selectedIds.length);
   }, [selectedIds]);
 
   // Persist selectedIds in localStorage to prevent loss during navigation
@@ -184,7 +183,6 @@ export default function Home() {
           setSelectedIds(parsed);
         }
       } catch (e) {
-        console.error('Failed to parse saved selectedIds:', e);
       }
     }
   }, []);
@@ -382,7 +380,6 @@ export default function Home() {
     if (!hybridStorage.isMigrated && !hybridStorage.isLoading) {
       // Trigger migration if needed
       hybridStorage.triggerMigration().catch(error => {
-        console.error('Failed to trigger migration:', error);
       });
     }
   }, [hybridStorage.isMigrated, hybridStorage.isLoading, hybridStorage.triggerMigration]);
@@ -400,7 +397,6 @@ export default function Home() {
         setColors([]);
       }
     } catch (error) {
-      console.error('Failed to delete template:', error);
     }
   };
 
@@ -431,7 +427,6 @@ export default function Home() {
       setProfile(newId);
       setColors(baseColors);
     } catch (error) {
-      console.error('Failed to duplicate template:', error);
     }
   };
   // Initialize frames from hybrid storage on component mount
@@ -573,7 +568,6 @@ export default function Home() {
           try {
             await hybridStorage.addFrame(nextItem);
           } catch (error) {
-            console.error('Failed to sync frame to storage:', error);
           }
         } else {
           setRefFrames((prev) => [...prev, nextItem]);
@@ -581,7 +575,6 @@ export default function Home() {
           try {
             await hybridStorage.addRefFrame(nextItem);
           } catch (error) {
-            console.error('Failed to sync reference frame to storage:', error);
           }
         }
         existingHashes.add(hash);
@@ -661,7 +654,6 @@ export default function Home() {
         await importImages(files);
       }
     } catch (error) {
-      console.error('Failed to paste images from clipboard:', error);
       setError('Failed to paste images from clipboard. Please try again.');
     }
   }, [currentStep, framesFull, importImages]);
@@ -698,7 +690,6 @@ export default function Home() {
     try {
       normalizedDataUrl = await normalizeToYouTubeDataUrl(baseDataUrl);
     } catch (error) {
-      console.error("Failed to normalize captured frame:", error);
     }
     const b64 = normalizedDataUrl.split(",")[1] || "";
 
@@ -709,7 +700,6 @@ export default function Home() {
     try {
       await hybridStorage.addFrame(newFrame);
     } catch (error) {
-      console.error('Failed to add frame to storage:', error);
     }
   };
 
@@ -722,7 +712,6 @@ export default function Home() {
       try {
         await hybridStorage.removeFrame(idx);
       } catch (error) {
-        console.error('Failed to remove frame from storage:', error);
       }
     }
   };
@@ -764,7 +753,6 @@ export default function Home() {
       try {
         await hybridStorage.removeRefFrame(idx);
       } catch (error) {
-        console.error('Failed to remove reference frame from cloud:', error);
       }
     }
   };
@@ -780,11 +768,9 @@ export default function Home() {
   };
 
   const generate = async () => {
-    console.log('Generate function called. selectedIds:', selectedIds, 'length:', selectedIds.length);
     // Client-side gate: block if out of credits for the number of generations requested
     const perTemplate = Math.max(1, count);
     const needed = perTemplate * (selectedIds.length || 0);
-    console.log('Credits check - needed:', needed, 'available:', credits, 'loadingCustomer:', loadingCustomer);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -886,13 +872,11 @@ export default function Home() {
                 const normalizedDataUrl = await normalizeToYouTubeDataUrl(toDataUrlString(b64, TARGET_MIME));
                 return normalizedDataUrl.split(",")[1] || b64;
               } catch (error) {
-                console.error("Failed to normalize frame for Gemini request:", error);
                 return b64;
               }
             })
           );
         } catch (error) {
-          console.error("Failed to normalize frames for Gemini request:", error);
           normalizedFrames = combinedFrames;
         }
 
@@ -944,7 +928,6 @@ export default function Home() {
             // Convert back to data URLs with correct MIME type
             processedImages = processedImages.map(base64 => `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${base64}`);
           } catch (error) {
-            console.error("Failed to enforce YouTube dimensions:", error);
             // Fallback to original images if dimension enforcement fails
             processedImages = images;
           }
@@ -997,7 +980,6 @@ export default function Home() {
                     const processedBase64 = await enforceYouTubeDimensionsBatch([originalDataUrl], YOUTUBE_THUMBNAIL.QUALITY);
                     processedDataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${processedBase64[0]}`;
                   } catch (error) {
-                    console.error("Failed to enforce YouTube dimensions on streamed image:", error);
                     // Fallback to original image if dimension enforcement fails
                     processedDataUrl = toDataUrlString(evt.dataUrl);
                   }
@@ -1019,7 +1001,6 @@ export default function Home() {
                 }
               } else if (evt.type === "variant_error") {
                 // Could surface per-variant errors if desired
-                console.warn("Variant error:", evt.error);
               } else if (evt.type === "error") {
                 throw new Error(evt.message || "Server error");
               } else if (evt.type === "done") {
@@ -1068,7 +1049,6 @@ export default function Home() {
         setTimeout(() => URL.revokeObjectURL(revokeTemp!), 100);
       }
     } catch (e) {
-      console.error("Failed to download image", i + 1, e);
       // Fallback: try simple download
       const a = document.createElement("a");
       a.href = src;
@@ -1088,7 +1068,6 @@ export default function Home() {
           // Add delay between downloads to prevent browser blocking
           await new Promise((r) => setTimeout(r, 100));
         } catch (e) {
-          console.warn("Failed to download", i + 1, e);
         }
       }
     } finally {
@@ -1130,21 +1109,17 @@ export default function Home() {
       await navigator.clipboard.write([clipboardItem]);
 
       // Optional: Show success feedback
-      console.log('Image copied to clipboard successfully');
 
     } catch (error) {
-      console.error('Failed to copy image to clipboard:', error);
 
       // Fallback: try to copy as text (data URL)
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(src);
-          console.log('Copied image URL as text fallback');
         } else {
           throw new Error('No clipboard access available');
         }
       } catch (fallbackError) {
-        console.error('Clipboard fallback also failed:', fallbackError);
         // Could show user notification here
       }
     } finally {
@@ -1246,7 +1221,6 @@ export default function Home() {
         isDownloading: false,
       });
     } catch (error) {
-      console.error('Failed to prepare thumbnail for refinement:', error);
       setError('Failed to prepare thumbnail for refinement. Please try again.');
     }
   };
@@ -1260,13 +1234,11 @@ export default function Home() {
         try {
           refinementHistory.saveHistory(update.currentHistory);
         } catch (error) {
-          console.error('Storage quota exceeded, attempting cleanup:', error);
           // Try to clean up storage and retry
           RefinementUtils.cleanupStorage();
           try {
             refinementHistory.saveHistory(update.currentHistory);
           } catch (retryError) {
-            console.error('Failed to save even after cleanup:', retryError);
             setError('Storage quota exceeded. Refinement history may not be saved.');
           }
         }
@@ -1281,7 +1253,6 @@ export default function Home() {
             try {
               refinementHistory.saveHistory(history);
             } catch (error) {
-              console.error('Storage quota exceeded for history:', history.id, error);
             }
           }
         });
@@ -1596,7 +1567,6 @@ export default function Home() {
                     await hybridStorage.updateTemplate(id, update);
                     if (profile === id && update.colors) setColors(update.colors);
                   } catch (error) {
-                    console.error('Failed to update template:', error);
                   }
                 }}
                 onCreatePreset={async (p) => {
@@ -1605,7 +1575,6 @@ export default function Home() {
                     setProfile(id);
                     setColors(p.colors || []);
                   } catch (error) {
-                    console.error('Failed to create template:', error);
                   }
                 }}
                 hybridStorage={hybridStorage}
@@ -1660,7 +1629,6 @@ export default function Home() {
                     className={styles.primary}
                     onClick={(e) => {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
-                      console.log('Generate button clicked. selectedIds:', selectedIds, 'length:', selectedIds.length);
                       generate();
                     }}
                     disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}

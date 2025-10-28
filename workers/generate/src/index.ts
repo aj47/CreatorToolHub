@@ -313,82 +313,16 @@ export default {
         return errorResponse('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
       }), ['GET', 'POST', 'HEAD']);
 
-      // Autumn API routes - proxy to autumn-js service
+
+      // Bypass: forward /api/autumn/* to Pages/Next.js origin so Next API handles it
+      // This prevents the Worker from intercepting these routes and returning 404s
       middlewareStack.route(/^\/api\/autumn\//, createRouteHandler(async (req, env) => {
-        const user = getUser(req);
-        const autumnSecretKey = env.AUTUMN_SECRET_KEY;
+        // Forward request as-is to origin (Next.js /api route on Cloudflare Pages)
+        const forwarded = new Request(req);
+        const resp = await fetch(forwarded);
+        return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers: resp.headers });
+      }), ['GET', 'POST', 'HEAD', 'OPTIONS']);
 
-        // In development, return 404
-        if (!autumnSecretKey || env.NODE_ENV === 'development') {
-          return errorResponse('Not Found', 404, 'NOT_FOUND');
-        }
-
-        // Derive customer ID from user email
-        const deriveCustomerId = (email: string) => {
-          const raw = email.toLowerCase();
-          const cleaned = raw
-            .replace(/[^a-z0-9_-]/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^[-_]+/, "")
-            .replace(/[-_]+$/, "");
-          return ("u-" + cleaned).slice(0, 40);
-        };
-
-        const customerId = user ? deriveCustomerId(user.email) : null;
-        const featureId = env.FEATURE_ID || "credits";
-
-        // Parse the request path to determine the autumn endpoint
-        const url = new URL(req.url);
-        const pathname = url.pathname;
-
-        // Handle /api/autumn/customers
-        if (pathname === '/api/autumn/customers' || pathname.startsWith('/api/autumn/customers/')) {
-          if (req.method === 'GET') {
-            // Get customer info
-            if (!customerId) {
-              return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-            }
-            const autumn = new Autumn({ secretKey: autumnSecretKey });
-            try {
-              const checkRes = await autumn.check({ customer_id: customerId, feature_id: featureId });
-              return jsonResponse({
-                id: customerId,
-                balance: checkRes?.data?.balance || 0,
-                allowed: checkRes?.data?.allowed || false
-              });
-            } catch (e) {
-              return errorResponse('Billing service error', 503, 'BILLING_ERROR');
-            }
-          } else if (req.method === 'POST') {
-            // Create/update customer
-            if (!customerId) {
-              return errorResponse('Unauthorized', 401, 'UNAUTHORIZED');
-            }
-            const autumn = new Autumn({ secretKey: autumnSecretKey });
-            try {
-              const checkRes = await autumn.check({ customer_id: customerId, feature_id: featureId });
-              return jsonResponse({
-                id: customerId,
-                created: true,
-                balance: checkRes?.data?.balance || 0,
-                allowed: checkRes?.data?.allowed || false
-              });
-            } catch (e) {
-              return errorResponse('Billing service error', 503, 'BILLING_ERROR');
-            }
-          }
-        }
-
-        // Handle /api/autumn/products
-        if (pathname === '/api/autumn/products' || pathname.startsWith('/api/autumn/products/')) {
-          if (req.method === 'GET') {
-            // Return empty products list (autumn-js handles this)
-            return jsonResponse({ products: [] });
-          }
-        }
-
-        return errorResponse('Not Found', 404, 'NOT_FOUND');
-      }), ['GET', 'POST', 'HEAD']);
 
       // Process request through middleware stack
       return await middlewareStack.handle(request as AuthenticatedRequest, env);

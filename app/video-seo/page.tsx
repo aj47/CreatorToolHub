@@ -123,7 +123,6 @@ export default function VideoSEOPage() {
       setCopied((prev) => ({ ...prev, [target]: true }));
       resetCopiedState(target);
     } catch (copyError) {
-      console.error("Clipboard copy failed", copyError);
       setError("Unable to copy to clipboard. Check browser permissions and try again.");
     }
   }, [resetCopiedState]);
@@ -162,7 +161,6 @@ export default function VideoSEOPage() {
 
       setResult(data as GenerationResult);
     } catch (requestError) {
-      console.error("Video SEO request failed", requestError);
       setError(requestError instanceof Error ? requestError.message : "Unexpected error occurred");
     } finally {
       setLoading(false);

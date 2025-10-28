@@ -69,7 +69,6 @@ export function useGeneration(): UseGenerationReturn {
     }
 
     if (state.isGenerating) {
-      console.warn('Generation already in progress');
       return null;
     }
 
@@ -168,12 +167,10 @@ export function useGeneration(): UseGenerationReturn {
                 throw new Error(data.message || 'Generation failed');
 
               case 'variant_error':
-                console.warn('Variant generation failed:', data.error);
                 // Continue processing other variants
                 break;
             }
           } catch (parseError) {
-            console.error('Failed to parse streaming response:', parseError, line);
           }
         }
       }

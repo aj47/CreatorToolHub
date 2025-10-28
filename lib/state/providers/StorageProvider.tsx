@@ -224,7 +224,6 @@ export function StorageProvider({ children }: StorageProviderProps) {
         
         removePendingOperation(operation.id);
       } catch (error) {
-        console.error('Failed to retry operation:', operation, error);
         // Could implement exponential backoff here
       }
     }

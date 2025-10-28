@@ -126,7 +126,6 @@ export class ErrorBoundary extends Component<Props, State> {
         }, 1000);
       }
     } catch (recoveryError) {
-      console.error('Recovery failed:', recoveryError);
     }
   };
 
