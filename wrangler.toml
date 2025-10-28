@@ -2,6 +2,9 @@ name = "creator-tool-hub"
 compatibility_date = "2025-01-15"
 compatibility_flags = ["nodejs_compat"]
 
+# Cloudflare Pages configuration
+pages_build_output_dir = ".vercel/output/static"
+
 # Build command is configured in Cloudflare Pages dashboard to include:
 # NEXT_PUBLIC_WORKER_API_URL=https://creator-tool-hub.techfren.workers.dev npm run pages:build
 
