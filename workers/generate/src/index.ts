@@ -143,7 +143,7 @@ export default {
       // Add generation route
       middlewareStack.route('/api/generate', createRouteHandler(async (req, env) => {
         return await handleGeneration(req, env);
-      }), ['POST']);
+      }), ['POST', 'OPTIONS']);
 
       // Add health check route
       middlewareStack.route('/api/health', createRouteHandler(async (req, env) => {
