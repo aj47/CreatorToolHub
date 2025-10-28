@@ -136,7 +136,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Handle /customers endpoint - create or update customer
+    // Handle /customers endpoint - identify/fetch customer
     if (path === "/customers") {
       const user = getUser(request);
       if (!user) {
@@ -147,21 +147,31 @@ export async function POST(request: Request) {
       }
 
       const customerId = deriveCustomerId(user.email);
-      const body = await request.json();
 
-      const customer = await callAutumnAPI(`/customers/${customerId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          ...body,
-          email: user.email,
-          name: user.name,
-        }),
-      });
-
-      return new Response(JSON.stringify(customer), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      // Try to fetch existing customer first
+      try {
+        const customer = await callAutumnAPI(`/customers/${customerId}`);
+        return new Response(JSON.stringify(customer), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      } catch (error) {
+        // If customer doesn't exist (404), create them
+        if (error instanceof Error && error.message.includes("404")) {
+          const customer = await callAutumnAPI(`/customers/${customerId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              email: user.email,
+              name: user.name,
+            }),
+          });
+          return new Response(JSON.stringify(customer), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        throw error;
+      }
     }
 
     // Default: proxy POST to Autumn API
