@@ -26,9 +26,10 @@ R2_PUBLIC_URL = "https://pub-d8e8e8e8e8e8e8e8.r2.dev"
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
 # AUTUMN_SECRET_KEY - Set with: wrangler secret put AUTUMN_SECRET_KEY
 
-# Routes for both generation and user data APIs
+# Routes for user data APIs only (not /api/generate - that's handled by Next.js)
+# The Next.js /api/generate route will proxy to the worker at its workers.dev subdomain
 routes = [
-  { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },
+  # { pattern = "creatortoolhub.com/api/generate", zone_name = "creatortoolhub.com" },  # Commented out - handled by Next.js
   { pattern = "creatortoolhub.com/api/user/*", zone_name = "creatortoolhub.com" },
   { pattern = "creatortoolhub.com/api/auth/*", zone_name = "creatortoolhub.com" },
 

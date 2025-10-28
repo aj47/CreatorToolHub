@@ -482,19 +482,27 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   }
 
   const FEATURE_ID = env.FEATURE_ID || "credits";
-  if (!env.AUTUMN_SECRET_KEY) {
-    return errorResponse("Missing AUTUMN_SECRET_KEY", 500, "MISSING_AUTUMN_KEY");
-  }
-  const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
-  const customer_id = deriveCustomerId(user.email);
-  const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
-  if (!checkRes?.data?.allowed) {
-    return errorResponse(
-      "Insufficient credits",
-      402,
-      "INSUFFICIENT_CREDITS",
-      { feature_id: FEATURE_ID, required: count }
-    );
+
+  // Skip credit check in development mode
+  const isDevelopment = env.NODE_ENV === 'development';
+  let autumn: Autumn | null = null;
+  let customer_id: string | null = null;
+
+  if (!isDevelopment) {
+    if (!env.AUTUMN_SECRET_KEY) {
+      return errorResponse("Missing AUTUMN_SECRET_KEY", 500, "MISSING_AUTUMN_KEY");
+    }
+    autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
+    customer_id = deriveCustomerId(user.email);
+    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+    if (!checkRes?.data?.allowed) {
+      return errorResponse(
+        "Insufficient credits",
+        402,
+        "INSUFFICIENT_CREDITS",
+        { feature_id: FEATURE_ID, required: count }
+      );
+    }
   }
 
   const framesArray = frames as string[];
@@ -699,10 +707,13 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
           }
         }
 
-        try {
-          await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
-        } catch (trackError) {
-          console.warn('Failed to track credit usage', trackError);
+        // Track credit usage (skip in development)
+        if (!isDevelopment && autumn && customer_id) {
+          try {
+            await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+          } catch (trackError) {
+            console.warn('Failed to track credit usage', trackError);
+          }
         }
 
         await finalize("complete");
