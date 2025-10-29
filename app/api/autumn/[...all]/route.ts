@@ -165,6 +165,108 @@ export async function POST(request: Request) {
       }
     }
 
+
+    // Handle /checkout endpoint - create checkout session with server-enriched payload
+    if (path === "/checkout" || path.startsWith("/checkout")) {
+      // In development, return a mock URL for convenience
+      if (isDevelopment) {
+        const origin = (() => { try { return new URL(request.url).origin; } catch { return process.env.NEXT_PUBLIC_SITE_URL || "https://creatortoolhub.com"; } })();
+        return new Response(JSON.stringify({ url: `${origin}/dashboard?checkout=dev` }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const user = getUser(request);
+        if (!user) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        const incoming: any = await request.json().catch(() => ({} as any));
+        const customer_id = deriveCustomerId(user.email);
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+
+        const payload = {
+          ...incoming,
+          customer_id,
+          success_url: `${origin}/dashboard?upgrade=success`,
+          cancel_url: `${origin}/pricing?cancelled=1`,
+        };
+
+        const data = await callAutumnAPI(`/checkout`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        });
+      } catch (err: any) {
+        const msg = (err && err.message) || "";
+        const m = /Autumn API error: (\d+)/.exec(msg);
+        const status = m ? parseInt(m[1]) : 500;
+        return new Response(JSON.stringify({ error: msg || "Internal server error" }), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Handle /billing_portal endpoint - open billing portal for current customer
+    if (path === "/billing_portal" || path.startsWith("/billing_portal")) {
+      // In development, return a mock URL for convenience
+      if (isDevelopment) {
+        const origin = (() => { try { return new URL(request.url).origin; } catch { return process.env.NEXT_PUBLIC_SITE_URL || "https://creatortoolhub.com"; } })();
+        return new Response(JSON.stringify({ url: `${origin}/dashboard?portal=dev` }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const user = getUser(request);
+        if (!user) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        const incoming: any = await request.json().catch(() => ({} as any));
+        const customer_id = deriveCustomerId(user.email);
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+
+        const payload = {
+          ...incoming,
+          customer_id,
+          return_url: incoming?.return_url || `${origin}/dashboard`,
+        };
+
+        const data = await callAutumnAPI(`/billing_portal`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        return new Response(JSON.stringify(data), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        });
+      } catch (err: any) {
+        const msg = (err && err.message) || "";
+        const m = /Autumn API error: (\d+)/.exec(msg);
+        const status = m ? parseInt(m[1]) : 500;
+        return new Response(JSON.stringify({ error: msg || "Internal server error" }), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Handle /customers endpoint - identify/fetch customer
     if (path === "/customers" || path.startsWith("/customers")) {
       const user = getUser(request);
