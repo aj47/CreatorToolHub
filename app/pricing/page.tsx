@@ -39,22 +39,6 @@ const faqJsonLd = JSON.stringify({
 export default function PricingPage() {
   return (
     <main className="nb-main">
-      <section className="nb-section" style={{ paddingBottom: 0 }}>
-        <div className="nb-card" style={{ maxWidth: 960, margin: "0 auto", textAlign: "center" }}>
-          <span style={{ display: "inline-block", fontWeight: 700, marginBottom: 12 }}>Pricing & credits</span>
-          <h1 style={{ fontSize: "2.5rem", fontWeight: 800, marginBottom: 16 }}>
-            Creator Tool Hub pricing for YouTube teams
-          </h1>
-          <p style={{ maxWidth: 640, margin: "0 auto 16px", fontSize: 18, lineHeight: 1.6 }}>
-            Flexible plans that scale from solo creators to production studios. Every option covers AI thumbnails, video SEO, and upcoming production workflows.
-          </p>
-          <ul className="nb-list" style={{ maxWidth: 640, margin: "0 auto", textAlign: "left" }}>
-            <li>Unified credits usable across every Creator Tool Hub feature.</li>
-            <li>Premium thumbnail templates and video SEO automations included.</li>
-            <li>Top up with additional packs whenever your production calendar ramps up.</li>
-          </ul>
-        </div>
-      </section>
 
       <section className="nb-section">
         <div className="nb-card" style={{ maxWidth: 980, margin: "0 auto" }}>
