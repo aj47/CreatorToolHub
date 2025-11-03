@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppHeader from "@/components/AppHeader";
+import NotificationContainer from "@/components/NotificationContainer";
 import { AppProvider } from "@/lib/state/providers/AppProvider";
 import { AppErrorBoundary } from "@/lib/errors/ErrorBoundary";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
@@ -101,6 +102,7 @@ export default function RootLayout({
     <>
       <AppHeader />
       {children}
+      <NotificationContainer />
       <footer className="nb-footer">
         <span>Open source on </span>
         <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>

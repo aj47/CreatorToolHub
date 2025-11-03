@@ -1,0 +1,147 @@
+.container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 3px solid var(--nb-border);
+  border-radius: 12px;
+  box-shadow: 6px 6px 0 var(--nb-border);
+  background: var(--nb-card);
+  color: var(--nb-fg);
+  pointer-events: auto;
+  animation: slideIn 0.3s ease-out;
+  min-width: 320px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification--success {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.notification--error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.notification--warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.notification--info {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.notification--success .icon {
+  background: #22c55e;
+  color: white;
+}
+
+.notification--error .icon {
+  background: #ef4444;
+  color: white;
+}
+
+.notification--warning .icon {
+  background: #f59e0b;
+  color: white;
+}
+
+.notification--info .icon {
+  background: #3b82f6;
+  color: white;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--nb-fg);
+}
+
+.message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--nb-fg);
+  opacity: 0.9;
+}
+
+.closeButton {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--nb-fg);
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.closeButton:hover {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .container {
+    top: 60px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+
+  .notification {
+    min-width: auto;
+  }
+}
+
