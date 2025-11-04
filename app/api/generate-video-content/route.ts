@@ -6,7 +6,7 @@ import { Autumn } from "autumn-js";
 
 const GEMINI_MODEL_ID = "gemini-2.5-pro";
 const RAPIDAPI_HOST = "io-youtube-transcriptor.p.rapidapi.com";
-const MAX_TRANSCRIPT_CHARACTERS = 8000;
+const MAX_TRANSCRIPT_CHARACTERS = 200000; // Increased to support 5+ hour videos (~4-5 hours of content)
 
 interface GenerateVideoContentRequest {
   youtubeUrl?: string;
