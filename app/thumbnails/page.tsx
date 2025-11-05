@@ -1204,7 +1204,7 @@ export default function Home() {
   };
 
   // Refinement functions
-  const handleSelectThumbnailForRefinement = async (thumbnailIndex: number) => {
+  const handleSelectThumbnailForRefinement = async (thumbnailIndex: number, initialFeedback: string = "") => {
     const thumbnailUrl = results[thumbnailIndex];
     if (!thumbnailUrl) return;
 
@@ -1276,7 +1276,7 @@ export default function Home() {
         currentHistory: history,
         histories: [...refinementState.histories, history],
         isRefining: false,
-        feedbackPrompt: "",
+        feedbackPrompt: initialFeedback,
         isCopying: false,
         isDownloading: false,
       });
@@ -1331,16 +1331,16 @@ export default function Home() {
   };
 
   const handleApplySuggestedRefinement = (thumbnailIndex: number, suggestion: string) => {
-    // Select the thumbnail for refinement if not already selected
+    // Select the thumbnail for refinement with the suggestion pre-filled
     if (refinementState.selectedThumbnailIndex !== thumbnailIndex) {
-      handleSelectThumbnailForRefinement(thumbnailIndex);
+      handleSelectThumbnailForRefinement(thumbnailIndex, suggestion);
+    } else {
+      // If already selected, just update the feedback prompt
+      setRefinementState(prev => ({
+        ...prev,
+        feedbackPrompt: suggestion,
+      }));
     }
-
-    // Set the suggestion as the feedback prompt
-    setRefinementState(prev => ({
-      ...prev,
-      feedbackPrompt: suggestion,
-    }));
   };
 
   const handleUpdateRefinementState = (update: Partial<RefinementState>) => {
@@ -1823,10 +1823,14 @@ export default function Home() {
                             ? "3px solid var(--nb-accent)"
                             : "1px solid #ddd",
                           padding: 8,
-                          borderRadius: 8
+                          borderRadius: 8,
+                          width: 320,
+                          flexShrink: 0
                         }}
                       >
-                        {src ? (<img src={src} alt={`result-${i}`} style={{ width: 320 }} />) : null}
+                        {src ? (<img src={src} alt={`result-${i}`} style={{ width: '100%', display: 'block', borderRadius: 4 }} />) : null}
+
+                        {/* Action buttons */}
                         <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                           <button
                             onClick={() => download(src, i)}
@@ -1840,35 +1844,50 @@ export default function Home() {
                           >
                             {copyingIndex === i ? "Copying..." : "Copy"}
                           </button>
-                          <button
-                            onClick={() => handleSelectThumbnailForRefinement(i)}
-                            className={styles.refineButton}
-                          >
-                            ✨ Refine This
-                          </button>
                         </div>
 
-                        {/* Suggested Refinements */}
-                        {loadingSuggestions[i] && (
-                          <div className={styles.suggestionsContainer}>
-                            <div className={styles.suggestionsLabel}>Loading suggestions...</div>
+                        {/* Refinement Section - grouped together */}
+                        <div className={styles.refinementSection}>
+                          <div className={styles.refinementHeader}>
+                            <span className={styles.refinementHeaderIcon}>✨</span>
+                            <span className={styles.refinementHeaderText}>Refine This Thumbnail</span>
                           </div>
-                        )}
-                        {!loadingSuggestions[i] && suggestedRefinements[i] && suggestedRefinements[i].length > 0 && (
-                          <div className={styles.suggestionsContainer}>
-                            <div className={styles.suggestionsLabel}>💡 Quick refinements:</div>
-                            {suggestedRefinements[i].map((suggestion, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleApplySuggestedRefinement(i, suggestion)}
-                                className={styles.suggestedRefinement}
-                                title={suggestion}
-                              >
-                                {suggestion}
-                              </button>
-                            ))}
+                          <div className={styles.refinementDescription}>
+                            AI-powered improvements to make your thumbnail even better
                           </div>
-                        )}
+
+                          {/* Suggested Refinements */}
+                          {loadingSuggestions[i] && (
+                            <div className={styles.suggestionsLoading}>
+                              <div className={styles.loadingSpinner}></div>
+                              <span>Generating AI suggestions...</span>
+                            </div>
+                          )}
+                          {!loadingSuggestions[i] && suggestedRefinements[i] && suggestedRefinements[i].length > 0 && (
+                            <div className={styles.suggestionsGrid}>
+                              <div className={styles.suggestionsLabel}>💡 Quick Refinements (click to apply):</div>
+                              {suggestedRefinements[i].map((suggestion, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleApplySuggestedRefinement(i, suggestion)}
+                                  className={styles.suggestedRefinement}
+                                  title={`Click to apply: ${suggestion}`}
+                                >
+                                  {suggestion}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Custom Refine Button */}
+                          <button
+                            onClick={() => handleSelectThumbnailForRefinement(i)}
+                            className={styles.customRefineButton}
+                            title="Write your own custom refinement instructions to improve this thumbnail exactly how you want"
+                          >
+                            ✏️ Custom Refine
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
