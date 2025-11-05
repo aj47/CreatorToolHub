@@ -124,6 +124,10 @@ export default function Home() {
   });
   const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
 
+  // Suggested refinements state - map of thumbnail index to suggestions
+  const [suggestedRefinements, setSuggestedRefinements] = useState<Record<number, string[]>>({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState<Record<number, boolean>>({});
+
   // Sync refinement histories from persistent storage
   useEffect(() => {
     if (!refinementHistory.isLoading) {
@@ -133,6 +137,60 @@ export default function Home() {
       }));
     }
   }, [refinementHistory.histories, refinementHistory.isLoading]);
+
+  // Fetch suggested refinements when results are generated
+  useEffect(() => {
+    if (results.length > 0 && !refinementState.isRefinementMode) {
+      // Fetch suggestions for each result
+      results.forEach((thumbnailUrl, index) => {
+        if (thumbnailUrl && !suggestedRefinements[index] && !loadingSuggestions[index]) {
+          // Call the fetch function inline to avoid dependency issues
+          const fetchSuggestions = async () => {
+            setLoadingSuggestions(prev => ({ ...prev, [index]: true }));
+
+            try {
+              const originalPrompt = buildPrompt({
+                profile: selectedIds[0] || "",
+                promptOverride: customPresets[selectedIds[0]]?.prompt ?? curatedMap[selectedIds[0]]?.prompt,
+                headline,
+                colors,
+                aspect,
+                notes: prompt,
+                hasReferenceImages: refFrames.length > 0,
+                hasSubjectImages: frames.length > 0,
+              });
+
+              const response = await fetch("/api/suggest-refinements", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  thumbnailUrl,
+                  originalPrompt,
+                  templateId: selectedIds[0] || "default",
+                }),
+              });
+
+              const data = await response.json();
+
+              if (data.success && data.suggestions) {
+                setSuggestedRefinements(prev => ({
+                  ...prev,
+                  [index]: data.suggestions,
+                }));
+              }
+            } catch (error) {
+              console.error("Failed to fetch suggested refinements:", error);
+            } finally {
+              setLoadingSuggestions(prev => ({ ...prev, [index]: false }));
+            }
+          };
+
+          fetchSuggestions();
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results.length]); // Only trigger when results length changes
 
   // Authentication and credits state
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -782,6 +840,8 @@ export default function Home() {
     // Clean up previous blob URLs before generating new ones
     cleanupBlobUrls();
     setResults([]);
+    setSuggestedRefinements({});
+    setLoadingSuggestions({});
     setProgressDone(0);
     setProgressTotal(0);
     try {
@@ -1223,6 +1283,64 @@ export default function Home() {
     } catch (error) {
       setError('Failed to prepare thumbnail for refinement. Please try again.');
     }
+  };
+
+  const fetchSuggestedRefinements = async (thumbnailIndex: number, thumbnailUrl: string) => {
+    // Don't fetch if already loading or already have suggestions
+    if (loadingSuggestions[thumbnailIndex] || suggestedRefinements[thumbnailIndex]) {
+      return;
+    }
+
+    setLoadingSuggestions(prev => ({ ...prev, [thumbnailIndex]: true }));
+
+    try {
+      const originalPrompt = buildPrompt({
+        profile: selectedIds[0] || "",
+        promptOverride: customPresets[selectedIds[0]]?.prompt ?? curatedMap[selectedIds[0]]?.prompt,
+        headline,
+        colors,
+        aspect,
+        notes: prompt,
+        hasReferenceImages: refFrames.length > 0,
+        hasSubjectImages: frames.length > 0,
+      });
+
+      const response = await fetch("/api/suggest-refinements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thumbnailUrl,
+          originalPrompt,
+          templateId: selectedIds[0] || "default",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.suggestions) {
+        setSuggestedRefinements(prev => ({
+          ...prev,
+          [thumbnailIndex]: data.suggestions,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to fetch suggested refinements:", error);
+    } finally {
+      setLoadingSuggestions(prev => ({ ...prev, [thumbnailIndex]: false }));
+    }
+  };
+
+  const handleApplySuggestedRefinement = (thumbnailIndex: number, suggestion: string) => {
+    // Select the thumbnail for refinement if not already selected
+    if (refinementState.selectedThumbnailIndex !== thumbnailIndex) {
+      handleSelectThumbnailForRefinement(thumbnailIndex);
+    }
+
+    // Set the suggestion as the feedback prompt
+    setRefinementState(prev => ({
+      ...prev,
+      feedbackPrompt: suggestion,
+    }));
   };
 
   const handleUpdateRefinementState = (update: Partial<RefinementState>) => {
@@ -1726,15 +1844,37 @@ export default function Home() {
                             onClick={() => handleSelectThumbnailForRefinement(i)}
                             className={styles.refineButton}
                           >
-                            Refine
+                            ✨ Refine This
                           </button>
                         </div>
+
+                        {/* Suggested Refinements */}
+                        {loadingSuggestions[i] && (
+                          <div className={styles.suggestionsContainer}>
+                            <div className={styles.suggestionsLabel}>Loading suggestions...</div>
+                          </div>
+                        )}
+                        {!loadingSuggestions[i] && suggestedRefinements[i] && suggestedRefinements[i].length > 0 && (
+                          <div className={styles.suggestionsContainer}>
+                            <div className={styles.suggestionsLabel}>💡 Quick refinements:</div>
+                            {suggestedRefinements[i].map((suggestion, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleApplySuggestedRefinement(i, suggestion)}
+                                className={styles.suggestedRefinement}
+                                title={suggestion}
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
 
                   <div className={styles.navRow}>
-                    <button onClick={() => { setResults([]); cleanupBlobUrls(); }}>← Generate More</button>
+                    <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }}>← Generate More</button>
                     <button onClick={() => goTo(1)}>Start Over</button>
                   </div>
                 </>
