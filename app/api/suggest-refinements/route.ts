@@ -46,7 +46,7 @@ function parseSuggestions(text: string): string[] {
     }
     
     // Fallback: try to extract array directly
-    const arrayMatch = cleaned.match(/\[(.*)\]/s);
+    const arrayMatch = cleaned.match(/\[([\s\S]*)\]/);
     if (arrayMatch) {
       const parsed = JSON.parse(`[${arrayMatch[1]}]`);
       if (Array.isArray(parsed)) {
