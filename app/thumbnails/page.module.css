@@ -444,24 +444,73 @@ a.secondary {
   background: var(--nb-accent);
   color: white;
   border: 2px solid var(--nb-border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: bold;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 2px 2px 0 var(--nb-border);
-  transition: all 0.1s ease;
+  box-shadow: 3px 3px 0 var(--nb-border);
+  transition: all 0.15s ease;
+  flex: 1;
+  min-width: 120px;
 }
 
 .refineButton:hover {
   background: var(--nb-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 3px 3px 0 var(--nb-border);
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 var(--nb-border);
 }
 
 .refineButton:active {
   transform: translateY(0);
-  box-shadow: 1px 1px 0 var(--nb-border);
+  box-shadow: 2px 2px 0 var(--nb-border);
+}
+
+.suggestedRefinement {
+  background: white;
+  color: var(--nb-accent);
+  border: 2px solid var(--nb-accent);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestedRefinement:hover {
+  background: var(--nb-accent);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.suggestedRefinement:active {
+  transform: translateY(0);
+}
+
+.suggestedRefinement:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.suggestionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.suggestionsLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 2px;
 }
 
 .historyButton {
