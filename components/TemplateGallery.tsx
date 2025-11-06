@@ -291,7 +291,7 @@ export default function TemplateGallery(props: {
       </p>
       {/* Container height set to 1.1x card height (~256px per card = ~282px for 1.1 cards) */}
       <div style={{ maxHeight: 282, overflowY: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
           {/* New Template card (opens modal) */}
           <article key="__new_card__" style={{ border: "2px dashed #cbd5e1", borderRadius: 8, padding: 12, display: "grid", placeContent: "center", minHeight: 120 }}>
             <button onClick={() => setNewOpen(true)} style={{ padding: "24px 12px", cursor: "pointer" }}>+ New template</button>
@@ -360,10 +360,9 @@ export default function TemplateGallery(props: {
             </div>
             <div style={{ padding: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <strong>{s.title}</strong>
+                <strong style={{ fontSize: 14 }}>{s.title}</strong>
                 {isBuiltinProfileId(s.id) && <span style={{ fontSize: 10, opacity: 0.6 }}>Built-in</span>}
               </div>
-              <p style={{ margin: 0, fontSize: 12, opacity: 0.8, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" } as any}>{s.prompt}</p>
               <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
 
                 {customPresets[s.id] && (
