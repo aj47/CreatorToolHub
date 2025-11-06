@@ -41,12 +41,26 @@ function svgDataUrl(label: string, bg: string, fg = "#ffffff"): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// Map of template IDs to their preview image paths
+const previewImages: Record<string, string> = {
+  vlog: "/template-previews/vlog-1.png",
+  podcast: "/template-previews/podcast-1.png",
+  screencast: "/template-previews/screencast-1.png",
+  gaming: "/template-previews/gaming-1.png",
+  tutorial: "/template-previews/tutorial-1.png",
+  music: "/template-previews/music-1.png",
+  devtool: "/template-previews/devtool-1.png",
+  codelist: "/template-previews/codelist-1.png",
+  cinematic: "/template-previews/cinematic-1.png",
+  "software-review": "/template-previews/softwarereview-1.png",
+};
+
 const builtinCards: StyleCard[] = Object.entries(profiles)
   .map(([id, p], i) => ({
     id,
     title: p.title,
     prompt: p.prompt,
-    previewUrl: svgDataUrl(p.title, palette[i % palette.length]),
+    previewUrl: previewImages[id] || svgDataUrl(p.title, palette[i % palette.length]),
     builtin: true,
   }));
 
@@ -56,14 +70,14 @@ const extras: StyleCard[] = [
     title: "Cinematic",
     prompt:
       "Rich cinematic aesthetic with the subject as a dramatic isolated focal point. Apply moody atmospheric lighting, teal-orange color grading, and deep shadows for emotional depth. Use widescreen composition principles with strong visual hierarchy and layered depth. Add minimalist, bold typography with extreme contrast. Maintain theatrical mood while ensuring all text elements remain legible on mobile.",
-    previewUrl: svgDataUrl("Cinematic", palette[9]),
+    previewUrl: previewImages["cinematic"] || svgDataUrl("Cinematic", palette[9]),
   },
   {
     id: "software-review",
     title: "Software Review",
     prompt:
       "Sharp, modern review aesthetic featuring the product logo as a prominent element alongside the reviewer cutout. Apply crisp lighting, rich gradients, and strategic glow effects on the product. Use clean split-screen layout with bold typography where verdict keywords are highlighted via contrasting color bars or underlines. Include rating indicators or comparison elements if appropriate. Ensure product details and text maintain perfect clarity on mobile screens.",
-    previewUrl: svgDataUrl("Software Review", palette[10]),
+    previewUrl: previewImages["software-review"] || svgDataUrl("Software Review", palette[10]),
     colors: ["#0F172A", "#38BDF8", "#FBBF24"],
   },
 ];
