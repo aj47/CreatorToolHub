@@ -55,14 +55,14 @@ const extras: StyleCard[] = [
     id: "cinematic",
     title: "Cinematic",
     prompt:
-      "Create a cinematic-style thumbnail with dramatic lighting and moody atmosphere. Use teal-orange color grading, shallow depth of field effects, and bold minimalist typography. Apply widescreen composition principles with strong visual hierarchy and atmospheric depth.",
+      "Rich cinematic aesthetic with the subject as a dramatic isolated focal point. Apply moody atmospheric lighting, teal-orange color grading, and deep shadows for emotional depth. Use widescreen composition principles with strong visual hierarchy and layered depth. Add minimalist, bold typography with extreme contrast. Maintain theatrical mood while ensuring all text elements remain legible on mobile.",
     previewUrl: svgDataUrl("Cinematic", palette[9]),
   },
   {
     id: "software-review",
     title: "Software Review",
     prompt:
-      "Design a software review thumbnail that prominently showcases the product logo alongside an interface motif. Use a clean split layout with the logo or icon anchored on one side and a large, bold headline where at least one keyword is highlighted using a contrasting color bar or underline. Apply modern, tech-forward styling with crisp lighting, subtle gradients, and balanced spacing to convey clarity and trust.",
+      "Sharp, modern review aesthetic featuring the product logo as a prominent element alongside the reviewer cutout. Apply crisp lighting, rich gradients, and strategic glow effects on the product. Use clean split-screen layout with bold typography where verdict keywords are highlighted via contrasting color bars or underlines. Include rating indicators or comparison elements if appropriate. Ensure product details and text maintain perfect clarity on mobile screens.",
     previewUrl: svgDataUrl("Software Review", palette[10]),
     colors: ["#0F172A", "#38BDF8", "#FBBF24"],
   },
