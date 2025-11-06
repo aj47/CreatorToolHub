@@ -334,6 +334,18 @@
 /* Results section */
 .resultsSection {
   margin-top: 32px;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .resultCard {
@@ -349,6 +361,35 @@
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 32px;
+}
+
+.successBadge {
+  display: inline-block;
+  border: 3px solid #22c55e;
+  background: #f0fdf4;
+  color: #22c55e;
+  padding: 6px 12px;
+  font-weight: 800;
+  box-shadow: 4px 4px 0 #22c55e;
+  border-radius: 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: successPulse 0.5s ease-out;
+}
+
+@keyframes successPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .section {

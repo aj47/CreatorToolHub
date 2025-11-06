@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
 import { useCustomer } from "autumn-js/react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useUI } from "@/lib/state/providers/UIProvider";
 import styles from "./page.module.css";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
@@ -51,6 +52,8 @@ export default function VideoSEOPage() {
   const timestamps = result?.timestamps ?? [];
   const thumbnailIdeas = result?.thumbnailIdeas ?? [];
 
+  // UI notifications
+  const { addNotification } = useUI();
 
   // Auth and credits
   const { user, loading: authLoading } = useAuth();
@@ -160,12 +163,20 @@ export default function VideoSEOPage() {
       }
 
       setResult(data as GenerationResult);
+
+      // Show success notification
+      addNotification({
+        type: 'success',
+        title: 'Video SEO Generated Successfully!',
+        message: `Generated ${data.titles?.length || 0} titles, description, and ${data.timestamps?.length || 0} timestamps`,
+        duration: 5000,
+      });
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unexpected error occurred");
     } finally {
       setLoading(false);
     }
-  }, [youtubeUrl, isAuthed, loadingCustomer, credits, creditsRequired]);
+  }, [youtubeUrl, isAuthed, loadingCustomer, credits, creditsRequired, addNotification]);
 
   const onSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -246,7 +257,10 @@ export default function VideoSEOPage() {
             )}
 
             <div className={styles.resultCard} data-testid="video-seo-result">
-              <h2 className={styles.resultTitle}>SEO-optimized content</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+                <h2 className={styles.resultTitle} style={{ margin: 0 }}>SEO-optimized content</h2>
+                <span className={styles.successBadge}>✓ Generated</span>
+              </div>
               {/* Title Options */}
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
