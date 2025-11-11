@@ -36,6 +36,16 @@ export const profiles = {
     prompt:
       'Ultra-vibrant, high-energy music aesthetic with the artist as a dynamic cutout in an expressive pose. Add neon accents, particle effects, audio waveforms, and dramatic lighting for maximum visual rhythm. Apply bold color gradients with music-themed elements like equalizers, notes, or instruments as atmospheric layers. Use chunky, bold typography with strong outlines matching the beat\'s energy. Maintain extreme contrast and ensure all elements pulse with clarity on mobile.',
   },
+  devtool: {
+    title: 'Developer Tool',
+    prompt:
+      'Vibrant, high-impact developer tool aesthetic with the presenter as a bold cutout showing excitement or discovery. Apply dramatic lighting with glowing tool icons, tech logos (React, VS Code, GitHub, etc.), UI mockups, and feature callouts as layered elements. Use chunky, bold typography with tool names or key features highlighted in contrasting neon colors. Incorporate before/after code comparisons, productivity metrics, or star ratings as visual proof points. Add recognizable tech brand logos and framework icons as prominent visual anchors. Maintain extreme saturation and ensure all tool details, logos, and text read perfectly on mobile screens.',
+  },
+  codelist: {
+    title: 'Code Listicle',
+    prompt:
+      'Bold, educational coding aesthetic with the presenter as a prominent cutout positioned alongside oversized programming language logos, framework icons, or tech brand symbols (Python, JavaScript, React, Angular, Vue, etc.). Apply clean, high-contrast split-screen composition with the subject on one side and massive, colorful tech logos or code symbols on the other. Use chunky, ultra-bold typography with numbers (10, 100) or list indicators prominently displayed in contrasting color blocks or banners. Add subtle code patterns, syntax highlighting, or geometric shapes as background texture. Include recognizable tech stack icons arranged in grids or clusters as visual anchors. Maintain extreme contrast with bold color blocking and ensure all logos, numbers, and text are instantly readable on mobile.',
+  },
 } as const satisfies Record<string, ProfileSpec>;
 
 // Derive ProfileId type from the profiles object keys

@@ -150,6 +150,19 @@ export default {
         return jsonResponse({ status: 'healthy', timestamp: Date.now() });
       }), ['GET']);
 
+      // Add admin generations route
+      middlewareStack.route('/api/admin/generations', createRouteHandler(async (req, env) => {
+        const result = await env.DB.prepare(
+          `SELECT g.id, g.created_at, g.prompt, go.r2_key
+           FROM generations g
+           JOIN generation_outputs go ON g.id = go.generation_id
+           WHERE g.created_at > '2025-11-05'
+           ORDER BY g.created_at DESC
+           LIMIT 100`
+        ).all();
+        return jsonResponse({ generations: result.results || [] });
+      }), ['GET']);
+
       // Add file proxy route
       // Include OPTIONS for CORS preflight requests
       // Use /r2/ path which is handled by the worker route
