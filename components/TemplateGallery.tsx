@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { curatedStyles, isBuiltinProfileId } from "../lib/gallery/curatedStyles";
 
 type Preset = {
@@ -134,15 +135,32 @@ export default function TemplateGallery(props: {
 
   const toggleFav = (id: string) => setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
 
-  return (
-    <>
-      {newOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div role="dialog" aria-modal="true" style={{ width: "min(520px, 92vw)", maxHeight: "85vh", overflowY: "auto", background: "var(--nb-card)", border: "2px solid #000", boxShadow: "8px 8px 0 #000", borderRadius: 10, padding: 16, display: "grid", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h4 style={{ margin: 0 }}>Create New Template</h4>
-              <button onClick={() => { setNewOpen(false); setNewTitle(""); setNewPrompt(""); setNewRefs(""); setNewColors([]); setNewRefFiles([]); }} aria-label="Close">×</button>
-            </div>
+	  return (
+	    <>
+	      {newOpen && (
+	        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+	          <div
+	            role="dialog"
+	            aria-modal="true"
+	            className="grid w-full max-w-xl max-h-[85vh] gap-3 overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-lg"
+	          >
+	            <div className="flex items-center justify-between">
+	              <h4 className="text-base font-semibold tracking-tight">Create new template</h4>
+	              <button
+	                onClick={() => {
+	                  setNewOpen(false);
+	                  setNewTitle("");
+	                  setNewPrompt("");
+	                  setNewRefs("");
+	                  setNewColors([]);
+	                  setNewRefFiles([]);
+	                }}
+	                aria-label="Close"
+	                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm text-muted-foreground hover:bg-accent"
+	              >
+	                ×
+	              </button>
+	            </div>
             <div style={{ display: "grid", gap: 8 }}>
               <label style={{ display: "grid", gap: 4, fontSize: 12 }}>
                 <span style={{ fontWeight: 600 }}>Title</span>
@@ -219,62 +237,80 @@ export default function TemplateGallery(props: {
                 <input type="text" value={newRefs} onChange={(e) => setNewRefs(e.target.value)} placeholder="Or paste image URLs (comma-separated)" style={{ fontSize: 12, padding: 8, border: "1px solid #ccc", borderRadius: 6 }} />
               </div>
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                <button
-                  onClick={async () => {
-                    const title = newTitle.trim();
-                    const prompt = newPrompt.trim();
-                    if (!title || !prompt) return;
+	              <div className="mt-1 flex items-center justify-end gap-2">
+	                <Button
+	                  onClick={async () => {
+	                    const title = newTitle.trim();
+	                    const prompt = newPrompt.trim();
+	                    if (!title || !prompt) return;
 
-                    if (!props.hybridStorage) {
-                      // Fallback to URL-based approach
-                      const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
-                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
-                      setNewOpen(false);
-                      setNewTitle("");
-                      setNewPrompt("");
-                      setNewRefs("");
-                      setNewColors([]);
-                      return;
-                    }
+	                    if (!props.hybridStorage) {
+	                      // Fallback to URL-based approach
+	                      const referenceImages = newRefs
+	                        .split(",")
+	                        .map((s) => s.trim())
+	                        .filter(Boolean);
+	                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
+	                      setNewOpen(false);
+	                      setNewTitle("");
+	                      setNewPrompt("");
+	                      setNewRefs("");
+	                      setNewColors([]);
+	                      return;
+	                    }
 
-                    try {
-                      setUploadingRefs(true);
-                      const referenceImages = newRefs.split(',').map((s) => s.trim()).filter(Boolean);
+	                    try {
+	                      setUploadingRefs(true);
+	                      const referenceImages = newRefs
+	                        .split(",")
+	                        .map((s) => s.trim())
+	                        .filter(Boolean);
 
-                      // Add reference image files
-                      for (const file of newRefFiles) {
-                        const uploaded = await props.hybridStorage?.uploadRefFrame(file);
-                        if (uploaded?.dataUrl) {
-                          referenceImages.push(uploaded.dataUrl);
-                        } else {
-                          const dataUrl = await fileToDataUrl(file);
-                          referenceImages.push(dataUrl);
-                        }
-                      }
+	                      // Add reference image files
+	                      for (const file of newRefFiles) {
+	                        const uploaded = await props.hybridStorage?.uploadRefFrame(file);
+	                        if (uploaded?.dataUrl) {
+	                          referenceImages.push(uploaded.dataUrl);
+	                        } else {
+	                          const dataUrl = await fileToDataUrl(file);
+	                          referenceImages.push(dataUrl);
+	                        }
+	                      }
 
-                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
-                      setNewOpen(false);
-                      setNewTitle("");
-                      setNewPrompt("");
-                      setNewRefs("");
-                      setNewColors([]);
-                      setNewRefFiles([]);
-                    } catch (error) {
-                      alert('Failed to upload reference images. Please try again.');
-                    } finally {
-                      setUploadingRefs(false);
-                    }
-                  }}
-                  disabled={uploadingRefs}
-                  style={{ background: "var(--nb-accent)", color: "#000", border: "2px solid #000", padding: "8px 12px", borderRadius: 8, cursor: "pointer" }}
-                >
-                  {uploadingRefs ? 'Creating...' : 'Create'}
-                </button>
-                <button onClick={() => { setNewOpen(false); setNewTitle(""); setNewPrompt(""); setNewRefs(""); setNewColors([]); setNewRefFiles([]); }}
-                  style={{ background: "#fff", border: "1px solid #ccc", padding: "8px 12px", borderRadius: 8, cursor: "pointer" }}
-                >Cancel</button>
-              </div>
+	                      onCreatePreset({ title, prompt, colors: newColors, referenceImages });
+	                      setNewOpen(false);
+	                      setNewTitle("");
+	                      setNewPrompt("");
+	                      setNewRefs("");
+	                      setNewColors([]);
+	                      setNewRefFiles([]);
+	                    } catch (error) {
+	                      alert("Failed to upload reference images. Please try again.");
+	                    } finally {
+	                      setUploadingRefs(false);
+	                    }
+	                  }}
+	                  disabled={uploadingRefs}
+	                  size="sm"
+	                >
+	                  {uploadingRefs ? "Creating..." : "Create"}
+	                </Button>
+	                <Button
+	                  type="button"
+	                  variant="outline"
+	                  size="sm"
+	                  onClick={() => {
+	                    setNewOpen(false);
+	                    setNewTitle("");
+	                    setNewPrompt("");
+	                    setNewRefs("");
+	                    setNewColors([]);
+	                    setNewRefFiles([]);
+	                  }}
+	                >
+	                  Cancel
+	                </Button>
+	              </div>
             </div>
           </div>
         </div>
@@ -290,26 +326,21 @@ export default function TemplateGallery(props: {
         Reference templates (marked &quot;Ref:&quot;) use example images for style/layout guidance only - your subjects will replace any people/objects in the references. Built-in templates work without references. Use Favorites to curate your preferred styles.
       </p>
       {/* Container height set to 1.1x card height (~256px per card = ~282px for 1.1 cards) */}
-      <div style={{ maxHeight: 282, overflowY: "auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+	      <div style={{ maxHeight: 282, overflowY: "auto" }}>
+	        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
           {/* New Template card (opens modal) */}
           <article key="__new_card__" style={{ border: "2px dashed #cbd5e1", borderRadius: 8, padding: 12, display: "grid", placeContent: "center", minHeight: 120 }}>
             <button onClick={() => setNewOpen(true)} style={{ padding: "24px 12px", cursor: "pointer" }}>+ New template</button>
           </article>
 
-        {list.map((s) => { const selected = selectedIds.includes(s.id); return (
-          <article
-            key={s.id}
-            onClick={() => onToggleSelect(s.id)}
-            style={{
-              border: selected ? "3px solid var(--nb-accent)" : "3px solid #000",
-              boxShadow: "6px 6px 0 #000",
-              borderRadius: 8,
-              overflow: "hidden",
-              cursor: "pointer",
-              background: "var(--nb-card)",
-            }}
-          >
+	        {list.map((s) => { const selected = selectedIds.includes(s.id); return (
+	          <article
+	            key={s.id}
+	            onClick={() => onToggleSelect(s.id)}
+	            className={`cursor-pointer overflow-hidden rounded-lg border-2 bg-card shadow-md transition-colors ${
+	              selected ? "border-primary" : "border-slate-900"
+	            }`}
+	          >
             <div style={{ position: "relative" }}>
               <img src={s.previewUrl} alt={s.title} style={{ display: "block", width: "100%" }} />
               <button

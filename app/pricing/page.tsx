@@ -1,4 +1,5 @@
 import { PricingTableClient } from "@/components/PricingTableClient";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const pricingFaqItems: { question: string; answer: string }[] = [
   {
@@ -37,43 +38,74 @@ const faqJsonLd = JSON.stringify({
 });
 
 export default function PricingPage() {
-  return (
-    <main className="nb-main">
+	  return (
+	    <main className="mx-auto max-w-6xl px-4 py-10">
+	      <section className="space-y-6">
+	        <div className="text-center">
+	          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
+	            Choose the plan that matches your upload schedule
+	          </h1>
+	          <p className="mt-2 text-sm text-slate-600 md:text-base">
+	            Pick the right credit bundle for how often you publish, and scale up as your channel grows.
+	          </p>
+	        </div>
 
-      <section className="nb-section">
-        <div className="nb-card" style={{ maxWidth: 980, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 16, textAlign: "center" }}>
-            Choose the plan that matches your upload schedule
-          </h2>
-          <PricingTableClient />
-        </div>
-      </section>
+	        <Card className="border-slate-200 bg-white">
+	          <CardContent className="pt-6">
+	            <PricingTableClient />
+	          </CardContent>
+	        </Card>
+	      </section>
 
-      <section className="nb-section">
-        <div className="nb-card" style={{ maxWidth: 980, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: 12, textAlign: "center" }}>Pricing FAQ</h2>
-          <div style={{ display: "grid", gap: 12 }}>
-            {pricingFaqItems.map((item) => (
-              <details
-                key={item.question}
-                style={{
-                  border: "2px solid var(--nb-border)",
-                  borderRadius: 12,
-                  padding: "12px 16px",
-                  background: "var(--nb-card)",
-                  boxShadow: "4px 4px 0 var(--nb-border)",
-                }}
-              >
-                <summary style={{ fontWeight: 700, fontSize: 16, cursor: "pointer" }}>{item.question}</summary>
-                <p style={{ marginTop: 8, lineHeight: 1.5 }}>{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
+	      <section className="mt-12 space-y-4">
+	        <div className="text-center">
+	          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Pricing FAQ</h2>
+	          <p className="mt-1 text-sm text-slate-600">
+	            Answers to common questions about how billing and credits work.
+	          </p>
+	        </div>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />
-    </main>
-  );
-}
+	        <Card className="border-slate-200 bg-white">
+	          <CardHeader className="pb-3">
+	            <CardTitle className="text-base">Frequently asked questions</CardTitle>
+	            <CardDescription>
+	              If you&apos;re unsure which plan is right for you, these quick answers can help.
+	            </CardDescription>
+	          </CardHeader>
+	          <CardContent className="pt-0">
+	            <div className="space-y-3">
+	              {pricingFaqItems.map((item) => (
+	                <details
+	                  key={item.question}
+	                  className="group rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm"
+	                >
+	                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+	                    <span>{item.question}</span>
+	                    <span className="text-slate-400 transition-transform group-open:rotate-180">
+	                      <svg
+	                        xmlns="http://www.w3.org/2000/svg"
+	                        viewBox="0 0 20 20"
+	                        fill="currentColor"
+	                        className="h-4 w-4"
+	                        aria-hidden="true"
+	                      >
+	                        <path
+	                          fillRule="evenodd"
+	                          d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+	                          clipRule="evenodd"
+	                        />
+	                      </svg>
+	                    </span>
+	                  </summary>
+	                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.answer}</p>
+	                </details>
+	              ))}
+	            </div>
+	          </CardContent>
+	        </Card>
+	      </section>
 
+	      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLd }} />
+	    </main>
+	  );
+	}

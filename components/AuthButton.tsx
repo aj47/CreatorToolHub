@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useCustomer } from "autumn-js/react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
@@ -40,7 +41,11 @@ export function CreditsBadge() {
   const credits = useCredits(isDevelopment);
 
   if (loading) {
-    return <span className="nb-credits nb-credits--loading">Loading…</span>;
+    return (
+      <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+        Loading…
+      </span>
+    );
   }
 
   if (!user) {
@@ -48,8 +53,12 @@ export function CreditsBadge() {
   }
 
   return (
-    <span className="nb-credits" aria-label="credits remaining">
-      credits: {credits}
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground"
+      aria-label="credits remaining"
+    >
+      <span className="uppercase tracking-wide">Credits</span>
+      <span className="font-semibold text-foreground">{credits}</span>
     </span>
   );
 }
@@ -59,37 +68,44 @@ export interface AuthMenuItemsProps {
 }
 
 export default function AuthMenuItems({ onNavigate }: AuthMenuItemsProps) {
-  const { user, loading, signIn } = useAuth();
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const credits = useCredits(isDevelopment);
+	const { user, loading, signIn } = useAuth();
+	const isDevelopment = process.env.NODE_ENV === "development";
+	const credits = useCredits(isDevelopment);
 
-  if (loading) {
-    return <span className="nb-navlink nb-navlink--loading">Loading…</span>;
-  }
+	if (loading) {
+		return (
+			<span className="inline-flex items-center text-xs font-medium text-muted-foreground">
+				Loading…
+			</span>
+		);
+	}
 
-  if (user) {
-    return (
-      <Link
-        href="/dashboard"
-        className="nb-btn nb-btn--accent nb-navlink-btn"
-        title="Open dashboard"
-        onClick={onNavigate}
-      >
-        credits: {credits}
-      </Link>
-    );
-  }
+	if (user) {
+		return (
+			<div className="flex items-center gap-3">
+				<CreditsBadge />
+				<Link
+						href="/dashboard"
+						className={buttonVariants({ size: "sm" })}
+						title="Open dashboard"
+						onClick={onNavigate}
+				>
+					Dashboard
+				</Link>
+			</div>
+		);
+	}
 
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        onNavigate?.();
-        signIn();
-      }}
-      className="nb-btn nb-btn--accent nb-navlink-btn"
-    >
-      Sign in with Google
-    </button>
-  );
+	return (
+		<Button
+			type="button"
+			size="sm"
+			onClick={() => {
+				onNavigate?.();
+				signIn();
+			}}
+		>
+			Sign in with Google
+		</Button>
+	);
 }
