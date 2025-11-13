@@ -103,11 +103,9 @@ export default function RootLayout({
       <AppHeader />
       {children}
       <NotificationContainer />
-      <footer className="nb-footer">
-        <span>Open source on </span>
-        <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <span> • Made with love by </span>
-        <a href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
+      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
+        Open source on <a className="underline hover:text-foreground" href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a> • Made with love by{" "}
+        <a className="underline hover:text-foreground" href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
       </footer>
     </>
   );
@@ -141,7 +139,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}>
         <AppErrorBoundary>
           <AuthProvider>
             <AppProvider>

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useCustomer } from "autumn-js/react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { Button } from "@/components/ui/button";
 
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
@@ -13,11 +14,9 @@ function useCredits(isDevelopment: boolean) {
     if (isDevelopment) return 999;
     if (!customer) return 0;
 
-    // Handle flat balance structure (from Autumn API)
     const customerAny = customer as any;
     if (typeof customerAny.balance === "number") return customerAny.balance;
 
-    // Handle nested features structure (expected by autumn-js)
     if (customer.features) {
       const feature = customer.features[FEATURE_ID as string] as {
         balance?: number;
@@ -40,15 +39,17 @@ export function CreditsBadge() {
   const credits = useCredits(isDevelopment);
 
   if (loading) {
-    return <span className="nb-credits nb-credits--loading">Loading…</span>;
+    return (
+      <Button variant="secondary" size="sm" disabled aria-busy>
+        Loading…
+      </Button>
+    );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
-    <span className="nb-credits" aria-label="credits remaining">
+    <span className="text-sm text-muted-foreground" aria-label="credits remaining">
       credits: {credits}
     </span>
   );
@@ -64,32 +65,30 @@ export default function AuthMenuItems({ onNavigate }: AuthMenuItemsProps) {
   const credits = useCredits(isDevelopment);
 
   if (loading) {
-    return <span className="nb-navlink nb-navlink--loading">Loading…</span>;
+    return (
+      <Button variant="secondary" size="sm" disabled aria-busy>
+        Loading…
+      </Button>
+    );
   }
 
   if (user) {
     return (
-      <Link
-        href="/dashboard"
-        className="nb-btn nb-btn--accent nb-navlink-btn"
-        title="Open dashboard"
-        onClick={onNavigate}
-      >
-        credits: {credits}
+      <Link href="/dashboard" title="Open dashboard" onClick={onNavigate}>
+        <Button size="sm">credits: {credits}</Button>
       </Link>
     );
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      size="sm"
       onClick={() => {
         onNavigate?.();
         signIn();
       }}
-      className="nb-btn nb-btn--accent nb-navlink-btn"
     >
       Sign in with Google
-    </button>
+    </Button>
   );
 }

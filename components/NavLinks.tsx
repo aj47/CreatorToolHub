@@ -4,14 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
-  { href: "/thumbnails", label: "Thumbnail Creator" },
-  { href: "/video-seo", label: "Video SEO" },
+  { href: "/thumbnails", label: "Thumbnails", desc: "Design AI thumbnails" },
+  { href: "/video-seo", label: "Video SEO", desc: "Titles, descriptions, timestamps" },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/") {
-    return pathname === "/";
-  }
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -22,14 +20,19 @@ export function NavLinks() {
     <>
       {NAV_LINKS.map((link) => {
         const active = isActivePath(pathname, link.href);
-        const className = active ? "nb-navlink nb-navlink--active" : "nb-navlink";
+        const base = "rounded-md px-3 py-2 transition-colors";
+        const cls = active
+          ? "bg-primary text-primary-foreground"
+          : "text-foreground/80 hover:bg-accent hover:text-accent-foreground";
         return (
-          <Link key={link.href} href={link.href} className={className}>
-            {link.label}
+          <Link key={link.href} href={link.href} className={`${base} ${cls}`} title={link.desc}>
+            <span className="block text-sm font-medium leading-tight">{link.label}</span>
+            <span className="hidden lg:block text-xs text-muted-foreground leading-tight">
+              {link.desc}
+            </span>
           </Link>
         );
       })}
     </>
   );
 }
-
