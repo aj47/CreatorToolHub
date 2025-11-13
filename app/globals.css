@@ -1,94 +1,97 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+	/* Brand: YouTube-inspired red as primary */
+	--color-background: #ffffff;
+	--color-foreground: #020817;
+
+	--color-card: #ffffff;
+	--color-card-foreground: #020817;
+
+	--color-popover: #ffffff;
+	--color-popover-foreground: #020817;
+
+	--color-primary: #f04438;
+	--color-primary-foreground: #f8fafc;
+
+	--color-secondary: #f1f5f9;
+	--color-secondary-foreground: #0f172a;
+
+	--color-muted: #f1f5f9;
+	--color-muted-foreground: #64748b;
+
+	--color-accent: #fef2f2;
+	--color-accent-foreground: #0f172a;
+
+	--color-destructive: #f04438;
+	--color-destructive-foreground: #f8fafc;
+
+	--color-border: #e2e8f0;
+	--color-input: #e2e8f0;
+	--color-ring: #f04438;
+
+	--radius-lg: 0.75rem;
+	--radius-md: calc(0.75rem - 2px);
+	--radius-sm: calc(0.75rem - 4px);
+}
 
 @layer base {
 	:root {
-		--background: 0 0% 100%;
-		--foreground: 222.2 84% 4.9%;
-
-		--card: 0 0% 100%;
-		--card-foreground: 222.2 84% 4.9%;
-
-		--popover: 0 0% 100%;
-		--popover-foreground: 222.2 84% 4.9%;
-
-		/* Brand: YouTube-inspired red as primary */
-		--primary: 0 84.2% 60.2%;
-		--primary-foreground: 210 40% 98%;
-
-		--secondary: 210 40% 96.1%;
-		--secondary-foreground: 222.2 47.4% 11.2%;
-
-		--muted: 210 40% 96.1%;
-		--muted-foreground: 215.4 16.3% 46.9%;
-
-		--accent: 0 84.2% 95%;
-		--accent-foreground: 222.2 47.4% 11.2%;
-
-		--destructive: 0 84.2% 60.2%;
-		--destructive-foreground: 210 40% 98%;
-
-		--border: 214.3 31.8% 91.4%;
-		--input: 214.3 31.8% 91.4%;
-		--ring: 0 84.2% 60.2%;
-
-		--radius: 0.75rem;
-
-		/* Legacy neobrutalism theme tokens mapped onto the Tailwind palette */
-		--nb-bg: hsl(var(--background));
-		--nb-fg: hsl(var(--foreground));
-		--nb-accent: hsl(var(--primary));
-		--nb-accent-hover: hsl(var(--primary));
-		--nb-accent-press: hsl(var(--primary));
-		--nb-card: hsl(var(--card));
-		--nb-border: hsl(var(--border));
-		--nb-shadow: 4px 4px 0 hsl(var(--border));
+		/* Legacy neobrutalism theme tokens */
+		--nb-bg: var(--color-background);
+		--nb-fg: var(--color-foreground);
+		--nb-accent: var(--color-primary);
+		--nb-accent-hover: var(--color-primary);
+		--nb-accent-press: var(--color-primary);
+		--nb-card: var(--color-card);
+		--nb-border: var(--color-border);
+		--nb-shadow: 4px 4px 0 var(--color-border);
 	}
 
 	.dark {
-		--background: 222.2 84% 4.9%;
-		--foreground: 210 40% 98%;
+		--color-background: #020817;
+		--color-foreground: #f8fafc;
 
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
+		--color-card: #020817;
+		--color-card-foreground: #f8fafc;
 
-		--popover: 222.2 84% 4.9%;
-		--popover-foreground: 210 40% 98%;
+		--color-popover: #020817;
+		--color-popover-foreground: #f8fafc;
 
-		--primary: 0 84.2% 60.2%;
-		--primary-foreground: 210 40% 98%;
+		--color-primary: #f04438;
+		--color-primary-foreground: #f8fafc;
 
-		--secondary: 217.2 32.6% 17.5%;
-		--secondary-foreground: 210 40% 98%;
+		--color-secondary: #1e293b;
+		--color-secondary-foreground: #f8fafc;
 
-		--muted: 217.2 32.6% 17.5%;
-		--muted-foreground: 215 20.2% 65.1%;
+		--color-muted: #1e293b;
+		--color-muted-foreground: #94a3b8;
 
-		--accent: 217.2 32.6% 17.5%;
-		--accent-foreground: 210 40% 98%;
+		--color-accent: #1e293b;
+		--color-accent-foreground: #f8fafc;
 
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 210 40% 98%;
+		--color-destructive: #7f1d1d;
+		--color-destructive-foreground: #f8fafc;
 
-		--border: 217.2 32.6% 24.1%;
-		--input: 217.2 32.6% 24.1%;
-		--ring: 0 84.2% 60.2%;
+		--color-border: #334155;
+		--color-input: #334155;
+		--color-ring: #f04438;
 
-		--nb-bg: hsl(var(--background));
-		--nb-fg: hsl(var(--foreground));
-		--nb-card: hsl(var(--card));
+		--nb-bg: var(--color-background);
+		--nb-fg: var(--color-foreground);
+		--nb-card: var(--color-card);
 	}
 
 	* {
 		box-sizing: border-box;
 		padding: 0;
 		margin: 0;
-		@apply border-border;
+		border-color: var(--color-border);
 	}
 
 	body {
-		@apply bg-background text-foreground;
+		background-color: var(--color-background);
+		color: var(--color-foreground);
 		font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 		font-feature-settings: "rlig" 1, "calt" 1;
 		-webkit-font-smoothing: antialiased;
