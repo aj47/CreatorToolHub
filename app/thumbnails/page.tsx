@@ -1430,7 +1430,7 @@ export default function Home() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
+      <main className={`${styles.main} max-w-7xl mx-auto px-4 py-8`} onDragOver={onDragOver} onDrop={onDropMedia}>
         <header className={styles.hero}>
           <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
           <p className={styles.subtitle}>

@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useUI } from "@/lib/state/providers/UIProvider";
 import styles from "./page.module.css";
 
+import { StepIndicator } from "@/components/ui/step-indicator";
+
 const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
 
 interface GenerationResult {
@@ -186,7 +188,7 @@ export default function VideoSEOPage() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.main}>
+      <main className={`${styles.main} max-w-7xl mx-auto px-4 py-8`}>
         <header className={styles.hero}>
           <span className={styles.newBadge}>AI YouTube SEO</span>
           <h1 className={styles.title}>YouTube title, description & timestamp generator</h1>
@@ -194,12 +196,18 @@ export default function VideoSEOPage() {
             Paste any YouTube link to turn transcripts into SEO-optimized titles, keyword-rich descriptions, clickable thumbnail ideas, and chapter timestamps.
           </p>
         </header>
+        <div className="mt-2 mb-8">
+          <StepIndicator steps={["Input", "Generate", "Results"]} current={result ? 3 : 1} />
+        </div>
 
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: faqJsonLd }}
         />
 
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div>
 
         <div className={styles.formCard}>
           <h2 className={styles.formTitle}>Optimize your video SEO</h2>
@@ -246,6 +254,9 @@ export default function VideoSEOPage() {
             <p className={styles.errorMessage}>{error}</p>
           </div>
         )}
+          </div>
+          <div className="min-h-[200px]">
+
 
         {result && (
           <div className={styles.resultsSection}>
@@ -386,6 +397,14 @@ export default function VideoSEOPage() {
             </div>
           </div>
         )}
+            {!result && (
+              <div className="hidden lg:block rounded-lg border p-6 text-sm text-muted-foreground">
+                Your generated titles, descriptions and timestamps will appear here after you submit the form.
+              </div>
+            )}
+          </div>
+        </div>
+
 
 
         <section className={styles.faqSection} aria-labelledby="videoSeoFaq">
