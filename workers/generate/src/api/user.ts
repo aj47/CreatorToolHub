@@ -67,6 +67,8 @@ export class UserAPI {
       // Route to appropriate handler
       if (path === '/api/user/profile') {
         return this.handleProfile(request, userId, method);
+      } else if (path === '/api/user/account') {
+        return this.handleAccount(request, userId, user.email, method);
       } else if (path === '/api/user/templates') {
         return this.handleTemplates(request, userId, method);
       } else if (path.startsWith('/api/user/templates/')) {
@@ -115,8 +117,53 @@ export class UserAPI {
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { 
+
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  private async handleAccount(request: Request, userId: string, email: string, method: string): Promise<Response> {
+    if (method === 'DELETE') {
+      try {
+        // Delete all user data from the database and get R2 keys to delete
+        const { r2Keys } = await this.db.deleteUser(userId);
+
+        // Delete all files from R2 storage
+        for (const key of r2Keys) {
+          try {
+            await this.r2.deleteFile(key);
+          } catch (error) {
+            console.warn(`Failed to delete R2 file: ${key}`, error);
+            // Continue with other deletions even if one fails
+          }
+        }
+
+        // Return success response with invalidated auth cookie
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Account deleted successfully'
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            // Clear the auth cookie
+            'Set-Cookie': 'auth-token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'
+          }
+        });
+      } catch (error) {
+        console.error('Account deletion error:', error);
+        return new Response(JSON.stringify({
+          error: error instanceof Error ? error.message : 'Failed to delete account'
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers: { 'Content-Type': 'application/json' }
     });
