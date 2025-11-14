@@ -103,11 +103,31 @@ export default function RootLayout({
       <AppHeader />
       {children}
       <NotificationContainer />
-      <footer className="nb-footer">
-        <span>Open source on </span>
-        <a href="https://github.com/aj47/CreatorToolHub" target="_blank" rel="noopener noreferrer">GitHub</a>
-        <span> • Made with love by </span>
-        <a href="https://techfren.net" target="_blank" rel="noopener noreferrer">techfren</a>
+      <footer className="mt-10 border-t border-slate-200 bg-slate-50/80">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-slate-500 md:text-sm">
+          <div className="flex flex-wrap items-center gap-1">
+            <span>Open source on</span>
+            <a
+              href="https://github.com/aj47/CreatorToolHub"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-slate-700 hover:text-red-600"
+            >
+              GitHub
+            </a>
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <span>Made with love by</span>
+            <a
+              href="https://techfren.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-slate-700 hover:text-red-600"
+            >
+              techfren
+            </a>
+          </div>
+        </div>
       </footer>
     </>
   );

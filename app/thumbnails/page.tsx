@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import styles from "./page.module.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildPrompt } from "@/lib/prompt/builder";
 import { profiles } from "@/lib/prompt/profiles";
 import { useCustomer } from "autumn-js/react";
@@ -1428,115 +1431,199 @@ export default function Home() {
     setShowHistoryBrowser(false);
   };
 
-  return (
-    <div className={styles.page}>
-      <main className={styles.main} onDragOver={onDragOver} onDrop={onDropMedia}>
-        <header className={styles.hero}>
-          <h1 className={styles.title}>AI YouTube thumbnail generator</h1>
-          <p className={styles.subtitle}>
-            Capture frames, apply on-brand templates, and export 1280x720 thumbnails your audience will click.
-          </p>
-        </header>
+	return (
+	  <div className="bg-slate-50">
+	    <main
+	      className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-4 pb-12 pt-8 sm:px-6 lg:pb-16 lg:pt-10"
+	      onDragOver={onDragOver}
+	      onDrop={onDropMedia}
+	    >
+	      <header className="mb-4 space-y-3 text-center md:mb-6 md:text-left">
+	        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+	          Tool / Thumbnails
+	        </p>
+	        <h1 className="text-balance text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+	          AI YouTube thumbnail generator
+	        </h1>
+	        <p className="text-sm leading-relaxed text-slate-600 sm:text-base">
+	          Capture frames, apply on-brand templates, and export 1280x720 thumbnails your audience will click.
+	        </p>
+	      </header>
 
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: faqJsonLd }}
-        />
+	      <script
+	        type="application/ld+json"
+	        dangerouslySetInnerHTML={{ __html: faqJsonLd }}
+	      />
 
-        <AuthGuard
-          message="You need to be signed in to create thumbnails. It's free after you sign up and you'll get credits to start generating immediately."
-        >
-          {/* Stepper */}
-        <nav className={styles.stepper} aria-label="Thumbnail creation steps">
-          {[1,2,3].map((n) => {
-            const unlocked = canGoTo(n);
-            const active = currentStep === n;
-            const label = n === 1 ? 'Input' : n === 2 ? 'Templates' : 'Generate';
-            return (
-              <button key={n} type="button"
-                className={`${styles.step} ${active ? styles.stepActive : ''} ${unlocked && n < currentStep ? styles.stepDone : ''}`}
-                onClick={() => goTo(n)} disabled={!unlocked}
-                aria-current={active ? 'step' : undefined} aria-controls={`step${n}`}>
-                <span className={styles.stepIndex}>{n}</span>
-                <span className={styles.stepLabel}>{label}</span>
-              </button>
-            );
-          })}
-        </nav>
+	      <AuthGuard
+	        message="You need to be signed in to create thumbnails. It's free after you sign up and you'll get credits to start generating immediately."
+	      >
+	        {/* Stepper */}
+	        <nav
+	          className="mt-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between"
+	          aria-label="Thumbnail creation steps"
+	        >
+	          <div className="flex flex-1 items-center gap-2">
+	            {[1, 2, 3].map((n) => {
+	              const unlocked = canGoTo(n);
+	              const active = currentStep === n;
+	              const complete = unlocked && n < currentStep;
+	              const label = n === 1 ? "Input" : n === 2 ? "Templates" : "Generate";
+	              return (
+	                <Button
+	                  key={n}
+	                  type="button"
+	                  variant={active ? "default" : "outline"}
+	                  size="sm"
+	                  className={`flex flex-1 items-center justify-start gap-2 rounded-full border text-xs md:text-sm ${
+	                    active
+	                      ? "border-red-500 bg-red-50 text-red-700"
+	                      : complete
+	                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+	                        : unlocked
+	                          ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+	                          : "border-slate-100 bg-slate-50 text-slate-400"
+	                  }`}
+	                  onClick={() => goTo(n)}
+	                  disabled={!unlocked}
+	                  aria-current={active ? "step" : undefined}
+	                  aria-controls={`step${n}`}
+	                >
+	                  <span
+	                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+	                      active || complete
+	                        ? "bg-red-600 text-white"
+	                        : "bg-slate-200 text-slate-700"
+	                    }`}
+	                  >
+	                    {n}
+	                  </span>
+	                  <span className="text-left font-medium">{label}</span>
+	                </Button>
+	              );
+	            })}
+	          </div>
+	          <p className="text-xs text-slate-500 md:text-sm">
+	            {currentStep === 1 && "1. Input - add frames and reference images."}
+	            {currentStep === 2 && "2. Configure - choose templates and on-brand colors."}
+	            {currentStep === 3 && "3. Generate - create and refine thumbnails."}
+	          </p>
+	        </nav>
 
-        <div style={{ display: "grid", gap: 8 }}>
-        {currentStep === 1 && (
-          <>
-
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-            <label className={styles.fileInput} aria-label="Add Video(s)">
-              <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
-              <span>Add Video(s)</span>
-            </label>
-            <label
-              className={styles.fileInput}
-              aria-label="Add Images"
-              style={{ opacity: framesFull ? 0.6 : undefined, pointerEvents: framesFull ? "none" : undefined }}
-              title={framesFull ? "Limit reached (3 subject images)" : undefined}
-            >
-              <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} disabled={framesFull} />
-              <span>Add Images</span>
-            </label>
-            {process.env.NODE_ENV === "development" && (
-              <>
-                <button
-                  type="button"
-                  data-test="dev-add-sample-images"
-                  onClick={() => importTestImagesFromUrls([
-                    "/references/aicoding.jpg",
-                    "/references/comparison.jpg",
-                    "/references/contrast.jpg",
-                    "/references/product.jpg",
-                  ])}
-                  style={{ padding: "6px 10px", border: "1px solid #ccc", borderRadius: 6, marginRight: 8 }}
-                >
-                  Add sample images (dev)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    RefinementUtils.cleanupStorage();
-                    setError(null);
-                    alert('Storage cleaned up! Refinement history has been cleared.');
-                  }}
-                  style={{ padding: "6px 10px", border: "1px solid #ff6b6b", borderRadius: 6, color: "#ff6b6b" }}
-                  title="Clear localStorage to fix quota exceeded errors"
-                >
-                  Clear Storage (dev)
-                </button>
-              </>
-            )}
-          </div>
-
-          <div style={{ fontSize: 12, color: "#666", textAlign: "center" }}>
-            We send at most 3 images per generation. Tip: Drag and drop images anywhere below, or paste from clipboard (Ctrl+V/Cmd+V).
-          </div>
-
-          {importing && (
-            <div role="status" aria-live="polite" style={{ fontSize: 12, textAlign: "center" }}>
-              Importing images… {importing.done}/{importing.total}
-              <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
-            </div>
-          )}
-          {importing?.errors?.length ? (
-            <div style={{ color: "crimson", fontSize: 12, textAlign: "center" }}>
-              {importing.errors.slice(-3).map((msg, i) => (<div key={i}>{msg}</div>))}
-            </div>
-          ) : null}
-
-          {dedupeWarn.length > 0 && (
-            <div style={{ color: "#555", fontSize: 12, textAlign: "center" }}>
-              {dedupeWarn.slice(-3).map((w, i) => (<div key={i}>{w}</div>))}
-            </div>
-          )}
-          </>
-        )}
-        </div>
+	        <div className="mt-6 grid gap-6">
+	        {currentStep === 1 && (
+	          <>
+	            <div className="flex flex-wrap items-center justify-center gap-3">
+	              <label
+	                className="inline-flex cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50"
+	                aria-label="Add Video(s)"
+	              >
+	                <input
+	                  type="file"
+	                  accept="video/*"
+	                  onChange={onFile}
+	                  className="hidden"
+	                />
+	                <span>Add video</span>
+	              </label>
+	
+	              <label
+	                className={`inline-flex cursor-pointer items-center justify-center rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:border-slate-400 hover:bg-slate-50 ${
+	                  framesFull ? "pointer-events-none opacity-50" : ""
+	                }`}
+	                aria-label="Add Images"
+	                title={framesFull ? "Limit reached (3 subject images)" : undefined}
+	              >
+	                <input
+	                  type="file"
+	                  accept="image/png,image/jpeg,image/webp,image/gif,image/tiff"
+	                  multiple
+	                  onChange={onAddImages}
+	                  disabled={framesFull}
+	                  className="hidden"
+	                />
+	                <span>Add images</span>
+	              </label>
+	
+	              {process.env.NODE_ENV === "development" && (
+	                <>
+	                  <Button
+	                    type="button"
+	                    variant="outline"
+	                    size="sm"
+	                    data-test="dev-add-sample-images"
+	                    onClick={() =>
+	                      importTestImagesFromUrls([
+	                        "/references/aicoding.jpg",
+	                        "/references/comparison.jpg",
+	                        "/references/contrast.jpg",
+	                        "/references/product.jpg",
+	                      ])
+	                    }
+	                    className="text-xs"
+	                  >
+	                    Add sample images (dev)
+	                  </Button>
+	                  <Button
+	                    type="button"
+	                    variant="outline"
+	                    size="sm"
+	                    onClick={() => {
+	                      RefinementUtils.cleanupStorage();
+	                      setError(null);
+	                      alert("Storage cleaned up! Refinement history has been cleared.");
+	                    }}
+	                    title="Clear localStorage to fix quota exceeded errors"
+	                    className="border-red-300 text-xs text-red-600 hover:bg-red-50"
+	                  >
+	                    Clear storage (dev)
+	                  </Button>
+	                </>
+	              )}
+	            </div>
+	
+	            <p className="mt-2 text-center text-xs text-slate-500">
+	              We send at most 3 images per generation. Tip: drag and drop images anywhere below, or paste from clipboard (Ctrl+V/Cmd+V).
+	            </p>
+	
+	            {importing && (
+	              <div
+	                role="status"
+	                aria-live="polite"
+	                className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-700"
+	              >
+	                <span>
+	                  Importing images… {importing.done}/{importing.total}
+	                </span>
+	                <Button
+	                  type="button"
+	                  variant="ghost"
+	                  size="sm"
+	                  onClick={() => setCancelImport(true)}
+	                  className="h-7 px-2 text-xs"
+	                >
+	                  Cancel
+	                </Button>
+	              </div>
+	            )}
+	            {importing?.errors?.length ? (
+	              <div className="mt-2 space-y-1 text-center text-xs text-red-600">
+	                {importing.errors.slice(-3).map((msg, i) => (
+	                  <div key={i}>{msg}</div>
+	                ))}
+	              </div>
+	            ) : null}
+	
+	            {dedupeWarn.length > 0 && (
+	              <div className="mt-2 space-y-1 text-center text-xs text-slate-500">
+	                {dedupeWarn.slice(-3).map((w, i) => (
+	                  <div key={i}>{w}</div>
+	                ))}
+	              </div>
+	            )}
+	          </>
+	        )}
+	        </div>
 
 
 
@@ -1544,94 +1631,161 @@ export default function Home() {
 
           {currentStep === 1 && (
             <>
-            {videoUrl && (
-              <div style={{ display: "grid", gap: 8 }}>
-                <div className={styles.callout} style={{ maxWidth: 600, margin: '0 auto' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span role="img" aria-label="video">🎬</span>
-                    <strong>Scrub your video to find the best moment, then click</strong>
-                    <span role="img" aria-label="camera">📸</span>
-                    <strong>Capture frame</strong>
-                  </div>
-                  <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '4px' }}>
-                    Video size: {Math.round(videoSize.width)}% • Drag corner to resize
-                  </div>
-                </div>
-                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-                  <video
-                    ref={videoRef}
-                    src={videoUrl}
-                    controls
-                    onLoadedMetadata={() => setVideoReady(true)}
-                    style={{
-                      width: `${videoSize.width}%`,
-                      height: videoSize.height,
-                      background: "#000",
-                      cursor: isResizing ? 'nwse-resize' : 'default'
-                    }}
-                  />
-                  {/* Resize handle */}
-                  <div
-                    onMouseDown={startVideoResize}
-                    style={{
-                      position: 'absolute',
-                      bottom: -6,
-                      right: `${(100 - videoSize.width) / 2 - 1}%`,
-                      width: 12,
-                      height: 12,
-                      background: isResizing ? '#1d4ed8' : '#2563eb',
-                      cursor: 'nwse-resize',
-                      borderRadius: 2,
-                      border: '1px solid white',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      zIndex: 10,
-                      transition: 'background-color 0.15s ease'
-                    }}
-                    title="Drag to resize video"
-                    onMouseEnter={(e) => {
-                      if (!isResizing) {
-                        e.currentTarget.style.background = '#1d4ed8';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isResizing) {
-                        e.currentTarget.style.background = '#2563eb';
-                      }
-                    }}
-                  />
-                </div>
-                <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
-                  Capture frame at current time
-                </button>
-              </div>
-            )}
-
-            <canvas ref={canvasRef} style={{ display: "none" }} />
-
-            {frames.length > 0 && (
-              <section>
-                <h3>Subject frames/images ({frames.length}/3)</h3>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {frames.map((f, i) => (
-                    <div key={i} style={{ border: "1px solid #ddd", padding: 8, position: "relative" }}>
-                      <span title={f.kind === "image" ? "Imported image" : "Captured frame"} style={{ position: "absolute", top: 4, left: 4, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, padding: "2px 4px", borderRadius: 3 }}>
-                        {f.kind === "image" ? "image" : "frame"}
-                      </span>
-                      {f.dataUrl ? (<img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />) : null}
-                      <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                        <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
-                        <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
-                        <button onClick={() => removeFrame(i)}>Remove</button>
+              {videoUrl && (
+                <div className="mt-6 space-y-4">
+                  <Card className="mx-auto max-w-xl border-slate-200 bg-slate-50">
+                    <CardContent className="py-4">
+                      <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-800">
+                        <span role="img" aria-label="video">
+                          🎬
+                        </span>
+                        <span className="font-medium">Scrub your video to find the best moment, then click</span>
+                        <span role="img" aria-label="camera">
+                          📸
+                        </span>
+                        <span className="font-semibold">Capture frame</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                      <p className="mt-2 text-center text-xs text-slate-500">
+                        Video size: {Math.round(videoSize.width)}% · drag the handle in the corner to resize
+                      </p>
+                    </CardContent>
+                  </Card>
 
-            <div className={styles.navRow}>
-              <button onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
-            </div>
+                  <div className="relative flex justify-center">
+                    <video
+                      ref={videoRef}
+                      src={videoUrl}
+                      controls
+                      onLoadedMetadata={() => setVideoReady(true)}
+                      style={{
+                        width: `${videoSize.width}%`,
+                        height: videoSize.height,
+                      }}
+                      className="max-w-full rounded-lg border border-slate-900/10 bg-black shadow-sm"
+                    />
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={startVideoResize}
+                      style={{
+                        position: "absolute",
+                        bottom: -6,
+                        right: `${(100 - videoSize.width) / 2 - 1}%`,
+                        width: 12,
+                        height: 12,
+                        cursor: "nwse-resize",
+                        borderRadius: 2,
+                        border: "1px solid white",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                        zIndex: 10,
+                      }}
+                      className={`${isResizing ? "bg-indigo-600" : "bg-indigo-500"} transition-colors`}
+                      title="Drag to resize video"
+                      onMouseEnter={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.background = "#1d4ed8";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isResizing) {
+                          e.currentTarget.style.background = "#2563eb";
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      onClick={captureFrame}
+                      disabled={!videoReady || framesFull}
+                      title={framesFull ? "Limit reached (3 subject images)" : undefined}
+                      size="sm"
+                      className="px-4"
+                    >
+                      Capture frame at current time
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <canvas ref={canvasRef} className="hidden" />
+
+              {frames.length > 0 && (
+                <section className="mt-6">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Subject frames/images ({frames.length}/3)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tip: include 2–3 strong subject shots.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {frames.map((f, i) => (
+                      <div
+                        key={i}
+                        className="relative flex w-56 flex-col rounded-lg border border-slate-200 bg-white p-2 shadow-sm"
+                      >
+                        <span
+                          title={f.kind === "image" ? "Imported image" : "Captured frame"}
+                          className="absolute left-2 top-2 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white"
+                        >
+                          {f.kind === "image" ? "image" : "frame"}
+                        </span>
+                        {f.dataUrl ? (
+                          <img
+                            src={f.dataUrl}
+                            alt={`item-${i}`}
+                            className="mt-5 w-full rounded-sm border border-slate-900/5 object-cover"
+                          />
+                        ) : null}
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => moveFrame(i, i - 1)}
+                            disabled={i === 0}
+                            aria-label="Move left"
+                          >
+                            ◀
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => moveFrame(i, i + 1)}
+                            disabled={i === frames.length - 1}
+                            aria-label="Move right"
+                          >
+                            ▶
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFrame(i)}
+                            className="ml-auto h-8 px-2 text-xs text-slate-600 hover:text-red-600"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <div className="mt-6 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => goTo(2)}
+                  disabled={!step1Done}
+                  className="min-w-[160px]"
+                >
+                  Next: Templates →
+                </Button>
+              </div>
             </>
           )}
 
@@ -1639,29 +1793,29 @@ export default function Home() {
 
 
           {currentStep === 2 && step1Done && (
-            <section style={{ display: "grid", gap: 8 }}>
+            <section className="mt-6 grid gap-4">
               {/* Cloud Storage Status */}
               {hybridStorage.isCloudEnabled && (
-                <div style={{
-                  padding: "8px 12px",
-                  backgroundColor: hybridStorage.isOnline ? "#e6f7ff" : "#fff2e6",
-                  border: `1px solid ${hybridStorage.isOnline ? "#91d5ff" : "#ffd591"}`,
-                  borderRadius: "6px",
-                  fontSize: "12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px"
-                }}>
-                  <span style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    backgroundColor: hybridStorage.isOnline ? "#52c41a" : "#fa8c16"
-                  }}></span>
-                  {hybridStorage.isOnline ? "Cloud sync enabled" : "Offline - using local storage"}
-                  {hybridStorage.isLoading && " (syncing...)"}
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+                    hybridStorage.isOnline
+                      ? "border-sky-200 bg-sky-50 text-sky-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      hybridStorage.isOnline ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                  <span>
+                    {hybridStorage.isOnline
+                      ? "Cloud sync enabled"
+                      : "Offline - using local storage"}
+                    {hybridStorage.isLoading && " (syncing...)"}
+                  </span>
                   {hybridStorage.error && (
-                    <span style={{ color: "#ff4d4f", marginLeft: "8px" }}>
+                    <span className="ml-2 text-xs font-medium text-red-600">
                       Error: {hybridStorage.error}
                     </span>
                   )}
@@ -1672,10 +1826,16 @@ export default function Home() {
               <TemplateGallery
                 selectedIds={selectedIds}
                 onToggleSelect={(id) => {
-                  setSelectedIds((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+                  setSelectedIds((prev) =>
+                    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                  );
                   setProfile(id);
                   const p = customPresets[id];
-                  if (p) { setColors(p.colors || []); } else { setColors([]); }
+                  if (p) {
+                    setColors(p.colors || []);
+                  } else {
+                    setColors([]);
+                  }
                 }}
                 customPresets={customPresets}
                 onDuplicate={(id) => handleDuplicatePreset(id)}
@@ -1685,6 +1845,7 @@ export default function Home() {
                     await hybridStorage.updateTemplate(id, update);
                     if (profile === id && update.colors) setColors(update.colors);
                   } catch (error) {
+                    // no-op
                   }
                 }}
                 onCreatePreset={async (p) => {
@@ -1693,318 +1854,571 @@ export default function Home() {
                     setProfile(id);
                     setColors(p.colors || []);
                   } catch (error) {
+                    // no-op
                   }
                 }}
                 hybridStorage={hybridStorage}
               />
 
-              <div className={styles.navRow}>
-                <button onClick={() => goTo(1)}>← Back</button>
-                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => goTo(1)}
+                  className="text-slate-600 hover:text-slate-900"
+                >
+                  ← Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => goTo(3)}
+                  disabled={!step2Done}
+                  className="min-w-[180px]"
+                >
+                  Next: Generate →
+                </Button>
               </div>
             </section>
           )}
 
-          {currentStep === 3 && step1Done && step2Done && (
-            <section id="step3" style={{ display: "grid", gap: 8 }}>
-              {!loading && results.length === 0 && (
-                <>
-                  <label className={styles.formGroup}>
-                    <span className={styles.label}>Headline</span>
-                    <input
-                      type="text"
-                      placeholder="3–5 word hook (optional)"
-                      value={headline}
-                      onChange={(e) => setHeadline(e.target.value)}
-                      className={styles.input}
-                    />
-                  </label>
+	          {currentStep === 3 && step1Done && step2Done && (
+	            <section id="step3" className="mt-6 grid gap-6">
+	              {!loading && results.length === 0 && (
+	                <Card className="border-slate-200 bg-white/80 shadow-sm">
+	                  <CardContent className="space-y-4 p-4 sm:p-5">
+	                    <div className="grid gap-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+	                      <div className="space-y-4">
+	                        <div className="space-y-1.5">
+	                          <label
+	                            htmlFor="headline"
+	                            className="block text-xs font-medium uppercase tracking-wide text-slate-500"
+	                          >
+	                            Headline
+	                            <span className="ml-1 text-[10px] font-normal text-slate-400">
+	                              (optional)
+	                            </span>
+	                          </label>
+	                          <Input
+	                            id="headline"
+	                            type="text"
+	                            placeholder="3–5 word hook"
+	                            value={headline}
+	                            onChange={(e) => setHeadline(e.target.value)}
+	                          />
+	                        </div>
+	
+	                        <div className="space-y-1.5">
+	                          <label
+	                            htmlFor="notes"
+	                            className="block text-xs font-medium uppercase tracking-wide text-slate-500"
+	                          >
+	                            Additional notes
+	                            <span className="ml-1 text-[10px] font-normal text-slate-400">
+	                              (optional)
+	                            </span>
+	                          </label>
+	                          <Textarea
+	                            id="notes"
+	                            value={prompt}
+	                            onChange={(e) => setPrompt(e.target.value)}
+	                            rows={4}
+	                            className="min-h-[120px] resize-none"
+	                          />
+	                        </div>
+	                      </div>
+	
+	                      <div className="space-y-4">
+	                        <div className="space-y-1.5">
+	                          <label
+	                            htmlFor="variants"
+	                            className="block text-xs font-medium uppercase tracking-wide text-slate-500"
+	                          >
+	                            Variants
+	                          </label>
+	                          <Input
+	                            id="variants"
+	                            type="number"
+	                            min={1}
+	                            max={8}
+	                            value={count}
+	                            onChange={(e) =>
+	                              setCount(parseInt(e.target.value || "1", 10))
+	                            }
+	                            className="max-w-[112px]"
+	                          />
+	                          <p className="text-xs text-slate-500">
+	                            Number of variations to generate per selected template
+	                            (max 8).
+	                          </p>
+	                        </div>
+	
+	                        <Card className="border-dashed border-slate-200 bg-slate-50">
+	                          <CardContent className="space-y-1.5 py-3 text-xs text-slate-600">
+	                            <p className="font-medium text-slate-800">
+	                              What you&apos;ll get
+	                            </p>
+	                            <ul className="list-disc space-y-1 pl-4">
+	                              <li>On-brand thumbnails sized to 1280×720.</li>
+	                              <li>
+	                                One image per selected template × variant count.
+	                              </li>
+	                              <li>
+	                                Ready to download or refine in the next step.
+	                              </li>
+	                            </ul>
+	                          </CardContent>
+	                        </Card>
+	                      </div>
+	                    </div>
+	
+	                    <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+	                      <p className="text-xs text-slate-500">
+	                        ✅ All thumbnails automatically sized to YouTube specs
+	                        (1280×720).
+	                      </p>
+	                      <Button
+	                        type="button"
+	                        onClick={(e) => {
+	                          if (!isAuthed) {
+	                            e.preventDefault();
+	                            setAuthRequired(true);
+	                            setShowAuthModal(true);
+	                            return;
+	                          }
+	                          generate();
+	                        }}
+	                        disabled={
+	                          authLoading ||
+	                          loading ||
+	                          frames.length === 0 ||
+	                          (!loadingCustomer &&
+	                            credits <
+	                              Math.max(1, count) * (selectedIds.length || 0))
+	                        }
+	                        size="sm"
+	                        className="min-w-[220px]"
+	                      >
+	                        {authLoading
+	                          ? "Loading..."
+	                          : !isAuthed
+	                            ? "Generate thumbnails (Free after sign-up)"
+	                            : !loadingCustomer
+	                              ? `Generate thumbnails (uses ${
+	                                  Math.max(1, count) * (selectedIds.length || 0)
+	                                } credit${
+	                                  Math.max(1, count) * (selectedIds.length || 0) === 1
+	                                    ? ""
+	                                    : "s"
+	                                })`
+	                              : "Generate thumbnails"}
+	                      </Button>
+	                    </div>
+	
+	                    <div className="mt-3 flex justify-start">
+	                      <Button
+	                        type="button"
+	                        variant="ghost"
+	                        size="sm"
+	                        onClick={() => goTo(2)}
+	                        className="text-slate-600 hover:text-slate-900"
+	                      >
+	                        ← Back
+	                      </Button>
+	                    </div>
+	                  </CardContent>
+	                </Card>
+	              )}
+	
+	              {loading && (
+	                <div className="mt-4 grid gap-4 rounded-xl border border-slate-200 bg-white/80 p-6 text-center shadow-sm">
+	                  <div className="text-base font-semibold text-slate-900">
+	                    Generating thumbnails...
+	                  </div>
+	                  <div className="flex items-center justify-center gap-2 text-xs text-slate-600">
+	                    <span className="font-semibold text-slate-800">Progress</span>
+	                    <span>
+	                      {progressTotal > 0
+	                        ? `${progressDone}/${progressTotal}`
+	                        : results.length > 0
+	                          ? `${results.length}…`
+	                          : "starting…"}
+	                    </span>
+	                  </div>
+	                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+	                    <div
+	                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-[width] duration-300"
+	                      style={{
+	                        width: `${Math.min(
+	                          100,
+	                          Math.round(
+	                            (progressDone /
+	                              (progressTotal ||
+	                                Math.max(1, results.length))) *
+	                              100,
+	                          ),
+	                        )}%`,
+	                      }}
+	                    />
+	                  </div>
+	                  <div className="text-sm text-slate-600">
+	                    Creating {Math.max(1, count) * (selectedIds.length || 0)}
+	                    {" "}
+	                    thumbnail
+	                    {Math.max(1, count) * (selectedIds.length || 0) === 1
+	                      ? ""
+	                      : "s"}
+	                    ...
+	                  </div>
+	                </div>
+	              )}
+	
+	              {!loading &&
+	                results.length > 0 &&
+	                !refinementState.isRefinementMode && (
+	                  <>
+	                    <div className="mb-3 flex flex-wrap items-center gap-3">
+	                      <h3 className="text-sm font-semibold text-slate-900">
+	                        Results ({results.length})
+	                      </h3>
+	                      <Button
+	                        type="button"
+	                        size="sm"
+	                        variant="outline"
+	                        onClick={downloadAll}
+	                        disabled={downloadingAll}
+	                      >
+	                        {downloadingAll ? "Downloading..." : "Download all"}
+	                      </Button>
+	                    </div>
+	                    <div className="flex flex-wrap gap-4">
+	                      {results.map((src, i) => {
+	                        const isSelected =
+	                          refinementState.selectedThumbnailIndex === i;
+	                        return (
+	                          <div
+	                            key={i}
+	                            className={`flex w-80 flex-col rounded-xl border bg-white p-3 shadow-sm ${
+	                              isSelected
+	                                ? "border-red-500 ring-2 ring-red-200"
+	                                : "border-slate-200"
+	                            }`}
+	                          >
+	                            {src ? (
+	                              <img
+	                                src={src}
+	                                alt={`result-${i}`}
+	                                className="w-full rounded-md border border-slate-900/5 object-cover"
+	                              />
+	                            ) : null}
+	
+	                            <div className="mt-3 flex flex-wrap gap-2">
+	                              <Button
+	                                type="button"
+	                                size="sm"
+	                                variant="outline"
+	                                onClick={() => download(src, i)}
+	                                disabled={downloadingIndex === i}
+	                              >
+	                                {downloadingIndex === i
+	                                  ? "Downloading..."
+	                                  : "Download"}
+	                              </Button>
+	                              <Button
+	                                type="button"
+	                                size="sm"
+	                                variant="outline"
+	                                onClick={() => copyToClipboard(src, i)}
+	                                disabled={copyingIndex === i}
+	                              >
+	                                {copyingIndex === i ? "Copying..." : "Copy"}
+	                              </Button>
+	                            </div>
+	
+	                            <div className="mt-4 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+	                              <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+	                                <span className="text-base">✨</span>
+	                                <span>Refine this thumbnail</span>
+	                              </div>
+	                              <p className="mt-1 text-xs text-slate-600">
+	                                AI-powered improvements to make your thumbnail even
+	                                better.
+	                              </p>
+	
+	                              {loadingSuggestions[i] && (
+	                                <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+	                                  <span className="h-4 w-4 animate-spin rounded-full border-[2px] border-slate-300 border-t-slate-500" />
+	                                  <span>Generating AI suggestions...</span>
+	                                </div>
+	                              )}
+	
+	                              {!loadingSuggestions[i] &&
+	                                suggestedRefinements[i] &&
+	                                suggestedRefinements[i].length > 0 && (
+	                                  <div className="mt-3 space-y-2">
+	                                    <div className="text-xs font-medium text-slate-700">
+	                                      💡 Quick refinements (click to apply):
+	                                    </div>
+	                                    <div className="flex flex-wrap gap-2">
+	                                      {suggestedRefinements[i].map(
+	                                        (suggestion, idx) => (
+	                                          <Button
+	                                            key={idx}
+	                                            type="button"
+	                                            size="sm"
+	                                            variant="outline"
+	                                            onClick={() =>
+	                                              handleApplySuggestedRefinement(
+	                                                i,
+	                                                suggestion,
+	                                              )
+	                                            }
+	                                            className="whitespace-normal text-left text-xs"
+	                                            title={`Click to apply: ${suggestion}`}
+	                                          >
+	                                            {suggestion}
+	                                          </Button>
+	                                        ),
+	                                      )}
+	                                    </div>
+	                                  </div>
+	                                )}
+	
+	                              <div className="mt-3">
+	                                <Button
+	                                  type="button"
+	                                  size="sm"
+	                                  variant="ghost"
+	                                  onClick={() =>
+	                                    handleSelectThumbnailForRefinement(i)
+	                                  }
+	                                  title="Write your own custom refinement instructions to improve this thumbnail exactly how you want"
+	                                  className="text-xs text-slate-700 hover:text-red-600"
+	                                >
+	                                  ✏️ Custom refine
+	                                </Button>
+	                              </div>
+	                            </div>
+	                          </div>
+	                        );
+	                      })}
+	                    </div>
+	
+	                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+	                      <Button
+	                        type="button"
+	                        size="sm"
+	                        variant="outline"
+	                        onClick={() => {
+	                          setResults([]);
+	                          cleanupBlobUrls();
+	                          setSuggestedRefinements({});
+	                          setLoadingSuggestions({});
+	                        }}
+	                      >
+	                        ← Generate more
+	                      </Button>
+	                      <Button
+	                        type="button"
+	                        size="sm"
+	                        variant="ghost"
+	                        onClick={() => goTo(1)}
+	                        className="text-slate-600 hover:text-slate-900"
+	                      >
+	                        Start over
+	                      </Button>
+	                    </div>
+	                  </>
+	                )}
+	
+	              {/* Refinement Interface */}
+	              {refinementState.isRefinementMode && (
+	                <>
+	                  <div className="mb-4 flex items-center gap-3">
+	                    <Button
+	                      type="button"
+	                      size="sm"
+	                      variant="ghost"
+	                      onClick={handleExitRefinementMode}
+	                    >
+	                      ← Back to results
+	                    </Button>
+	                    <h3 className="text-sm font-semibold text-slate-900">
+	                      Thumbnail refinement
+	                    </h3>
+	                  </div>
+	
+	                  <ThumbnailRefinement
+	                    refinementState={refinementState}
+	                    onUpdateRefinementState={handleUpdateRefinementState}
+	                    originalPrompt={buildPrompt({
+	                      profile: selectedIds[0] || "",
+	                      promptOverride:
+	                        customPresets[selectedIds[0]]?.prompt ??
+	                        curatedMap[selectedIds[0]]?.prompt,
+	                      headline,
+	                      colors,
+	                      aspect,
+	                      notes: prompt,
+	                      hasReferenceImages: refFrames.length > 0,
+	                      hasSubjectImages: frames.length > 0,
+	                    })}
+	                    templateId={selectedIds[0] || "default"}
+	                    credits={credits}
+	                    isAuthed={isAuthed}
+	                    onAuthRequired={handleAuthRequired}
+	                  />
+	                </>
+	              )}
+	
+	              {error && !authRequired && (
+	                <p className="mt-3 text-sm text-red-600">{error}</p>
+	              )}
+	            </section>
+	          )}
 
-                  <label className={styles.formGroup}>
-                    <span className={styles.label}>Additional notes (optional)</span>
-                    <textarea
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      rows={4}
-                      className={styles.textarea}
-                    />
-                  </label>
 
-                  <div className={styles.inlineGroup}>
-                    <label className={styles.label} htmlFor="variants">Variants</label>
-                    <input
-                      id="variants"
-                      type="number"
-                      min={1}
-                      max={8}
-                      value={count}
-                      onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-                      className={styles.number}
-                    />
-                  </div>
+	          {authRequired && (
+	            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+	              <div className="font-semibold">Sign in required</div>
+	              <p className="mt-1 text-red-800">
+	                You need to be signed in to generate thumbnails. It’s free after you
+	                sign up.
+	              </p>
+	              <Button
+	                type="button"
+	                size="sm"
+	                onClick={() => (window.location.href = "/api/auth/signin")}
+	                className="mt-3 bg-white text-red-700 shadow-sm hover:bg-red-50"
+	              >
+	                Sign in with Google
+	              </Button>
+	            </div>
+	          )}
 
-                  <button
-                    className={styles.primary}
-                    onClick={(e) => {
-                      if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
-                      generate();
-                    }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
-                  >
-                    {authLoading
-                      ? "Loading..."
-                      : !isAuthed
-                        ? "Generate thumbnails (Free after sign-up)"
-                        : (!loadingCustomer
-                            ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
-                            : "Generate thumbnails")}
-                  </button>
+	          {showAuthModal && (
+	            <div
+	              role="dialog"
+	              aria-modal="true"
+	              className="fixed inset-0 z-50 grid place-items-center bg-black/50 px-4"
+	            >
+	              <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 text-slate-900 shadow-xl">
+	                <div className="text-base font-semibold">
+	                  Sign in to generate — it’s free
+	                </div>
+	                <p className="mt-2 text-sm text-slate-600">
+	                  Create thumbnails for free after you sign up. We’ll also track your
+	                  credits.
+	                </p>
+	                <div className="mt-4 flex flex-wrap gap-2">
+	                  <Button
+	                    type="button"
+	                    onClick={() => (window.location.href = "/api/auth/signin")}
+	                  >
+	                    Sign in with Google
+	                  </Button>
+	                  <Button
+	                    type="button"
+	                    variant="ghost"
+	                    onClick={() => setShowAuthModal(false)}
+	                  >
+	                    Close
+	                  </Button>
+	                </div>
+	              </div>
+	            </div>
+	          )}
 
-                  <div style={{
-                    fontSize: '12px',
-                    color: '#666',
-                    textAlign: 'center',
-                    marginTop: '8px',
-                    padding: '6px 12px',
-                    background: '#f8f9fa',
-                    borderRadius: '4px',
-                    border: '1px solid #e9ecef'
-                  }}>
-                    ✅ All thumbnails automatically sized to YouTube specs (1280×720)
-                  </div>
+	        {/* Refinement History Browser */}
+	        {refinementHistory.histories.length > 0 &&
+	          !refinementState.isRefinementMode && (
+	            <section className="mt-6">
+	              <div className="mb-4 flex items-center gap-3">
+	                <Button
+	                  type="button"
+	                  size="sm"
+	                  variant={showHistoryBrowser ? "default" : "outline"}
+	                  onClick={() => setShowHistoryBrowser(!showHistoryBrowser)}
+	                >
+	                  {showHistoryBrowser ? "Hide" : "Show"} Refinement History ({
+	                    refinementHistory.histories.length
+	                  })
+	                </Button>
+	              </div>
+	
+	              {showHistoryBrowser && (
+	                <RefinementHistoryBrowser
+	                  histories={refinementHistory.histories}
+	                  onSelectHistory={handleSelectHistoryForRefinement}
+	                  onDeleteHistory={handleDeleteHistory}
+	                  onClearAllHistories={handleClearAllHistories}
+	                  currentHistoryId={refinementState.currentHistory?.id}
+	                />
+	              )}
+	            </section>
+	          )}
+	        </AuthGuard>
 
-                  <div className={styles.navRow}>
-                    <button onClick={() => goTo(2)}>← Back</button>
-                  </div>
-                </>
-              )}
+	        <section
+	          aria-labelledby="thumbnailFaq"
+	          className="mt-12 space-y-4"
+	        >
+	          <div className="text-center">
+	            <h2
+	              id="thumbnailFaq"
+	              className="text-2xl font-semibold tracking-tight text-slate-900"
+	            >
+	              YouTube thumbnail generator FAQ
+	            </h2>
+	            <p className="mt-1 text-sm text-slate-600">
+	              Answers to common questions about thumbnail quality, credits, and
+	              exports.
+	            </p>
+	          </div>
 
-              {loading && (
-                <div style={{ display: "grid", gap: 16, textAlign: "center", padding: "32px 16px" }}>
-                  <div style={{ fontSize: "18px", fontWeight: "600" }}>Generating thumbnails...</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 12, justifyContent: 'center' }}>
-                    <strong>Progress</strong>
-                    <span>
-                      {progressTotal > 0 ? `${progressDone}/${progressTotal}` : (results.length > 0 ? `${results.length}…` : 'starting…')}
-                    </span>
-                  </div>
-                  <div style={{ width: "100%", height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden" }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.round((progressDone / (progressTotal || Math.max(1, results.length))) * 100))}%`,
-                        background: "linear-gradient(90deg, #3b82f6, #1d4ed8)",
-                        borderRadius: "4px",
-                        transition: 'width 0.3s ease'
-                      }}
-                    />
-                  </div>
-                  <div style={{ fontSize: "14px", opacity: 0.7 }}>
-                    Creating {Math.max(1, count) * (selectedIds.length || 0)} thumbnail{(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'}...
-                  </div>
-                </div>
-              )}
-
-              {!loading && results.length > 0 && !refinementState.isRefinementMode && (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
-                    <button onClick={downloadAll} disabled={downloadingAll}>
-                      {downloadingAll ? "Downloading..." : "Download all"}
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                    {results.map((src, i) => (
-                      <div
-                        key={i}
-                        className={refinementState.selectedThumbnailIndex === i ? styles.selectedThumbnail : ""}
-                        style={{
-                          border: refinementState.selectedThumbnailIndex === i
-                            ? "3px solid var(--nb-accent)"
-                            : "1px solid #ddd",
-                          padding: 8,
-                          borderRadius: 8,
-                          width: 320,
-                          flexShrink: 0
-                        }}
-                      >
-                        {src ? (<img src={src} alt={`result-${i}`} style={{ width: '100%', display: 'block', borderRadius: 4 }} />) : null}
-
-                        {/* Action buttons */}
-                        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                          <button
-                            onClick={() => download(src, i)}
-                            disabled={downloadingIndex === i}
-                          >
-                            {downloadingIndex === i ? "Downloading..." : "Download"}
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(src, i)}
-                            disabled={copyingIndex === i}
-                          >
-                            {copyingIndex === i ? "Copying..." : "Copy"}
-                          </button>
-                        </div>
-
-                        {/* Refinement Section - grouped together */}
-                        <div className={styles.refinementSection}>
-                          <div className={styles.refinementHeader}>
-                            <span className={styles.refinementHeaderIcon}>✨</span>
-                            <span className={styles.refinementHeaderText}>Refine This Thumbnail</span>
-                          </div>
-                          <div className={styles.refinementDescription}>
-                            AI-powered improvements to make your thumbnail even better
-                          </div>
-
-                          {/* Suggested Refinements */}
-                          {loadingSuggestions[i] && (
-                            <div className={styles.suggestionsLoading}>
-                              <div className={styles.loadingSpinner}></div>
-                              <span>Generating AI suggestions...</span>
-                            </div>
-                          )}
-                          {!loadingSuggestions[i] && suggestedRefinements[i] && suggestedRefinements[i].length > 0 && (
-                            <div className={styles.suggestionsGrid}>
-                              <div className={styles.suggestionsLabel}>💡 Quick Refinements (click to apply):</div>
-                              {suggestedRefinements[i].map((suggestion, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() => handleApplySuggestedRefinement(i, suggestion)}
-                                  className={styles.suggestedRefinement}
-                                  title={`Click to apply: ${suggestion}`}
-                                >
-                                  {suggestion}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Custom Refine Button */}
-                          <button
-                            onClick={() => handleSelectThumbnailForRefinement(i)}
-                            className={styles.customRefineButton}
-                            title="Write your own custom refinement instructions to improve this thumbnail exactly how you want"
-                          >
-                            ✏️ Custom Refine
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className={styles.navRow}>
-                    <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }}>← Generate More</button>
-                    <button onClick={() => goTo(1)}>Start Over</button>
-                  </div>
-                </>
-              )}
-
-              {/* Refinement Interface */}
-              {refinementState.isRefinementMode && (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                    <button
-                      onClick={handleExitRefinementMode}
-                      style={{
-                        padding: "8px 16px",
-                        border: "1px solid #ddd",
-                        background: "white",
-                        borderRadius: 4,
-                        cursor: "pointer"
-                      }}
-                    >
-                      ← Back to Results
-                    </button>
-                    <h3 style={{ margin: 0 }}>Thumbnail Refinement</h3>
-                  </div>
-
-                  <ThumbnailRefinement
-                    refinementState={refinementState}
-                    onUpdateRefinementState={handleUpdateRefinementState}
-                    originalPrompt={buildPrompt({
-                      profile: selectedIds[0] || "",
-                      promptOverride: customPresets[selectedIds[0]]?.prompt ?? curatedMap[selectedIds[0]]?.prompt,
-                      headline,
-                      colors,
-                      aspect,
-                      notes: prompt,
-                      hasReferenceImages: refFrames.length > 0,
-                      hasSubjectImages: frames.length > 0,
-                    })}
-                    templateId={selectedIds[0] || "default"}
-                    credits={credits}
-                    isAuthed={isAuthed}
-                    onAuthRequired={handleAuthRequired}
-                  />
-                </>
-              )}
-
-              {error && !authRequired && (
-                <p style={{ color: "crimson" }}>{error}</p>
-              )}
-            </section>
-          )}
-
-
-          {authRequired && (
-            <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
-              <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It’s free after you sign up.</div>
-              <button onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
-                Sign in with Google
-              </button>
-            </div>
-          )}
-
-          {showAuthModal && (
-            <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'grid', placeItems: 'center', zIndex: 1000 }}>
-              <div style={{ background: '#fff', color: '#111', padding: 20, borderRadius: 10, border: '3px solid var(--nb-border)', boxShadow: '8px 8px 0 var(--nb-border)', maxWidth: 420 }}>
-                <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Sign in to generate — it’s free</div>
-                <p style={{ marginTop: 0 }}>Create thumbnails for free after you sign up. We’ll also track your credits.</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
-                  <button onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {/* Refinement History Browser */}
-        {refinementHistory.histories.length > 0 && !refinementState.isRefinementMode && (
-          <section style={{ marginTop: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <button
-                onClick={() => setShowHistoryBrowser(!showHistoryBrowser)}
-                className={`${styles.historyButton} ${showHistoryBrowser ? styles.historyButtonActive : ""}`}
-              >
-                {showHistoryBrowser ? "Hide" : "Show"} Refinement History ({refinementHistory.histories.length})
-              </button>
-            </div>
-
-            {showHistoryBrowser && (
-              <RefinementHistoryBrowser
-                histories={refinementHistory.histories}
-                onSelectHistory={handleSelectHistoryForRefinement}
-                onDeleteHistory={handleDeleteHistory}
-                onClearAllHistories={handleClearAllHistories}
-                currentHistoryId={refinementState.currentHistory?.id}
-              />
-            )}
-          </section>
-        )}
-        </AuthGuard>
-
-        <section className={styles.faqSection} aria-labelledby="thumbnailFaq">
-          <div className={styles.faqCard}>
-            <h2 id="thumbnailFaq" className={styles.featureHeading}>YouTube thumbnail generator FAQ</h2>
-            {thumbnailFaqItems.map((item) => (
-              <details key={item.question} className={styles.faqItem}>
-                <summary>{item.question}</summary>
-                <p>{item.answer}</p>
-              </details>
-            ))}
-          </div>
-        </section>
+	          <Card className="border-slate-200 bg-white">
+	            <CardHeader className="pb-3">
+	              <CardTitle className="text-base">
+	                Frequently asked questions
+	              </CardTitle>
+	              <CardDescription>
+	                Helpful details about how the thumbnail generator works.
+	              </CardDescription>
+	            </CardHeader>
+	            <CardContent className="pt-0">
+	              <div className="space-y-3">
+	                {thumbnailFaqItems.map((item) => (
+	                  <details
+	                    key={item.question}
+	                    className="group rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm"
+	                  >
+	                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-900">
+	                      <span>{item.question}</span>
+	                      <span className="text-slate-400 transition-transform group-open:rotate-180">
+	                        <svg
+	                          xmlns="http://www.w3.org/2000/svg"
+	                          viewBox="0 0 20 20"
+	                          fill="currentColor"
+	                          className="h-4 w-4"
+	                          aria-hidden="true"
+	                        >
+	                          <path
+	                            fillRule="evenodd"
+	                            d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+	                            clipRule="evenodd"
+	                          />
+	                        </svg>
+	                      </span>
+	                    </summary>
+	                    <p className="mt-2 text-sm leading-relaxed text-slate-600">
+	                      {item.answer}
+	                    </p>
+	                  </details>
+	                ))}
+	              </div>
+	            </CardContent>
+	          </Card>
+	        </section>
       </main>
     </div>
   );

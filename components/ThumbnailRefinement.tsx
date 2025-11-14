@@ -1,5 +1,6 @@
 "use client";
 import { useState, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import styles from "@/app/thumbnails/page.module.css";
 import {
   RefinementHistory,
@@ -369,21 +370,18 @@ export default function ThumbnailRefinement({
         <span className={styles.refinementBadge}>Refinement Mode</span>
       </div>
 
-      {/* Current Thumbnail Display */}
-      <div style={{ display: "grid", gap: 12 }}>
-        <h4 style={{ margin: 0, color: "var(--nb-accent)" }}>Current Version</h4>
-        <div style={{ 
-          display: "flex", 
-          gap: 16, 
-          alignItems: "flex-start",
-          flexWrap: "wrap" 
-        }}>
-          <div style={{ 
-            border: "3px solid var(--nb-accent)", 
-            borderRadius: 8, 
-            overflow: "hidden",
-            maxWidth: 320 
-          }}>
+	      {/* Current Thumbnail Display */}
+	      <div style={{ display: "grid", gap: 12 }}>
+	        <h4 className="text-sm font-semibold text-primary">Current Version</h4>
+	        <div
+	          style={{
+	            display: "flex",
+	            gap: 16,
+	            alignItems: "flex-start",
+	            flexWrap: "wrap",
+	          }}
+	        >
+	          <div className="max-w-xs overflow-hidden rounded-lg border-2 border-primary">
             <img 
               src={currentIteration.imageUrl} 
               alt="Current thumbnail" 
@@ -422,62 +420,39 @@ export default function ThumbnailRefinement({
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button
-                onClick={handleRefine}
-                disabled={
-                  refinementState.isRefining ||
-                  !refinementState.feedbackPrompt.trim() ||
-                  (!isAuthed) ||
-                  (credits < 1)
-                }
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: refinementState.isRefining ? "#ccc" : "var(--nb-accent)",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: refinementState.isRefining ? "not-allowed" : "pointer",
-                  fontWeight: "bold"
-                }}
-              >
-                {refinementState.isRefining
-                  ? "Refining..."
-                  : `Refine Thumbnail (uses 1 credit)`
-                }
-              </button>
+	            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+	              <Button
+	                onClick={handleRefine}
+	                disabled={
+	                  refinementState.isRefining ||
+	                  !refinementState.feedbackPrompt.trim() ||
+	                  !isAuthed ||
+	                  credits < 1
+	                }
+	                size="lg"
+	              >
+	                {refinementState.isRefining
+	                  ? "Refining..."
+	                  : "Refine thumbnail (uses 1 credit)"}
+	              </Button>
 
-              <button
-                onClick={() => handleDownload(currentIteration.imageUrl)}
-                disabled={refinementState.isDownloading}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: "#28a745",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontWeight: "bold"
-                }}
-              >
-                {refinementState.isDownloading ? "Downloading..." : "Download"}
-              </button>
+	              <Button
+	                onClick={() => handleDownload(currentIteration.imageUrl)}
+	                disabled={refinementState.isDownloading}
+	                size="lg"
+	                variant="outline"
+	              >
+	                {refinementState.isDownloading ? "Downloading..." : "Download"}
+	              </Button>
 
-              <button
-                onClick={() => handleCopy(currentIteration.imageUrl)}
-                disabled={refinementState.isCopying}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: "#17a2b8",
-                  color: "white",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontWeight: "bold"
-                }}
-              >
-                {refinementState.isCopying ? "Copying..." : "Copy"}
-              </button>
+	              <Button
+	                onClick={() => handleCopy(currentIteration.imageUrl)}
+	                disabled={refinementState.isCopying}
+	                size="lg"
+	                variant="outline"
+	              >
+	                {refinementState.isCopying ? "Copying..." : "Copy"}
+	              </Button>
             </div>
 
             {refinementState.refinementError && (
@@ -541,15 +516,11 @@ export default function ThumbnailRefinement({
                           }
                         </div>
                       )}
-                      {iteration.id === currentIteration.id && (
-                        <div style={{ 
-                          marginTop: 4, 
-                          color: "var(--nb-accent)", 
-                          fontWeight: "bold" 
-                        }}>
-                          Current
-                        </div>
-                      )}
+	                      {iteration.id === currentIteration.id && (
+	                        <div className="mt-1 text-xs font-semibold text-primary">
+	                          Current
+	                        </div>
+	                      )}
                     </div>
                   </div>
                 ))}
