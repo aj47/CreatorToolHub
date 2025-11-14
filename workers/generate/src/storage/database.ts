@@ -676,4 +676,70 @@ export class DatabaseService {
     if (!result) return null;
     return convertUserSettingsRow(result);
   }
+
+  /**
+   * Delete all user data and the user record
+   * Returns objects to be deleted from R2 storage
+   */
+  async deleteUser(userId: string): Promise<{ r2Keys: string[] }> {
+    const r2Keys: string[] = [];
+
+    // Get all templates and their reference images
+    const templates = await this.getTemplates(userId);
+    for (const template of templates) {
+      const refImages = await this.getReferenceImages(template.id);
+      for (const img of refImages) {
+        r2Keys.push(img.r2_key);
+      }
+    }
+
+    // Get all generations and their outputs
+    const generations = await this.getGenerations(userId, { limit: 100 });
+    for (const generation of generations) {
+      const outputs = await this.getGenerationOutputs(generation.id);
+      for (const output of outputs) {
+        r2Keys.push(output.r2_key);
+      }
+    }
+
+    // Delete in correct order (respecting foreign key constraints)
+    // 1. Delete generation outputs and inputs (no foreign keys)
+    await this.db.prepare(`
+      DELETE FROM generation_outputs
+      WHERE generation_id IN (SELECT id FROM generations WHERE user_id = ?)
+    `).bind(userId).run();
+
+    await this.db.prepare(`
+      DELETE FROM generation_inputs
+      WHERE generation_id IN (SELECT id FROM generations WHERE user_id = ?)
+    `).bind(userId).run();
+
+    // 2. Delete generations
+    await this.db.prepare(`
+      DELETE FROM generations WHERE user_id = ?
+    `).bind(userId).run();
+
+    // 3. Delete reference images
+    await this.db.prepare(`
+      DELETE FROM reference_images
+      WHERE template_id IN (SELECT id FROM user_templates WHERE user_id = ?)
+    `).bind(userId).run();
+
+    // 4. Delete templates
+    await this.db.prepare(`
+      DELETE FROM user_templates WHERE user_id = ?
+    `).bind(userId).run();
+
+    // 5. Delete settings
+    await this.db.prepare(`
+      DELETE FROM user_settings WHERE user_id = ?
+    `).bind(userId).run();
+
+    // 6. Finally delete the user
+    await this.db.prepare(`
+      DELETE FROM users WHERE id = ?
+    `).bind(userId).run();
+
+    return { r2Keys };
+  }
 }
