@@ -14,32 +14,70 @@ function getAuthToken(request: Request): string | null {
   return cookies['auth-token'] || null;
 }
 
-function verifyAuthToken(token: string): { email: string; name: string; picture: string } | null {
+interface AuthTokenPayload {
+  email: string;
+  name: string;
+  picture: string;
+  exp: number;
+  signOutAfter?: number;
+}
+
+function encodeAuthPayload(payload: AuthTokenPayload): string {
+  const json = JSON.stringify(payload);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function decodeAuthPayload(token: string): AuthTokenPayload | null {
   try {
-    const payload = JSON.parse(atob(token));
+    const binary = atob(token);
 
-    // Check expiration
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-      return null;
+    // First, try to interpret as UTF-8 encoded JSON (new scheme)
+    try {
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const decoder = new TextDecoder();
+      const json = decoder.decode(bytes);
+      return JSON.parse(json) as AuthTokenPayload;
+    } catch {
+      // Fallback for legacy tokens where atob(token) returned the JSON string directly
+      return JSON.parse(binary) as AuthTokenPayload;
     }
-
-    // Check if token was created before a global sign out time
-    if (payload.signOutAfter && payload.signOutAfter < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
-
-    if (payload.email) {
-      return {
-        email: payload.email,
-        name: payload.name || '',
-        picture: payload.picture || '',
-      };
-    }
-
-    return null;
   } catch {
     return null;
   }
+}
+
+function verifyAuthToken(token: string): { email: string; name: string; picture: string } | null {
+  const payload = decodeAuthPayload(token);
+  if (!payload) return null;
+
+  // Check expiration
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  // Check if token was created before a global sign out time
+  if (payload.signOutAfter && payload.signOutAfter < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  if (payload.email) {
+    return {
+      email: payload.email,
+      name: payload.name || '',
+      picture: payload.picture || '',
+    };
+  }
+
+  return null;
 }
 
 function getUser(request: Request): { email: string; name: string; picture: string } | null {

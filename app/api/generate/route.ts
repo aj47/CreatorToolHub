@@ -1,7 +1,7 @@
 // Use edge runtime for Cloudflare Pages compatibility
 export const runtime = "edge";
 
-import { getUser } from "@/lib/auth";
+import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 
@@ -70,45 +70,57 @@ export async function POST(req: Request) {
     // Proxy to worker API for database persistence (both development and production)
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
     if (workerUrl) {
+      try {
+        // Create auth token for worker API using the shared auth helper (UTF-8 safe)
+        const authToken = createAuthToken(
+          {
+            email: user.email,
+            name: user.name || '',
+            picture: user.picture || '',
+          },
+          1 // 1 hour expiry
+        );
 
-      // Create auth token for worker API using btoa (Edge runtime compatible)
-      const tokenData = JSON.stringify({
-        email: user.email,
-        name: user.name || '',
-        picture: user.picture || '',
-        exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour expiry
-      });
-      const authToken = btoa(tokenData);
+        const workerRes = await fetch(`${workerUrl}/api/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cookie': `auth-token=${authToken}`
+          },
+          body: JSON.stringify({
+            prompt,
+            frames,
+            framesMime,
+            variants,
+            source: source || 'thumbnails'
+          })
+        });
 
-      const workerRes = await fetch(`${workerUrl}/api/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': `auth-token=${authToken}`
-        },
-        body: JSON.stringify({
-          prompt,
-          frames,
-          framesMime,
-          variants,
-          source: source || 'thumbnails'
-        })
-      });
+        if (!workerRes.ok) {
+          // For auth/credit issues, surface the worker's response directly
+          if (workerRes.status === 401 || workerRes.status === 402) {
+            const error = await workerRes.json().catch(() => ({ error: `Worker API error (status: ${workerRes.status}, url: ${workerUrl})` }));
+            return Response.json(error, { status: workerRes.status });
+          }
 
-      if (!workerRes.ok) {
-        const error = await workerRes.json().catch(() => ({ error: `Worker API error (status: ${workerRes.status}, url: ${workerUrl})` }));
-        return Response.json(error, { status: workerRes.status });
-      }
-
-      // Stream NDJSON response from worker
-      return new Response(workerRes.body, {
-        status: workerRes.status,
-        headers: {
-          'Content-Type': workerRes.headers.get('Content-Type') || 'application/x-ndjson',
-          'Cache-Control': 'no-store, no-transform',
-          'X-Accel-Buffering': 'no'
+          // For other failures (5xx, misconfiguration, etc.), fall back to direct Gemini handler
+          console.warn("/api/generate: worker API returned", workerRes.status, "- falling back to direct Gemini handler");
+          // Fall through to the direct Gemini path below
+        } else {
+          // Stream NDJSON response from worker
+          return new Response(workerRes.body, {
+            status: workerRes.status,
+            headers: {
+              'Content-Type': workerRes.headers.get('Content-Type') || 'application/x-ndjson',
+              'Cache-Control': 'no-store, no-transform',
+              'X-Accel-Buffering': 'no'
+            }
+          });
         }
-      });
+      } catch (err) {
+        console.warn("/api/generate: worker API unreachable, falling back to direct Gemini handler", err);
+        // Fall through to the direct Gemini path below
+      }
     }
 
 

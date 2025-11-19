@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "bash scripts/dev-local-stack.sh",
-    "dev:frontend-only": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
+    "dev:frontend-only": "node node_modules/next/dist/bin/next dev --turbopack",
+    "build": "node node_modules/next/dist/bin/next build",
+    "start": "node node_modules/next/dist/bin/next start",
     "lint": "eslint",
     "pages:setup": "npx @cloudflare/next-on-pages@latest --setup",
     "pages:build": "npx @cloudflare/next-on-pages",

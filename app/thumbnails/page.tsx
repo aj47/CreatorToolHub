@@ -82,7 +82,8 @@ export default function Home() {
     }
   }, [hybridStorage.frames, hybridStorage.refFrames, hybridStorage.isLoading]);
 
-  const [count, setCount] = useState(4);
+  // Default to a single variant to minimize credit usage
+  const [count, setCount] = useState(1);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
