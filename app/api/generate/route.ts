@@ -1,7 +1,7 @@
 // Use edge runtime for Cloudflare Pages compatibility
 export const runtime = "edge";
 
-import { getUser } from "@/lib/auth";
+import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 
@@ -71,14 +71,15 @@ export async function POST(req: Request) {
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
     if (workerUrl) {
       try {
-        // Create auth token for worker API using btoa (Edge runtime compatible)
-        const tokenData = JSON.stringify({
-          email: user.email,
-          name: user.name || '',
-          picture: user.picture || '',
-          exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour expiry
-        });
-        const authToken = btoa(tokenData);
+        // Create auth token for worker API using the shared auth helper (UTF-8 safe)
+        const authToken = createAuthToken(
+          {
+            email: user.email,
+            name: user.name || '',
+            picture: user.picture || '',
+          },
+          1 // 1 hour expiry
+        );
 
         const workerRes = await fetch(`${workerUrl}/api/generate`, {
           method: 'POST',

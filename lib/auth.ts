@@ -14,33 +14,63 @@ export function getAuthToken(request: Request): string | null {
   return cookies['auth-token'] || null;
 }
 
-export function verifyAuthToken(token: string): User | null {
+function encodeAuthPayload(payload: AuthToken): string {
+  const json = JSON.stringify(payload);
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function decodeAuthPayload(token: string): AuthToken | null {
   try {
-    const payload: AuthToken = JSON.parse(atob(token));
+    const binary = atob(token);
 
-    // Check expiration
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-      return null;
+    // First, try to interpret as UTF-8 encoded JSON (new scheme)
+    try {
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const decoder = new TextDecoder();
+      const json = decoder.decode(bytes);
+      return JSON.parse(json) as AuthToken;
+    } catch {
+      // Fallback for legacy tokens where atob(token) returned the JSON string directly
+      return JSON.parse(binary) as AuthToken;
     }
-
-    // Check if token was created before a global sign out time
-    // This provides server-side session invalidation
-    if (payload.signOutAfter && payload.signOutAfter < Math.floor(Date.now() / 1000)) {
-      return null;
-    }
-
-    if (payload.email) {
-      return {
-        email: payload.email,
-        name: payload.name || '',
-        picture: payload.picture || '',
-      };
-    }
-
-    return null;
   } catch {
     return null;
   }
+}
+
+export function verifyAuthToken(token: string): User | null {
+  const payload = decodeAuthPayload(token);
+  if (!payload) return null;
+
+  // Check expiration
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  // Check if token was created before a global sign out time
+  // This provides server-side session invalidation
+  if (payload.signOutAfter && payload.signOutAfter < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  if (payload.email) {
+    return {
+      email: payload.email,
+      name: payload.name || '',
+      picture: payload.picture || '',
+    };
+  }
+
+  return null;
 }
 
 export function getUser(request: Request): User | null {
@@ -57,27 +87,27 @@ export function createAuthToken(user: User, expiresInHours: number = 24): string
     exp: Math.floor(Date.now() / 1000) + (expiresInHours * 60 * 60),
   };
 
-  return btoa(JSON.stringify(payload));
+  return encodeAuthPayload(payload);
 }
 
 export function createInvalidatedToken(token: string): string {
-  try {
-    const payload: AuthToken = JSON.parse(atob(token));
-    const invalidatedPayload: AuthToken = {
-      ...payload,
-      signOutAfter: Math.floor(Date.now() / 1000),
-    };
-    return btoa(JSON.stringify(invalidatedPayload));
-  } catch {
+  const payload = decodeAuthPayload(token);
+  if (!payload) {
     // If token is invalid, return a dummy invalidated token
-    return btoa(JSON.stringify({
+    return encodeAuthPayload({
       email: '',
       name: '',
       picture: '',
       exp: 0,
       signOutAfter: Math.floor(Date.now() / 1000),
-    }));
+    });
   }
+
+  const invalidatedPayload: AuthToken = {
+    ...payload,
+    signOutAfter: Math.floor(Date.now() / 1000),
+  };
+  return encodeAuthPayload(invalidatedPayload);
 }
 
 export function createAuthCookie(token: string, isProduction: boolean = false): string {
