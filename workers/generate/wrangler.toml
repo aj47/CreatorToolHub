@@ -17,7 +17,7 @@ bucket_name = "creator-tool-hub-user-data"
 [vars]
 NODE_ENV = "production"
 FEATURE_ID = "credits"
-MODEL_ID = "gemini-2.5-flash-image-preview"
+MODEL_ID = "gemini-3-pro-image-preview"
 ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000"
 PUBLIC_FILE_BASE_URL = "https://creatortoolhub.com"
 R2_PUBLIC_URL = "https://pub-d8e8e8e8e8e8e8e8.r2.dev"
@@ -40,7 +40,7 @@ routes = [
 
 # Development environment configuration
 [env.development]
-vars = { NODE_ENV = "development", FEATURE_ID = "credits", MODEL_ID = "gemini-2.5-flash-image-preview", ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000", PUBLIC_FILE_BASE_URL = "http://localhost:8787" }
+vars = { NODE_ENV = "development", FEATURE_ID = "credits", MODEL_ID = "gemini-3-pro-image-preview", ALLOWED_ORIGINS = "https://creatortoolhub.com,https://www.creatortoolhub.com,http://localhost:3000,http://127.0.0.1:3000", PUBLIC_FILE_BASE_URL = "http://localhost:8787" }
 
 # Database configuration for development
 [[env.development.d1_databases]]
