@@ -70,18 +70,17 @@ const extras: StyleCard[] = [
     id: "premium-saas-dark",
     title: "Premium SaaS Dark",
     prompt:
-      "Create a high-contrast, dark-mode premium SaaS thumbnail with pure black background. Center all content on a single rounded-corner card with very dark grey fill and soft vignette gradient. Use electric periwinkle/indigo blue (#6366F1) as the primary accent for headlines, key metrics, and data points. Apply clean modern sans-serif typography (Inter/SF Pro style) with large bold sentence-case headlines in white. Include minimal data visualization elements: horizontal performance axis with dotted guide lines, circular markers with numeric labels, and small arrows. Add subtle legend with colored dots. Use lots of negative space, maintain minimalist aesthetic with no clutter. Apply soft card shadow and keep all borders minimal. Include small all-caps footnote for technical precision. Typography should use tight letter-spacing for labels and axis text to create analytical, technical feel.",
+      "Create a high-contrast, dark-mode premium SaaS thumbnail with pure black background. Use electric periwinkle/indigo blue (#6366F1) as the primary accent for headlines, key metrics, and data points. Apply clean modern sans-serif typography (Inter/SF Pro style) with large bold sentence-case headlines in white. Include minimal data visualization elements: horizontal performance axis with dotted guide lines, circular markers with numeric labels, and small arrows. Add subtle legend with colored dots. Use lots of negative space, maintain minimalist aesthetic with no clutter. Apply soft card shadow and keep all borders minimal. Include small all-caps footnote for technical precision. Typography should use tight letter-spacing for labels and axis text to create analytical, technical feel.",
     previewUrl: svgDataUrl("Premium SaaS Dark", "#000000", "#6366F1"),
     colors: ["#000000", "#1F1F1F", "#6366F1", "#E5E7EB", "#9CA3AF"],
   },
   {
-    id: "premium-analytics",
-    title: "Premium Analytics",
-    prompt:
-      "Design a premium dark-mode analytics thumbnail with pure black background and centered rounded card layout. Feature clean data visualization with horizontal comparison bars or performance metrics. Use electric indigo blue (#6366F1) for primary data points and soft light grey/white for secondary elements. Apply modern neo-grotesk typography with bold white headlines and small-caps labels. Include dotted guide lines, circular metric indicators with numbers, and minimal arrows for direction. Add subtle vignette gradient on the dark grey card background. Maintain extreme minimalism with generous negative space. Use tight letter-spacing on technical labels for precision feel. Include color-coded legend with dots at bottom. Apply soft shadows and rounded corners throughout. Keep composition centered and balanced with analytical, professional aesthetic.",
-    previewUrl: svgDataUrl("Premium Analytics", "#000000", "#6366F1"),
-    colors: ["#000000", "#262626", "#6366F1", "#F3F4F6", "#6B7280"],
-  },
+    id: "minimal-highlight",
+    title: "Minimal Highlight",
+    prompt: 
+      "Take the main element(s) from reference images and place to one side. The other side should have a short clickbait statement with one or two keywords highlighted in bright yellow. The background is dark and can be very subtly textured or have a grid.",
+    previewUrl: svgDataUrl("Minimal Highlight", "#000000", "#ffff00ff"),
+  }
 ];
 
 export const curatedStyles: StyleCard[] = [...builtinCards, ...extras];
