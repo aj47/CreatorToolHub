@@ -6,8 +6,8 @@ import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils } from "@/lib/types/refinement";
 
-// Use Gemini 2.5 Flash Image via generateContent
-const MODEL_ID = "gemini-2.5-flash-image-preview";
+// Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
+const MODEL_ID = "gemini-3-pro-image-preview";
 
 // Function to create a mock refined image for development mode
 async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: string): Promise<string> {

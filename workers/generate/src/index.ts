@@ -63,7 +63,7 @@ function withCors(resp: Response, request: Request, env: any): Response {
   return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash-image-preview";
+const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 // Auth helpers (mirrored from app/lib/auth.ts)
 function getAuthToken(request: Request): string | null {
   const cookieHeader = request.headers.get("cookie");
@@ -113,6 +113,12 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts }],
+      generationConfig: {
+        // Explicitly request only 1 image per API call
+        // Note: This parameter may not be supported by all models
+        candidateCount: 1,
+        responseModalities: ["IMAGE"]
+      },
       safetySettings: [
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -494,6 +500,9 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     }
     autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
     customer_id = deriveCustomerId(user.email);
+
+    // Check for required credits (1 credit per variant requested)
+    // We've configured Gemini to return exactly 1 image per API call
     const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
     if (!checkRes?.data?.allowed) {
       return errorResponse(
@@ -615,12 +624,18 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
             const cand = json?.candidates?.[0];
             const parts = cand?.content?.parts ?? [];
             const imgs: string[] = [];
+
+            // Log the number of parts returned by Gemini for debugging
+            console.log(`Gemini API returned ${parts.length} parts in response`);
+
             for (const p of parts) {
               if (p?.inlineData?.data && p?.inlineData?.mimeType) {
                 const { data, mimeType } = p.inlineData;
                 imgs.push(`data:${mimeType};base64,${data}`);
               }
             }
+
+            console.log(`Extracted ${imgs.length} images from Gemini response`);
             return imgs;
           });
 
@@ -708,9 +723,19 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
         }
 
         // Track credit usage (skip in development)
+        // We've configured Gemini to return exactly 1 image per API call
+        // So we charge based on variants requested (count), not actual images generated
+        // Log both values for monitoring
+        const actualImagesGenerated = outputIndex;
         if (!isDevelopment && autumn && customer_id) {
           try {
             await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+            console.log(`Tracked ${count} credits for generation ${generation.id} (requested: ${count} variants, generated: ${actualImagesGenerated} images)`);
+
+            // Alert if mismatch detected (Gemini returned more images than expected)
+            if (actualImagesGenerated !== count) {
+              console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${count}.`);
+            }
           } catch (trackError) {
             console.warn('Failed to track credit usage', trackError);
           }

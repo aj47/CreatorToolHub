@@ -5,8 +5,8 @@ import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 
-// Use Gemini 2.5 Flash Image via generateContent (lightweight, "Nano/Banana" family)
-const MODEL_ID = "gemini-2.5-flash-image-preview";
+// Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
+const MODEL_ID = "gemini-3-pro-image-preview";
 
 async function generateImagesWithGemini(
   apiKey: string,
@@ -30,11 +30,20 @@ async function generateImagesWithGemini(
     const result = await genAI.models.generateContent({
       model: MODEL_ID,
       contents: [{ parts: reqParts }],
+      generationConfig: {
+        // Explicitly request only 1 image per API call
+        candidateCount: 1,
+        responseModalities: ["IMAGE"]
+      }
     });
 
     // Extract base64 image data from inlineData parts
     const images: string[] = [];
     const resParts: any[] = (result as any)?.candidates?.[0]?.content?.parts ?? [];
+
+    // Log the number of parts returned for debugging
+    console.log(`Gemini API returned ${resParts.length} parts in response`);
+
     for (const part of resParts) {
       const b64 = part?.inlineData?.data as string | undefined;
       if (typeof b64 === 'string' && b64.length > 0) {
@@ -42,6 +51,7 @@ async function generateImagesWithGemini(
       }
     }
 
+    console.log(`Extracted ${images.length} images from Gemini response`);
     return images;
   } catch (error) {
     console.error("Error generating images:", error);
@@ -157,6 +167,7 @@ export async function POST(req: Request) {
     const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
     // Each request consumes credits equal to the variant count
+    // We've configured Gemini to return exactly 1 image per API call
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
     let allowed = true;
@@ -206,9 +217,18 @@ export async function POST(req: Request) {
     }
 
     // Track credit usage equal to the variant count after a successful generation
+    // We've configured Gemini to return exactly 1 image per API call
+    // Log both values for monitoring
+    const actualImagesGenerated = imagesAll.length;
     if (autumn) {
       try {
         await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
+        console.log(`Tracked ${count} credits (requested: ${count} variants, generated: ${actualImagesGenerated} images)`);
+
+        // Alert if mismatch detected
+        if (actualImagesGenerated !== count) {
+          console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${count}.`);
+        }
       } catch (e) {
         console.warn("Autumn track failed; continuing without failing request", e);
       }
