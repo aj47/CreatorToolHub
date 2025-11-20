@@ -30,7 +30,7 @@ async function generateImagesWithGemini(
     const result = await genAI.models.generateContent({
       model: MODEL_ID,
       contents: [{ parts: reqParts }],
-      generationConfig: {
+      config: {
         // Explicitly request only 1 image per API call
         candidateCount: 1,
         responseModalities: ["IMAGE"]
