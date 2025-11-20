@@ -6,7 +6,7 @@ import { profiles } from "@/lib/prompt/profiles";
 import { useCustomer } from "autumn-js/react";
 
 import TemplateGallery from "@/components/TemplateGallery";
-import { curatedMap } from "@/lib/gallery/curatedStyles";
+import { curatedMap, curatedStyles } from "@/lib/gallery/curatedStyles";
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
 import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
@@ -429,8 +429,6 @@ export default function Home() {
   // Use hybrid storage for templates instead of local state
   const customPresets = hybridStorage.templates;
 
-
-
   // Load saved custom profiles and prompt presets - now handled by hybrid storage
   useEffect(() => {
     // Migration is now handled by the hybrid storage system
@@ -442,6 +440,28 @@ export default function Home() {
       });
     }
   }, [hybridStorage.isMigrated, hybridStorage.isLoading, hybridStorage.triggerMigration]);
+
+  // Helper function to get only valid selected template IDs
+  const getValidSelectedIds = useCallback(() => {
+    const allValidTemplateIds = new Set([
+      ...Object.keys(customPresets),
+      ...curatedStyles.map(s => s.id)
+    ]);
+    return selectedIds.filter(id => allValidTemplateIds.has(id));
+  }, [customPresets, selectedIds]);
+
+  // Clean up invalid template IDs from selectedIds when templates change
+  useEffect(() => {
+    if (hybridStorage.isLoading) return;
+
+    const validSelectedIds = getValidSelectedIds();
+
+    // Update if any invalid IDs were found
+    if (validSelectedIds.length !== selectedIds.length) {
+      console.warn(`Cleaned up ${selectedIds.length - validSelectedIds.length} invalid template IDs from selection`);
+      setSelectedIds(validSelectedIds);
+    }
+  }, [customPresets, selectedIds, hybridStorage.isLoading, getValidSelectedIds]);
 
   const persistCustomPresets = async (obj: Record<string, Preset>) => {
     // This function is now handled by hybrid storage
@@ -827,9 +847,24 @@ export default function Home() {
   };
 
   const generate = async () => {
+    // Get all valid template IDs (custom + curated)
+    const allValidTemplateIds = new Set([
+      ...Object.keys(customPresets),
+      ...curatedStyles.map(s => s.id)
+    ]);
+
+    // Filter selectedIds to only include templates that actually exist
+    const validSelectedIds = selectedIds.filter(id => allValidTemplateIds.has(id));
+
+    // Update selectedIds if any invalid IDs were found
+    if (validSelectedIds.length !== selectedIds.length) {
+      console.warn(`Removed ${selectedIds.length - validSelectedIds.length} invalid template IDs from selection`);
+      setSelectedIds(validSelectedIds);
+    }
+
     // Client-side gate: block if out of credits for the number of generations requested
     const perTemplate = Math.max(1, count);
-    const needed = perTemplate * (selectedIds.length || 0);
+    const needed = perTemplate * (validSelectedIds.length || 0);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -846,7 +881,7 @@ export default function Home() {
     setProgressDone(0);
     setProgressTotal(0);
     try {
-      const ids = selectedIds;
+      const ids = validSelectedIds;
       if (ids.length === 0) {
         setLoading(false);
         setError("Please select at least one template.");
@@ -1750,14 +1785,14 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedIds.length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (getValidSelectedIds().length || 0)))}
                   >
                     {authLoading
                       ? "Loading..."
                       : !isAuthed
                         ? "Generate thumbnails (Free after sign-up)"
                         : (!loadingCustomer
-                            ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedIds.length || 0)} credit${(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'})`
+                            ? `Generate thumbnails (uses ${Math.max(1, count) * (getValidSelectedIds().length || 0)} credit${(Math.max(1, count) * (getValidSelectedIds().length || 0)) === 1 ? '' : 's'})`
                             : "Generate thumbnails")}
                   </button>
 
