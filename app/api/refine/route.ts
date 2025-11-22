@@ -4,6 +4,7 @@ export const runtime = "edge";
 import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
+import { fal } from "@fal-ai/client";
 import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
@@ -62,10 +63,10 @@ async function refineImageWithGemini(
   try {
     // Build request parts: base image first, then the combined prompt
     const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
-    
+
     // Add the base image
     reqParts.push({ inlineData: { mimeType: imageMime, data: baseImageData } });
-    
+
     // Add the combined prompt
     reqParts.push({ text: combinedPrompt });
 
@@ -96,6 +97,45 @@ async function refineImageWithGemini(
   }
 }
 
+async function refineImageWithFal(
+  apiKey: string,
+  baseImageUrl: string,
+  feedbackPrompt: string
+): Promise<string> {
+  // Configure Fal client
+  fal.config({
+    credentials: apiKey
+  });
+
+  try {
+    const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
+      input: {
+        prompt: feedbackPrompt,
+        image_urls: [baseImageUrl],
+        image_size: "landscape_16_9",
+        output_format: "png",
+        sync_mode: false
+      },
+      logs: false,
+    }) as { data: { images: Array<{ url: string }> } };
+
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error("No images generated");
+    }
+
+    // Fetch the image and convert to base64
+    const imageUrl = result.data.images[0].url;
+    const imageResponse = await fetch(imageUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const base64 = Buffer.from(imageBuffer).toString('base64');
+
+    return base64;
+  } catch (error) {
+    console.error("Fal refinement error:", error);
+    throw new Error(`Image refinement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Require authentication - bypass in development
@@ -113,13 +153,14 @@ export async function POST(req: Request) {
     }
 
     const requestData: RefinementRequest = await req.json();
-    const { 
-      baseImageUrl, 
-      baseImageData, 
-      originalPrompt, 
-      feedbackPrompt, 
-      templateId, 
-      parentIterationId 
+    const {
+      baseImageUrl,
+      baseImageData,
+      originalPrompt,
+      feedbackPrompt,
+      templateId,
+      parentIterationId,
+      provider = 'gemini' // Default to Gemini for backward compatibility
     } = requestData;
 
     // Validate required fields
@@ -130,13 +171,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get API key
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    // Validate provider
+    if (provider !== 'gemini' && provider !== 'fal') {
       return Response.json(
-        { success: false, error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
+        { success: false, error: "Invalid provider. Must be 'gemini' or 'fal'" },
+        { status: 400 }
       );
+    }
+
+    // Get API key based on provider
+    let apiKey: string | undefined;
+    if (provider === 'fal') {
+      apiKey = process.env.FAL_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { success: false, error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+    } else {
+      apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { success: false, error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
     }
 
     // Autumn credit check: each refinement costs 1 credit
@@ -216,8 +276,21 @@ Please apply the refinement request to modify the image while maintaining the ov
       // In development mode, create a mock refined image by applying a simple visual modification
       // This simulates the refinement process for UI testing
       refinedImageBase64 = await createMockRefinedImage(baseImageData, feedbackPrompt);
+    } else if (provider === 'fal') {
+      // Generate refined image using Fal AI
+      if (!baseImageUrl) {
+        return Response.json(
+          { success: false, error: "baseImageUrl is required for Fal AI provider" },
+          { status: 400 }
+        );
+      }
+      refinedImageBase64 = await refineImageWithFal(
+        apiKey,
+        baseImageUrl,
+        feedbackPrompt
+      );
     } else {
-      // Generate refined image using real Gemini API
+      // Generate refined image using Gemini API
       refinedImageBase64 = await refineImageWithGemini(
         apiKey,
         baseImageData,

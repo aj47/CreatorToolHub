@@ -44,6 +44,7 @@ export interface RefinementRequest {
   feedbackPrompt: string; // User's refinement feedback
   templateId: string; // Template ID for context
   parentIterationId?: string; // ID of parent iteration if continuing a chain
+  provider?: 'gemini' | 'fal'; // AI provider to use for refinement (default: gemini)
 }
 
 export interface RefinementResponse {

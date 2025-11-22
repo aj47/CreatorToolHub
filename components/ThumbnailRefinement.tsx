@@ -35,6 +35,7 @@ export default function ThumbnailRefinement({
     showHistory: false,
     isHistoryExpanded: false,
   });
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
 
   const currentHistory = refinementState.currentHistory;
   const currentIteration = currentHistory ? RefinementUtils.getCurrentIteration(currentHistory) : undefined;
@@ -116,6 +117,7 @@ export default function ThumbnailRefinement({
         feedbackPrompt: refinementState.feedbackPrompt,
         templateId,
         parentIterationId: currentIteration.id,
+        provider: selectedProvider,
       };
 
       const response = await fetch("/api/refine", {
@@ -405,6 +407,61 @@ export default function ThumbnailRefinement({
                   <strong>Last feedback:</strong> {currentIteration.feedbackPrompt}
                 </div>
               )}
+            </div>
+
+            {/* AI Provider Selection */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+                AI Provider:
+              </label>
+              <div style={{ display: "flex", gap: 12 }}>
+                <label style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  border: `2px solid ${selectedProvider === 'gemini' ? 'var(--nb-accent)' : '#ddd'}`,
+                  borderRadius: 6,
+                  background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
+                  transition: 'all 0.2s'
+                }}>
+                  <input
+                    type="radio"
+                    name="provider"
+                    value="gemini"
+                    checked={selectedProvider === 'gemini'}
+                    onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                    disabled={refinementState.isRefining}
+                  />
+                  <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
+                    Gemini (Google)
+                  </span>
+                </label>
+                <label style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  padding: "8px 12px",
+                  border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
+                  borderRadius: 6,
+                  background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
+                  transition: 'all 0.2s'
+                }}>
+                  <input
+                    type="radio"
+                    name="provider"
+                    value="fal"
+                    checked={selectedProvider === 'fal'}
+                    onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                    disabled={refinementState.isRefining}
+                  />
+                  <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                    Fal AI (Flux)
+                  </span>
+                </label>
+              </div>
             </div>
 
             {/* Feedback Input */}
