@@ -8,7 +8,8 @@ import {
   RefinementUIState,
   RefinementRequest,
   RefinementResponse,
-  RefinementUtils
+  RefinementUtils,
+  FalModel
 } from "@/lib/types/refinement";
 import { enforceYouTubeDimensions, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
@@ -36,6 +37,7 @@ export default function ThumbnailRefinement({
     isHistoryExpanded: false,
   });
   const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
+  const [selectedFalModel, setSelectedFalModel] = useState<FalModel>("fal-ai/alpha-image-232/edit-image");
 
   // Handle reference image upload
   const handleReferenceImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -166,7 +168,7 @@ export default function ThumbnailRefinement({
         }
       }
 
-      const request: RefinementRequest = {
+        const request: RefinementRequest = {
         baseImageUrl: currentIteration.imageUrl,
         baseImageData,
         originalPrompt,
@@ -174,7 +176,8 @@ export default function ThumbnailRefinement({
         templateId,
         parentIterationId: currentIteration.id,
         provider: selectedProvider,
-        referenceImages: (refinementState.referenceImages && refinementState.referenceImages.length > 0) ? refinementState.referenceImages : undefined,
+          referenceImages: (refinementState.referenceImages && refinementState.referenceImages.length > 0) ? refinementState.referenceImages : undefined,
+          model: selectedProvider === 'fal' ? selectedFalModel : undefined,
       };
 
       const response = await fetch("/api/refine", {
@@ -468,9 +471,9 @@ export default function ThumbnailRefinement({
 
             {/* AI Provider Selection */}
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
-                AI Provider:
-              </label>
+                <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+                  AI Provider:
+                </label>
               <div style={{ display: "flex", gap: 12 }}>
                 <label style={{
                   display: "flex",
@@ -483,7 +486,7 @@ export default function ThumbnailRefinement({
                   background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
                   transition: 'all 0.2s'
                 }}>
-                  <input
+                    <input
                     type="radio"
                     name="provider"
                     value="gemini"
@@ -514,11 +517,67 @@ export default function ThumbnailRefinement({
                     onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
                     disabled={refinementState.isRefining}
                   />
-                  <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
-                    Fal AI (Flux)
-                  </span>
+                    <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                      Fal AI (Flux)
+                    </span>
                 </label>
               </div>
+
+              {selectedProvider === 'fal' && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: "block", marginBottom: 6, fontWeight: "bold" }}>
+                    Fal Model:
+                  </label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: 'wrap' }}>
+                    <label style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      cursor: "pointer",
+                      padding: "8px 12px",
+                      border: `2px solid ${selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'var(--nb-accent)' : '#ddd'}`,
+                      borderRadius: 6,
+                      background: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? '#f0f7ff' : 'white',
+                      transition: 'all 0.2s'
+                    }}>
+                      <input
+                        type="radio"
+                        name="fal-model"
+                        value="fal-ai/alpha-image-232/edit-image"
+                        checked={selectedFalModel === 'fal-ai/alpha-image-232/edit-image'}
+                        onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
+                        disabled={refinementState.isRefining}
+                      />
+                      <span style={{ fontWeight: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'bold' : 'normal' }}>
+                        Flux (alpha-image-232)
+                      </span>
+                    </label>
+                    <label style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      cursor: "pointer",
+                      padding: "8px 12px",
+                      border: `2px solid ${selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'var(--nb-accent)' : '#ddd'}`,
+                      borderRadius: 6,
+                      background: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? '#f0f7ff' : 'white',
+                      transition: 'all 0.2s'
+                    }}>
+                      <input
+                        type="radio"
+                        name="fal-model"
+                        value="fal-ai/qwen-image-edit/image-to-image"
+                        checked={selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image'}
+                        onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
+                        disabled={refinementState.isRefining}
+                      />
+                      <span style={{ fontWeight: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'bold' : 'normal' }}>
+                        Qwen Image Edit
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Feedback Input */}
@@ -696,9 +755,9 @@ export default function ThumbnailRefinement({
       {currentHistory.iterations.length > 1 && (
         <div style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
           <button
-            onClick={() => setUIState(prev => ({ 
-              ...prev, 
-              isHistoryExpanded: !prev.isHistoryExpanded 
+            onClick={() => setUIState(prev => ({
+              ...prev,
+              isHistoryExpanded: !prev.isHistoryExpanded
             }))}
             style={{
               width: "100%",
@@ -710,16 +769,16 @@ export default function ThumbnailRefinement({
               fontWeight: "bold"
             }}
           >
-            Version History ({currentHistory.iterations.length} iterations) 
+            Version History ({currentHistory.iterations.length} iterations)
             {uiState.isHistoryExpanded ? " ▼" : " ▶"}
           </button>
-          
+
           {uiState.isHistoryExpanded && (
             <div style={{ padding: 16 }}>
-              <div style={{ 
-                display: "grid", 
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", 
-                gap: 12 
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 12
               }}>
                 {currentHistory.iterations.map((iteration, index) => (
                   <div
@@ -729,8 +788,8 @@ export default function ThumbnailRefinement({
                     }`}
                     onClick={() => handleRollback(iteration.id)}
                   >
-                    <img 
-                      src={iteration.imageUrl} 
+                    <img
+                      src={iteration.imageUrl}
                       alt={`Iteration ${index + 1}`}
                       style={{ display: "block", width: "100%" }}
                     />
@@ -738,17 +797,17 @@ export default function ThumbnailRefinement({
                       <div><strong>Iteration {index + 1}</strong></div>
                       {iteration.feedbackPrompt && (
                         <div style={{ marginTop: 4, opacity: 0.7 }}>
-                          {iteration.feedbackPrompt.length > 50 
+                          {iteration.feedbackPrompt.length > 50
                             ? `${iteration.feedbackPrompt.substring(0, 50)}...`
                             : iteration.feedbackPrompt
                           }
                         </div>
                       )}
                       {iteration.id === currentIteration.id && (
-                        <div style={{ 
-                          marginTop: 4, 
-                          color: "var(--nb-accent)", 
-                          fontWeight: "bold" 
+                        <div style={{
+                          marginTop: 4,
+                          color: "var(--nb-accent)",
+                          fontWeight: "bold"
                         }}>
                           Current
                         </div>

@@ -9,7 +9,7 @@ import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap, curatedStyles } from "@/lib/gallery/curatedStyles";
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
-import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
+import { RefinementState, RefinementHistory, RefinementUtils, FalModel } from "@/lib/types/refinement";
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -89,6 +89,7 @@ export default function Home() {
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
+  const [selectedFalModel, setSelectedFalModel] = useState<FalModel>("fal-ai/alpha-image-232/edit-image");
 
   const faqJsonLd = useMemo(
     () =>
@@ -986,7 +987,8 @@ export default function Home() {
           framesMime: TARGET_MIME,
           variants: count,
           source: "thumbnails",
-          provider: selectedProvider
+          provider: selectedProvider,
+          model: selectedProvider === 'fal' ? selectedFalModel : undefined
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1828,55 +1830,112 @@ export default function Home() {
                             </span>
                             <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>4cr</span>
                           </label>
-                          <label style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            cursor: "pointer",
-                            padding: "6px 8px",
-                            border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
-                            borderRadius: 4,
-                            background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
-                            transition: 'all 0.2s',
-                            flex: 1,
-                            fontSize: 13
-                          }}>
-                            <input
-                              type="radio"
-                              name="provider"
-                              value="fal"
-                              checked={selectedProvider === 'fal'}
-                              onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                              disabled={loading}
-                            />
-                            <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
-                              Fal AI
-                            </span>
-                            <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>1cr</span>
-                          </label>
-                        </div>
+                        <label style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          cursor: "pointer",
+                          padding: "6px 8px",
+                          border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
+                          borderRadius: 4,
+                          background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
+                          transition: 'all 0.2s',
+                          flex: 1,
+                          fontSize: 13
+                        }}>
+                          <input
+                            type="radio"
+                            name="provider"
+                            value="fal"
+                            checked={selectedProvider === 'fal'}
+                            onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                            disabled={loading}
+                          />
+                          <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                            Fal AI
+                          </span>
+                          <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>1cr</span>
+                        </label>
                       </div>
 
-                      {/* Variants - compact */}
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        <label className={styles.label} htmlFor="variants" style={{ fontSize: 11 }}>Variants</label>
-                        <input
-                          id="variants"
-                          type="number"
-                          min={1}
-                          max={8}
-                          value={count}
-                          onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-                          style={{
-                            width: 60,
-                            border: '2px solid #ddd',
-                            borderRadius: 4,
-                            padding: '6px 8px',
-                            fontSize: 14,
-                            textAlign: 'center'
-                          }}
-                        />
-                      </div>
+                      {selectedProvider === 'fal' && (
+                        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                          <label className={styles.label} style={{ fontSize: 11 }}>Fal Model</label>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                              padding: '6px 8px',
+                              border: `2px solid ${selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'var(--nb-accent)' : '#ddd'}`,
+                              borderRadius: 4,
+                              background: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? '#f0f7ff' : 'white',
+                              transition: 'all 0.2s',
+                              flex: 1,
+                              fontSize: 12
+                            }}>
+                              <input
+                                type="radio"
+                                name="fal-model"
+                                value="fal-ai/alpha-image-232/edit-image"
+                                checked={selectedFalModel === 'fal-ai/alpha-image-232/edit-image'}
+                                onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
+                                disabled={loading}
+                              />
+                              <span style={{ fontWeight: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'bold' : 'normal' }}>
+                                Flux (alpha-image-232)
+                              </span>
+                            </label>
+                            <label style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                              padding: '6px 8px',
+                              border: `2px solid ${selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'var(--nb-accent)' : '#ddd'}`,
+                              borderRadius: 4,
+                              background: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? '#f0f7ff' : 'white',
+                              transition: 'all 0.2s',
+                              flex: 1,
+                              fontSize: 12
+                            }}>
+                              <input
+                                type="radio"
+                                name="fal-model"
+                                value="fal-ai/qwen-image-edit/image-to-image"
+                                checked={selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image'}
+                                onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
+                                disabled={loading}
+                              />
+                              <span style={{ fontWeight: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'bold' : 'normal' }}>
+                                Qwen Image Edit
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Variants - compact */}
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <label className={styles.label} htmlFor="variants" style={{ fontSize: 11 }}>Variants</label>
+                      <input
+                        id="variants"
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={count}
+                        onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
+                        style={{
+                          width: 60,
+                          border: '2px solid #ddd',
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          fontSize: 14,
+                          textAlign: 'center'
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -1914,6 +1973,7 @@ export default function Home() {
                   <div className={styles.navRow}>
                     <button onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
                   </div>
+                </div>
                 </>
               )}
 

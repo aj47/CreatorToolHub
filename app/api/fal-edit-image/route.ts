@@ -4,9 +4,12 @@ export const runtime = "edge";
 import { getUser } from "@/lib/auth";
 import { fal } from "@fal-ai/client";
 
+type FalModel = "fal-ai/alpha-image-232/edit-image" | "fal-ai/qwen-image-edit/image-to-image";
+
 interface FalEditImageRequest {
   prompt: string;
   image_urls: string[];
+  model?: FalModel;
   image_size?: string | { width: number; height: number };
   enable_prompt_expansion?: boolean;
   seed?: number;
@@ -66,6 +69,7 @@ export async function POST(request: Request) {
     const {
       prompt,
       image_urls,
+      model,
       image_size = "auto",
       enable_prompt_expansion = false,
       seed,
@@ -81,8 +85,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const modelId: FalModel = model === "fal-ai/qwen-image-edit/image-to-image"
+      ? "fal-ai/qwen-image-edit/image-to-image"
+      : "fal-ai/alpha-image-232/edit-image";
+
     // Call Fal AI API
-    const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
+    const result = await fal.subscribe(modelId, {
       input: {
         prompt,
         image_urls,

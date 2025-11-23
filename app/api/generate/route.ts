@@ -5,6 +5,7 @@ import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 import { fal } from "@fal-ai/client";
+import { FalModel } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
@@ -63,7 +64,8 @@ async function generateImagesWithGemini(
 async function generateImagesWithFal(
   apiKey: string,
   prompt: string,
-  frames: string[]
+  frames: string[],
+  model?: FalModel
 ): Promise<string[]> {
   fal.config({
     credentials: apiKey
@@ -74,8 +76,11 @@ async function generateImagesWithFal(
     const referenceFrame = frames[0];
     const dataUrl = `data:image/png;base64,${referenceFrame}`;
 
-    // Use the same model as refinement: alpha-image-232/edit-image
-    const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
+    const modelId: FalModel = model === "fal-ai/qwen-image-edit/image-to-image"
+      ? "fal-ai/qwen-image-edit/image-to-image"
+      : "fal-ai/alpha-image-232/edit-image";
+
+    const result = await fal.subscribe(modelId, {
       input: {
         prompt,
         image_urls: [dataUrl],
@@ -276,11 +281,11 @@ export async function POST(req: Request) {
     const imagesAll: string[] = [];
 
     if (provider === 'fal') {
-      // Fal AI generation - use alpha-image-232/edit-image (same as refinement)
+      // Fal AI generation - allow model override
       for (let i = 0; i < count; i += CONCURRENCY) {
         const batchSize = Math.min(CONCURRENCY, count - i);
         const batch = Array.from({ length: batchSize }, () =>
-          generateImagesWithFal(apiKey, prompt, frames)
+          generateImagesWithFal(apiKey, prompt, frames, model as FalModel | undefined)
         );
         const settled = await Promise.allSettled(batch);
         imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));

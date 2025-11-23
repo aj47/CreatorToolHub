@@ -38,6 +38,8 @@ export interface RefinementState {
   referenceImages: string[]; // Reference images (base64 data) for refinement
 }
 
+export type FalModel = "fal-ai/alpha-image-232/edit-image" | "fal-ai/qwen-image-edit/image-to-image";
+
 export interface RefinementRequest {
   baseImageUrl: string; // The base thumbnail to refine
   baseImageData: string; // Base64 data of the base image
@@ -47,6 +49,7 @@ export interface RefinementRequest {
   parentIterationId?: string; // ID of parent iteration if continuing a chain
   provider?: 'gemini' | 'fal'; // AI provider to use for refinement (default: gemini)
   referenceImages?: string[]; // Optional reference images (base64 data) for Fal AI
+  model?: FalModel; // Optional Fal model selection
 }
 
 export interface RefinementResponse {

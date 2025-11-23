@@ -5,7 +5,7 @@ import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 import { fal } from "@fal-ai/client";
-import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils } from "@/lib/types/refinement";
+import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils, FalModel } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
@@ -101,7 +101,8 @@ async function refineImageWithFal(
   apiKey: string,
   baseImageData: string,
   feedbackPrompt: string,
-  referenceImages?: string[]
+  referenceImages?: string[],
+  model?: FalModel
 ): Promise<string> {
   // Configure Fal client
   fal.config({
@@ -124,7 +125,11 @@ async function refineImageWithFal(
       });
     }
 
-    const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
+    const modelId: FalModel = model === "fal-ai/qwen-image-edit/image-to-image"
+      ? "fal-ai/qwen-image-edit/image-to-image"
+      : "fal-ai/alpha-image-232/edit-image";
+
+    const result = await fal.subscribe(modelId, {
       input: {
         prompt: feedbackPrompt,
         image_urls: imageUrls,
@@ -183,7 +188,8 @@ export async function POST(req: Request) {
       templateId,
       parentIterationId,
       provider = 'gemini', // Default to Gemini for backward compatibility
-      referenceImages = [] // Optional reference images for Fal AI
+      referenceImages = [], // Optional reference images for Fal AI
+      model,
     } = requestData;
 
     // Validate required fields
@@ -305,7 +311,8 @@ Please apply the refinement request to modify the image while maintaining the ov
         apiKey,
         baseImageData,
         feedbackPrompt,
-        referenceImages
+        referenceImages,
+        model
       );
     } else {
       // Generate refined image using Gemini API
