@@ -89,7 +89,6 @@ export default function Home() {
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
-  const [selectedModel, setSelectedModel] = useState<string>('fal-ai/flux/dev');
 
   const faqJsonLd = useMemo(
     () =>
@@ -984,8 +983,7 @@ export default function Home() {
           framesMime: TARGET_MIME,
           variants: count,
           source: "thumbnails",
-          provider: selectedProvider,
-          model: selectedProvider === 'fal' ? selectedModel : undefined
+          provider: selectedProvider
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1824,25 +1822,6 @@ export default function Home() {
                       </label>
                     </div>
                   </div>
-
-                  {/* Fal AI Model Selection */}
-                  {selectedProvider === 'fal' && (
-                    <div className={styles.formGroup}>
-                      <label className={styles.label} htmlFor="fal-model">Flux Model</label>
-                      <select
-                        id="fal-model"
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        disabled={loading}
-                        className={styles.input}
-                        style={{ padding: '8px' }}
-                      >
-                        <option value="fal-ai/flux/dev">FLUX.1 [dev] - Balanced quality & speed</option>
-                        <option value="fal-ai/flux/schnell">FLUX.1 [schnell] - Fastest (1-4 steps)</option>
-                        <option value="fal-ai/flux-pro/v1.1">FLUX Pro 1.1 - Highest quality</option>
-                      </select>
-                    </div>
-                  )}
 
                   <div className={styles.inlineGroup}>
                     <label className={styles.label} htmlFor="variants">Variants</label>

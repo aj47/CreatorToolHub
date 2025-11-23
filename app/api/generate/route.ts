@@ -63,21 +63,23 @@ async function generateImagesWithGemini(
 async function generateImagesWithFal(
   apiKey: string,
   prompt: string,
-  model: string = "fal-ai/flux/dev"
+  frames: string[]
 ): Promise<string[]> {
   fal.config({
     credentials: apiKey
   });
 
   try {
-    const result = await fal.subscribe(model, {
+    // Use the first frame as the reference image
+    const referenceFrame = frames[0];
+    const dataUrl = `data:image/png;base64,${referenceFrame}`;
+
+    // Use the same model as refinement: alpha-image-232/edit-image
+    const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
       input: {
         prompt,
-        image_size: {
-          width: 1280,
-          height: 720
-        },
-        num_images: 1,
+        image_urls: [dataUrl],
+        image_size: "landscape_16_9",
         output_format: "png",
         sync_mode: false
       },
@@ -267,12 +269,11 @@ export async function POST(req: Request) {
     const imagesAll: string[] = [];
 
     if (provider === 'fal') {
-      // Fal AI generation - use specified model or default
-      const falModel = model || "fal-ai/flux/dev";
+      // Fal AI generation - use alpha-image-232/edit-image (same as refinement)
       for (let i = 0; i < count; i += CONCURRENCY) {
         const batchSize = Math.min(CONCURRENCY, count - i);
         const batch = Array.from({ length: batchSize }, () =>
-          generateImagesWithFal(apiKey, prompt, falModel)
+          generateImagesWithFal(apiKey, prompt, frames)
         );
         const settled = await Promise.allSettled(batch);
         imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
