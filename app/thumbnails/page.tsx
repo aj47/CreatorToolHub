@@ -865,8 +865,10 @@ export default function Home() {
     }
 
     // Client-side gate: block if out of credits for the number of generations requested
+    // Gemini costs 4 credits per variant, Fal AI costs 1 credit per variant
     const perTemplate = Math.max(1, count);
-    const needed = perTemplate * (validSelectedIds.length || 0);
+    const creditsPerVariant = selectedProvider === 'gemini' ? 4 : 1;
+    const needed = perTemplate * creditsPerVariant * (validSelectedIds.length || 0);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -1776,6 +1778,7 @@ export default function Home() {
                       <label style={{
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 6,
                         cursor: "pointer",
                         padding: "8px 12px",
@@ -1785,21 +1788,27 @@ export default function Home() {
                         transition: 'all 0.2s',
                         flex: 1
                       }}>
-                        <input
-                          type="radio"
-                          name="provider"
-                          value="gemini"
-                          checked={selectedProvider === 'gemini'}
-                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                          disabled={loading}
-                        />
-                        <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
-                          Gemini (Google)
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="radio"
+                            name="provider"
+                            value="gemini"
+                            checked={selectedProvider === 'gemini'}
+                            onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                            disabled={loading}
+                          />
+                          <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
+                            Gemini (Google)
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.85em', color: '#666', fontWeight: 'normal' }}>
+                          4 credits/variant
                         </span>
                       </label>
                       <label style={{
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         gap: 6,
                         cursor: "pointer",
                         padding: "8px 12px",
@@ -1809,16 +1818,21 @@ export default function Home() {
                         transition: 'all 0.2s',
                         flex: 1
                       }}>
-                        <input
-                          type="radio"
-                          name="provider"
-                          value="fal"
-                          checked={selectedProvider === 'fal'}
-                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                          disabled={loading}
-                        />
-                        <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
-                          Fal AI (Flux)
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input
+                            type="radio"
+                            name="provider"
+                            value="fal"
+                            checked={selectedProvider === 'fal'}
+                            onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                            disabled={loading}
+                          />
+                          <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                            Fal AI (Flux)
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.85em', color: '#666', fontWeight: 'normal' }}>
+                          1 credit/variant
                         </span>
                       </label>
                     </div>
@@ -1843,14 +1857,14 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : 1) * (getValidSelectedIds().length || 0)))}
                   >
                     {authLoading
                       ? "Loading..."
                       : !isAuthed
                         ? "Generate thumbnails (Free after sign-up)"
                         : (!loadingCustomer
-                            ? `Generate thumbnails (uses ${Math.max(1, count) * (getValidSelectedIds().length || 0)} credit${(Math.max(1, count) * (getValidSelectedIds().length || 0)) === 1 ? '' : 's'})`
+                            ? `Generate thumbnails (uses ${Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : 1) * (getValidSelectedIds().length || 0)} credit${(Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : 1) * (getValidSelectedIds().length || 0)) === 1 ? '' : 's'})`
                             : "Generate thumbnails")}
                   </button>
 

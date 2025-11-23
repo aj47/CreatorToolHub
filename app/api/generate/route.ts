@@ -239,16 +239,17 @@ export async function POST(req: Request) {
     const secretKey = process.env.AUTUMN_SECRET_KEY;
     const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
-    // Each request consumes credits equal to the variant count
-    // We've configured Gemini to return exactly 1 image per API call
+    // Credit cost depends on provider: Gemini = 4 credits per variant, Fal AI = 1 credit per variant
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+    const creditsPerVariant = provider === 'gemini' ? 4 : 1;
+    const totalCreditsRequired = count * creditsPerVariant;
 
     let allowed = true;
     let autumn: Autumn | null = null;
     if (autumnEnabled) {
       autumn = new Autumn({ secretKey: secretKey as string });
       try {
-        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: totalCreditsRequired });
         allowed = !!checkRes?.data?.allowed;
       } catch (e) {
         if (process.env.NODE_ENV === "production") {
@@ -262,7 +263,7 @@ export async function POST(req: Request) {
       }
       if (!allowed) {
         return Response.json(
-          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: totalCreditsRequired },
           { status: 402 }
         );
       }
@@ -303,18 +304,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // Track credit usage equal to the variant count after a successful generation
-    // We've configured Gemini to return exactly 1 image per API call
+    // Track credit usage after a successful generation
+    // Gemini costs 4 credits per variant, Fal AI costs 1 credit per variant
     // Log both values for monitoring
     const actualImagesGenerated = imagesAll.length;
     if (autumn) {
       try {
-        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
-        console.log(`Tracked ${count} credits (requested: ${count} variants, generated: ${actualImagesGenerated} images)`);
+        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: totalCreditsRequired });
+        console.log(`Tracked ${totalCreditsRequired} credits (provider: ${provider}, ${creditsPerVariant} credits/variant × ${count} variants, generated: ${actualImagesGenerated} images)`);
 
         // Alert if mismatch detected
         if (actualImagesGenerated !== count) {
-          console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${count}.`);
+          console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${totalCreditsRequired} credits.`);
         }
       } catch (e) {
         console.warn("Autumn track failed; continuing without failing request", e);
