@@ -17,6 +17,7 @@
     "test:check": "bash scripts/test-with-check.sh"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.7.2",
     "@google/genai": "^1.17.0",
     "autumn-js": "^0.1.33",
     "class-variance-authority": "^0.7.1",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20",
     "@types/react": "^19",

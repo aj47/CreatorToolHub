@@ -88,6 +88,7 @@ export default function Home() {
   const [results, setResults] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
 
   const faqJsonLd = useMemo(
     () =>
@@ -122,6 +123,7 @@ export default function Home() {
     feedbackPrompt: "",
     isCopying: false,
     isDownloading: false,
+    referenceImages: [],
   });
   const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
 
@@ -981,7 +983,8 @@ export default function Home() {
           frames: normalizedFrames,
           framesMime: TARGET_MIME,
           variants: count,
-          source: "thumbnails"
+          source: "thumbnails",
+          provider: selectedProvider
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1765,6 +1768,61 @@ export default function Home() {
                       className={styles.textarea}
                     />
                   </label>
+
+                  {/* AI Provider Selection */}
+                  <div className={styles.formGroup}>
+                    <span className={styles.label}>AI Provider</span>
+                    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "8px 12px",
+                        border: `2px solid ${selectedProvider === 'gemini' ? 'var(--nb-accent)' : '#ddd'}`,
+                        borderRadius: 6,
+                        background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
+                        transition: 'all 0.2s',
+                        flex: 1
+                      }}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="gemini"
+                          checked={selectedProvider === 'gemini'}
+                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                          disabled={loading}
+                        />
+                        <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
+                          Gemini (Google)
+                        </span>
+                      </label>
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "8px 12px",
+                        border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
+                        borderRadius: 6,
+                        background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
+                        transition: 'all 0.2s',
+                        flex: 1
+                      }}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="fal"
+                          checked={selectedProvider === 'fal'}
+                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                          disabled={loading}
+                        />
+                        <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                          Fal AI (Flux)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
 
                   <div className={styles.inlineGroup}>
                     <label className={styles.label} htmlFor="variants">Variants</label>
