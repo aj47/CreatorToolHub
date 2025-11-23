@@ -123,6 +123,7 @@ export default function Home() {
     feedbackPrompt: "",
     isCopying: false,
     isDownloading: false,
+    referenceImages: [],
   });
   const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
 

@@ -100,7 +100,8 @@ async function refineImageWithGemini(
 async function refineImageWithFal(
   apiKey: string,
   baseImageData: string,
-  feedbackPrompt: string
+  feedbackPrompt: string,
+  referenceImages?: string[]
 ): Promise<string> {
   // Configure Fal client
   fal.config({
@@ -111,10 +112,22 @@ async function refineImageWithFal(
     // Convert base64 to data URL for Fal AI
     const dataUrl = `data:image/png;base64,${baseImageData}`;
 
+    // Build image_urls array: base image first, then reference images
+    const imageUrls = [dataUrl];
+    if (referenceImages && referenceImages.length > 0) {
+      // Add reference images (convert to data URLs if needed)
+      referenceImages.forEach(refImg => {
+        const refDataUrl = refImg.startsWith('data:')
+          ? refImg
+          : `data:image/png;base64,${refImg}`;
+        imageUrls.push(refDataUrl);
+      });
+    }
+
     const result = await fal.subscribe("fal-ai/alpha-image-232/edit-image", {
       input: {
         prompt: feedbackPrompt,
-        image_urls: [dataUrl],
+        image_urls: imageUrls,
         image_size: "landscape_16_9",
         output_format: "png",
         sync_mode: false
@@ -163,7 +176,8 @@ export async function POST(req: Request) {
       feedbackPrompt,
       templateId,
       parentIterationId,
-      provider = 'gemini' // Default to Gemini for backward compatibility
+      provider = 'gemini', // Default to Gemini for backward compatibility
+      referenceImages = [] // Optional reference images for Fal AI
     } = requestData;
 
     // Validate required fields
@@ -284,7 +298,8 @@ Please apply the refinement request to modify the image while maintaining the ov
       refinedImageBase64 = await refineImageWithFal(
         apiKey,
         baseImageData,
-        feedbackPrompt
+        feedbackPrompt,
+        referenceImages
       );
     } else {
       // Generate refined image using Gemini API

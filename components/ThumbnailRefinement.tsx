@@ -37,6 +37,60 @@ export default function ThumbnailRefinement({
   });
   const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
 
+  // Handle reference image upload
+  const handleReferenceImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const newImages: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          continue;
+        }
+
+        // Convert to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Extract base64 data (remove data:image/...;base64, prefix)
+            const base64Data = result.split(',')[1] || result;
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        newImages.push(base64);
+      }
+
+      if (newImages.length > 0) {
+        onUpdateRefinementState({
+          referenceImages: [...(refinementState.referenceImages || []), ...newImages]
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading reference images:', error);
+      onUpdateRefinementState({
+        refinementError: 'Failed to upload reference images'
+      });
+    }
+
+    // Reset input
+    e.target.value = '';
+  }, [refinementState.referenceImages, onUpdateRefinementState]);
+
+  // Handle removing a reference image
+  const handleRemoveReferenceImage = useCallback((index: number) => {
+    const newImages = (refinementState.referenceImages || []).filter((_, i) => i !== index);
+    onUpdateRefinementState({ referenceImages: newImages });
+  }, [refinementState.referenceImages, onUpdateRefinementState]);
+
   const currentHistory = refinementState.currentHistory;
   const currentIteration = currentHistory ? RefinementUtils.getCurrentIteration(currentHistory) : undefined;
 
@@ -118,6 +172,7 @@ export default function ThumbnailRefinement({
         templateId,
         parentIterationId: currentIteration.id,
         provider: selectedProvider,
+        referenceImages: (refinementState.referenceImages && refinementState.referenceImages.length > 0) ? refinementState.referenceImages : undefined,
       };
 
       const response = await fetch("/api/refine", {
@@ -477,6 +532,95 @@ export default function ThumbnailRefinement({
                 disabled={refinementState.isRefining}
               />
             </div>
+
+            {/* Reference Images (Fal AI only) */}
+            {selectedProvider === 'fal' && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                  Reference Images (Optional):
+                </label>
+                <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                  Upload reference images to guide the AI in applying specific styles or elements.
+                </p>
+
+                {/* Upload Button */}
+                <label style={{
+                  display: "inline-block",
+                  padding: "8px 16px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  borderRadius: 4,
+                  cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                  opacity: refinementState.isRefining ? 0.6 : 1
+                }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleReferenceImageUpload}
+                    disabled={refinementState.isRefining}
+                    style={{ display: "none" }}
+                  />
+                  📎 Add Reference Images
+                </label>
+
+                {/* Display uploaded reference images */}
+                {refinementState.referenceImages && refinementState.referenceImages.length > 0 && (
+                  <div style={{
+                    marginTop: 12,
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap"
+                  }}>
+                    {refinementState.referenceImages.map((imgBase64, index) => (
+                      <div key={index} style={{
+                        position: "relative",
+                        width: 80,
+                        height: 80,
+                        border: "2px solid #ddd",
+                        borderRadius: 4,
+                        overflow: "hidden"
+                      }}>
+                        <img
+                          src={`data:image/png;base64,${imgBase64}`}
+                          alt={`Reference ${index + 1}`}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover"
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRemoveReferenceImage(index)}
+                          disabled={refinementState.isRefining}
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            right: 2,
+                            width: 20,
+                            height: 20,
+                            padding: 0,
+                            backgroundColor: "rgba(220, 53, 69, 0.9)",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                            fontSize: 12,
+                            lineHeight: "20px",
+                            fontWeight: "bold"
+                          }}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

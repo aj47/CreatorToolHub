@@ -35,6 +35,7 @@ export interface RefinementState {
   feedbackPrompt: string; // Current feedback prompt input
   isCopying: boolean; // Whether a copy operation is in progress
   isDownloading: boolean; // Whether a download operation is in progress
+  referenceImages: string[]; // Reference images (base64 data) for refinement
 }
 
 export interface RefinementRequest {
@@ -45,6 +46,7 @@ export interface RefinementRequest {
   templateId: string; // Template ID for context
   parentIterationId?: string; // ID of parent iteration if continuing a chain
   provider?: 'gemini' | 'fal'; // AI provider to use for refinement (default: gemini)
+  referenceImages?: string[]; // Optional reference images (base64 data) for Fal AI
 }
 
 export interface RefinementResponse {
