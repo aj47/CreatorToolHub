@@ -222,7 +222,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Autumn credit check: each refinement costs 1 credit
+    // Autumn credit check: Gemini costs 4 credits, Fal AI costs 1 credit
     const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
     const deriveCustomerId = (email: string) => {
       const raw = email.toLowerCase();
@@ -238,8 +238,8 @@ export async function POST(req: Request) {
     const secretKey = process.env.AUTUMN_SECRET_KEY;
     const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
-    // Each refinement consumes 1 credit
-    const creditsRequired = 1;
+    // Credit cost depends on provider: Gemini = 4 credits, Fal AI = 1 credit
+    const creditsRequired = provider === 'gemini' ? 4 : 1;
 
     let allowed = true;
     let autumn: Autumn | null = null;

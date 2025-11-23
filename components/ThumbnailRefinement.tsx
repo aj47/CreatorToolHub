@@ -106,8 +106,10 @@ export default function ThumbnailRefinement({
       return;
     }
 
-    if (credits < 1) {
-      onUpdateRefinementState({ refinementError: "You need 1 credit to refine this thumbnail." });
+    // Credit cost depends on provider: Gemini = 4 credits, Fal AI = 1 credit
+    const creditsRequired = selectedProvider === 'gemini' ? 4 : 1;
+    if (credits < creditsRequired) {
+      onUpdateRefinementState({ refinementError: `You need ${creditsRequired} credit${creditsRequired === 1 ? '' : 's'} to refine this thumbnail.` });
       return;
     }
 
@@ -630,7 +632,7 @@ export default function ThumbnailRefinement({
                   refinementState.isRefining ||
                   !refinementState.feedbackPrompt.trim() ||
                   (!isAuthed) ||
-                  (credits < 1)
+                  (credits < (selectedProvider === 'gemini' ? 4 : 1))
                 }
                 style={{
                   padding: "12px 24px",
@@ -644,7 +646,7 @@ export default function ThumbnailRefinement({
               >
                 {refinementState.isRefining
                   ? "Refining..."
-                  : `Refine Thumbnail (uses 1 credit)`
+                  : `Refine Thumbnail (uses ${selectedProvider === 'gemini' ? '4 credits' : '1 credit'})`
                 }
               </button>
 
