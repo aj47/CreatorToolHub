@@ -95,7 +95,13 @@ async function generateImagesWithFal(
     for (const img of result.data.images) {
       const imageResponse = await fetch(img.url);
       const imageBuffer = await imageResponse.arrayBuffer();
-      const base64 = Buffer.from(imageBuffer).toString('base64');
+      // Convert ArrayBuffer to base64 using Web APIs (Edge runtime compatible)
+      const uint8Array = new Uint8Array(imageBuffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64 = btoa(binaryString);
       images.push(base64);
     }
 

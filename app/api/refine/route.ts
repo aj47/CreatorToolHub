@@ -143,7 +143,13 @@ async function refineImageWithFal(
     const imageUrl = result.data.images[0].url;
     const imageResponse = await fetch(imageUrl);
     const imageBuffer = await imageResponse.arrayBuffer();
-    const base64 = Buffer.from(imageBuffer).toString('base64');
+    // Convert ArrayBuffer to base64 using Web APIs (Edge runtime compatible)
+    const uint8Array = new Uint8Array(imageBuffer);
+    let binaryString = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binaryString += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binaryString);
 
     return base64;
   } catch (error) {
