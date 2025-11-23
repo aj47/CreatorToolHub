@@ -11,8 +11,8 @@
   align-items: center;
   justify-items: center;
   min-height: 100svh;
-  padding: 40px 80px 80px 80px; /* Reduced top padding from 80px to 40px (half) */
-  gap: 64px;
+  padding: 20px 40px 40px 40px; /* Compact: reduced padding significantly */
+  gap: 32px; /* Reduced from 64px */
   font-family: var(--font-geist-sans);
 }
 
@@ -30,8 +30,10 @@
 .main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px; /* Reduced from 16px */
   grid-row-start: 2;
+  width: 100%;
+  max-width: 1400px; /* Wider max width for more space */
 }
 
 .main ol {
@@ -127,7 +129,7 @@ a.secondary {
 
 @media (max-width: 600px) {
   .page {
-    padding: 16px 32px 80px 32px; /* Reduced top padding from 32px to 16px (half) */
+    padding: 12px 16px 40px 16px; /* Compact mobile padding */
   }
 
   .main {
