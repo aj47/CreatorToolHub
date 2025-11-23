@@ -88,6 +88,8 @@ export default function Home() {
   const [results, setResults] = useState<string[]>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
+  const [selectedModel, setSelectedModel] = useState<string>('fal-ai/flux/dev');
 
   const faqJsonLd = useMemo(
     () =>
@@ -981,7 +983,9 @@ export default function Home() {
           frames: normalizedFrames,
           framesMime: TARGET_MIME,
           variants: count,
-          source: "thumbnails"
+          source: "thumbnails",
+          provider: selectedProvider,
+          model: selectedProvider === 'fal' ? selectedModel : undefined
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1765,6 +1769,80 @@ export default function Home() {
                       className={styles.textarea}
                     />
                   </label>
+
+                  {/* AI Provider Selection */}
+                  <div className={styles.formGroup}>
+                    <span className={styles.label}>AI Provider</span>
+                    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "8px 12px",
+                        border: `2px solid ${selectedProvider === 'gemini' ? 'var(--nb-accent)' : '#ddd'}`,
+                        borderRadius: 6,
+                        background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
+                        transition: 'all 0.2s',
+                        flex: 1
+                      }}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="gemini"
+                          checked={selectedProvider === 'gemini'}
+                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                          disabled={loading}
+                        />
+                        <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
+                          Gemini (Google)
+                        </span>
+                      </label>
+                      <label style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                        padding: "8px 12px",
+                        border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
+                        borderRadius: 6,
+                        background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
+                        transition: 'all 0.2s',
+                        flex: 1
+                      }}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="fal"
+                          checked={selectedProvider === 'fal'}
+                          onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
+                          disabled={loading}
+                        />
+                        <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
+                          Fal AI (Flux)
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Fal AI Model Selection */}
+                  {selectedProvider === 'fal' && (
+                    <div className={styles.formGroup}>
+                      <label className={styles.label} htmlFor="fal-model">Flux Model</label>
+                      <select
+                        id="fal-model"
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        disabled={loading}
+                        className={styles.input}
+                        style={{ padding: '8px' }}
+                      >
+                        <option value="fal-ai/flux/dev">FLUX.1 [dev] - Balanced quality & speed</option>
+                        <option value="fal-ai/flux/schnell">FLUX.1 [schnell] - Fastest (1-4 steps)</option>
+                        <option value="fal-ai/flux-pro/v1.1">FLUX Pro 1.1 - Highest quality</option>
+                      </select>
+                    </div>
+                  )}
 
                   <div className={styles.inlineGroup}>
                     <label className={styles.label} htmlFor="variants">Variants</label>

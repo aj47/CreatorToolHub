@@ -4,6 +4,7 @@ export const runtime = "edge";
 import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
+import { fal } from "@fal-ai/client";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
@@ -59,6 +60,50 @@ async function generateImagesWithGemini(
   }
 }
 
+async function generateImagesWithFal(
+  apiKey: string,
+  prompt: string,
+  model: string = "fal-ai/flux/dev"
+): Promise<string[]> {
+  fal.config({
+    credentials: apiKey
+  });
+
+  try {
+    const result = await fal.subscribe(model, {
+      input: {
+        prompt,
+        image_size: {
+          width: 1280,
+          height: 720
+        },
+        num_images: 1,
+        output_format: "png",
+        sync_mode: false
+      },
+      logs: false,
+    }) as { data: { images: Array<{ url: string }> } };
+
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error("No images generated");
+    }
+
+    // Fetch the image and convert to base64
+    const images: string[] = [];
+    for (const img of result.data.images) {
+      const imageResponse = await fetch(img.url);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      const base64 = Buffer.from(imageBuffer).toString('base64');
+      images.push(base64);
+    }
+
+    return images;
+  } catch (error) {
+    console.error("Fal generation error:", error);
+    throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Require authentication - bypass in development
@@ -75,7 +120,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage, variants, framesMime, source } = await req.json();
+    const { prompt, frames = [], layoutImage, variants, framesMime, source, provider = 'gemini', model } = await req.json();
 
     // Proxy to worker API for database persistence (both development and production)
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
@@ -142,12 +187,32 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    // Validate provider
+    if (provider !== 'gemini' && provider !== 'fal') {
       return Response.json(
-        { error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
+        { error: "Invalid provider. Must be 'gemini' or 'fal'" },
+        { status: 400 }
       );
+    }
+
+    // Get appropriate API key based on provider
+    let apiKey: string | undefined;
+    if (provider === 'fal') {
+      apiKey = process.env.FAL_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+    } else {
+      apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
     }
 
     // Autumn credit check: gate by feature balance
@@ -200,13 +265,28 @@ export async function POST(req: Request) {
     const CONCURRENCY = 2; // limit fan-out to reduce CPU time per request
 
     const imagesAll: string[] = [];
-    for (let i = 0; i < count; i += CONCURRENCY) {
-      const batchSize = Math.min(CONCURRENCY, count - i);
-      const batch = Array.from({ length: batchSize }, () =>
-        generateImagesWithGemini(apiKey, prompt, frames, imageMime, layoutImage)
-      );
-      const settled = await Promise.allSettled(batch);
-      imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+
+    if (provider === 'fal') {
+      // Fal AI generation - use specified model or default
+      const falModel = model || "fal-ai/flux/dev";
+      for (let i = 0; i < count; i += CONCURRENCY) {
+        const batchSize = Math.min(CONCURRENCY, count - i);
+        const batch = Array.from({ length: batchSize }, () =>
+          generateImagesWithFal(apiKey, prompt, falModel)
+        );
+        const settled = await Promise.allSettled(batch);
+        imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+      }
+    } else {
+      // Gemini generation
+      for (let i = 0; i < count; i += CONCURRENCY) {
+        const batchSize = Math.min(CONCURRENCY, count - i);
+        const batch = Array.from({ length: batchSize }, () =>
+          generateImagesWithGemini(apiKey, prompt, frames, imageMime, layoutImage)
+        );
+        const settled = await Promise.allSettled(batch);
+        imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+      }
     }
 
     if (imagesAll.length === 0) {
