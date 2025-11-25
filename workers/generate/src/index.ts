@@ -567,27 +567,32 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     templateId,
     source,
     parentGenerationId,
-    provider = 'gemini',
+    providers,
     model: requestedModel
   } = body || {};
   if (!prompt || !Array.isArray(frames) || frames.length === 0) {
     return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
   }
 
-  // Validate provider
-  const validProviders: Provider[] = ['gemini', 'fal-flux', 'fal-qwen', 'all'];
-  if (!validProviders.includes(provider as Provider)) {
-    return errorResponse(
-      "Invalid provider. Must be 'gemini', 'fal-flux', 'fal-qwen', or 'all'",
-      400,
-      "INVALID_PROVIDER"
-    );
+  // Normalize providers - support both array and legacy single provider format
+  let providersToUse: SingleProvider[];
+  if (Array.isArray(providers) && providers.length > 0) {
+    providersToUse = providers.filter((p: string) => ['gemini', 'fal-flux', 'fal-qwen'].includes(p)) as SingleProvider[];
+  } else if (typeof providers === 'string' && providers === 'all') {
+    providersToUse = ['gemini', 'fal-flux', 'fal-qwen'];
+  } else if (typeof providers === 'string') {
+    providersToUse = [providers as SingleProvider];
+  } else {
+    providersToUse = ['gemini']; // default
   }
 
-  // Determine which providers to use
-  const providersToUse: SingleProvider[] = provider === 'all'
-    ? ['gemini', 'fal-flux', 'fal-qwen']
-    : [provider as SingleProvider];
+  if (providersToUse.length === 0) {
+    return errorResponse(
+      "At least one valid provider must be selected",
+      400,
+      "NO_PROVIDERS"
+    );
+  }
 
   // Check for required API keys based on providers
   const geminiKey = env.GEMINI_API_KEY;

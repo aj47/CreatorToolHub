@@ -89,7 +89,7 @@ export default function Home() {
   const [labeledResults, setLabeledResults] = useState<Array<{url: string; provider: string}>>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal-flux' | 'fal-qwen' | 'all'>('gemini');
+  const [selectedProviders, setSelectedProviders] = useState<Set<'gemini' | 'fal-flux' | 'fal-qwen'>>(new Set(['gemini']));
 
   const faqJsonLd = useMemo(
     () =>
@@ -867,16 +867,21 @@ export default function Home() {
 
     // Client-side gate: block if out of credits for the number of generations requested
     // Credit costs: Gemini = 4, Fal-Flux = 1, Fal-Qwen = 1
-    // For 'all' provider, sum all three: 4 + 1 + 1 = 6 credits per variant
     const perTemplate = Math.max(1, count);
-    const getCreditsForProvider = (p: typeof selectedProvider) => {
-      if (p === 'gemini') return 4;
-      if (p === 'fal-flux' || p === 'fal-qwen') return 1;
-      if (p === 'all') return 6; // gemini (4) + flux (1) + qwen (1)
-      return 1;
+    const getCreditsForProviders = (providers: Set<'gemini' | 'fal-flux' | 'fal-qwen'>) => {
+      let total = 0;
+      if (providers.has('gemini')) total += 4;
+      if (providers.has('fal-flux')) total += 1;
+      if (providers.has('fal-qwen')) total += 1;
+      return total;
     };
-    const creditsPerVariant = getCreditsForProvider(selectedProvider);
+    const creditsPerVariant = getCreditsForProviders(selectedProviders);
     const needed = perTemplate * creditsPerVariant * (validSelectedIds.length || 0);
+
+    if (selectedProviders.size === 0) {
+      setError("Please select at least one AI provider.");
+      return;
+    }
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -995,7 +1000,7 @@ export default function Home() {
           framesMime: TARGET_MIME,
           variants: count,
           source: "thumbnails",
-          provider: selectedProvider,
+          providers: Array.from(selectedProviders),
           model: undefined
         };
         const res = await fetch("/api/generate", {
@@ -1059,20 +1064,20 @@ export default function Home() {
                 ...prev,
                 ...newBlobUrls.map((url, idx) => ({
                   url,
-                  provider: labeledImages[idx]?.provider || selectedProvider
+                  provider: labeledImages[idx]?.provider || 'unknown'
                 }))
               ]);
             } else {
               setLabeledResults((prev) => [
                 ...prev,
-                ...newBlobUrls.map(url => ({ url, provider: selectedProvider }))
+                ...newBlobUrls.map(url => ({ url, provider: 'unknown' }))
               ]);
             }
           } catch {
             setResults((prev) => [...prev, ...processedImages]);
             setLabeledResults((prev) => [
               ...prev,
-              ...processedImages.map(url => ({ url, provider: selectedProvider }))
+              ...processedImages.map(url => ({ url, provider: 'unknown' }))
             ]);
           }
           overallDone += processedImages.length;
@@ -1830,44 +1835,53 @@ export default function Home() {
 
                     {/* Provider + Variants in one row */}
                     <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
-                      {/* AI Provider - compact */}
+                      {/* AI Provider - compact checkboxes */}
                       <div style={{ flex: 1, minWidth: 200, display: 'grid', gap: 4 }}>
-                        <label className={styles.label} style={{ fontSize: 11 }}>AI Provider</label>
+                        <label className={styles.label} style={{ fontSize: 11 }}>AI Providers (select any combination)</label>
                         <div style={{ display: "flex", gap: 4, flexWrap: 'wrap' }}>
                           {[
-                            { value: 'gemini', label: 'Gemini', credits: '4cr' },
-                            { value: 'fal-flux', label: 'Flux', credits: '1cr' },
-                            { value: 'fal-qwen', label: 'Qwen', credits: '1cr' },
-                            { value: 'all', label: 'All', credits: '6cr' },
-                          ].map((opt) => (
+                            { value: 'gemini' as const, label: 'Gemini', credits: '4cr' },
+                            { value: 'fal-flux' as const, label: 'Flux', credits: '1cr' },
+                            { value: 'fal-qwen' as const, label: 'Qwen', credits: '1cr' },
+                          ].map((opt) => {
+                            const isSelected = selectedProviders.has(opt.value);
+                            return (
                             <label key={opt.value} style={{
                               display: "flex",
                               alignItems: "center",
                               gap: 4,
                               cursor: "pointer",
                               padding: "6px 8px",
-                              border: `2px solid ${selectedProvider === opt.value ? 'var(--nb-accent)' : '#ddd'}`,
+                              border: `2px solid ${isSelected ? 'var(--nb-accent)' : '#ddd'}`,
                               borderRadius: 4,
-                              background: selectedProvider === opt.value ? '#f0f7ff' : 'white',
+                              background: isSelected ? '#f0f7ff' : 'white',
                               transition: 'all 0.2s',
                               flex: 1,
                               minWidth: 70,
                               fontSize: 13
                             }}>
                               <input
-                                type="radio"
-                                name="provider"
-                                value={opt.value}
-                                checked={selectedProvider === opt.value}
-                                onChange={(e) => setSelectedProvider(e.target.value as typeof selectedProvider)}
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  setSelectedProviders(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(opt.value)) {
+                                      next.delete(opt.value);
+                                    } else {
+                                      next.add(opt.value);
+                                    }
+                                    return next;
+                                  });
+                                }}
                                 disabled={loading}
                               />
-                              <span style={{ fontWeight: selectedProvider === opt.value ? 'bold' : 'normal' }}>
+                              <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
                                 {opt.label}
                               </span>
                               <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{opt.credits}</span>
                             </label>
-                          ))}
+                          )})}
                         </div>
                       </div>
 
@@ -1900,7 +1914,7 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || selectedProviders.size === 0 || (!loadingCustomer && credits < (Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)))}
                     style={{ padding: '10px 16px', fontSize: 14 }}
                   >
                     {authLoading
@@ -1908,7 +1922,7 @@ export default function Home() {
                       : !isAuthed
                         ? "Generate (Free after sign-up)"
                         : (!loadingCustomer
-                            ? `Generate (${Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)} credits)`
+                            ? `Generate (${Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)} credits)`
                             : "Generate")}
                   </button>
 

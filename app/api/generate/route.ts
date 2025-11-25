@@ -143,7 +143,26 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage, variants, framesMime, source, provider = 'gemini', model } = await req.json();
+    const { prompt, frames = [], layoutImage, variants, framesMime, source, providers, model } = await req.json();
+
+    // Normalize providers - support both array and legacy single provider format
+    let providersArray: SingleProvider[];
+    if (Array.isArray(providers) && providers.length > 0) {
+      providersArray = providers.filter((p: string) => ['gemini', 'fal-flux', 'fal-qwen'].includes(p)) as SingleProvider[];
+    } else if (typeof providers === 'string' && providers === 'all') {
+      providersArray = ['gemini', 'fal-flux', 'fal-qwen'];
+    } else if (typeof providers === 'string') {
+      providersArray = [providers as SingleProvider];
+    } else {
+      providersArray = ['gemini']; // default
+    }
+
+    if (providersArray.length === 0) {
+      return Response.json(
+        { error: "At least one valid provider must be selected" },
+        { status: 400 }
+      );
+    }
 
     // Proxy to worker API for database persistence (both development and production)
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
@@ -171,7 +190,7 @@ export async function POST(req: Request) {
             framesMime,
             variants,
             source: source || 'thumbnails',
-            provider,
+            providers: providersArray,
             model
           })
         });
@@ -212,19 +231,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate provider
-    const validProviders: Provider[] = ['gemini', 'fal-flux', 'fal-qwen', 'all'];
-    if (!validProviders.includes(provider as Provider)) {
-      return Response.json(
-        { error: "Invalid provider. Must be 'gemini', 'fal-flux', 'fal-qwen', or 'all'" },
-        { status: 400 }
-      );
-    }
-
-    // Determine which providers to use
-    const providersToUse: SingleProvider[] = provider === 'all'
-      ? ['gemini', 'fal-flux', 'fal-qwen']
-      : [provider as SingleProvider];
+    // Use already-validated providersArray
+    const providersToUse: SingleProvider[] = providersArray;
 
     // Get API keys
     const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
