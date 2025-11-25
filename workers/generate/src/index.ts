@@ -13,7 +13,7 @@ import {
 
 export interface Env {
   GEMINI_API_KEY: string;
-  FAL_KEY?: string; // Fal AI API key for image editing (uses fal-ai/flux-2-pro/edit model)
+  FAL_KEY?: string; // Fal AI API key for image editing
   MODEL_ID?: string; // optional override via Wrangler vars
   AUTUMN_SECRET_KEY?: string;
   FEATURE_ID?: string;
@@ -24,6 +24,28 @@ export interface Env {
   GOOGLE_CLIENT_SECRET?: string;
   NEXTAUTH_URL?: string;
   NEXTAUTH_SECRET?: string;
+}
+
+// Fal AI model constants
+const FAL_MODEL_FLUX = "fal-ai/flux-2-pro/edit" as const;
+const FAL_MODEL_QWEN = "fal-ai/qwen-image-edit/image-to-image" as const;
+type FalModel = typeof FAL_MODEL_FLUX | typeof FAL_MODEL_QWEN;
+
+// Provider types
+type Provider = 'gemini' | 'fal-flux' | 'fal-qwen' | 'all';
+type SingleProvider = Exclude<Provider, 'all'>;
+
+// Credit costs per provider
+const PROVIDER_CREDITS: Record<SingleProvider, number> = {
+  'gemini': 4,
+  'fal-flux': 1,
+  'fal-qwen': 1,
+};
+
+// Result type with provider label
+interface LabeledImage {
+  dataUrl: string;
+  provider: SingleProvider;
 }
 
 
@@ -134,6 +156,108 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
     throw new Error(`Gemini error ${resp.status}: ${text}`);
   }
   return resp.json();
+}
+
+async function callFalGenerate(
+  apiKey: string,
+  prompt: string,
+  frames: string[],
+  model: FalModel = FAL_MODEL_FLUX
+): Promise<string[]> {
+  // Use the first frame as the reference image
+  const referenceFrame = frames[0];
+  const dataUrl = `data:image/png;base64,${referenceFrame}`;
+
+  // Submit request to Fal AI queue
+  const submitResp = await fetch(`https://queue.fal.run/${model}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Key ${apiKey}`
+    },
+    body: JSON.stringify({
+      prompt,
+      image_urls: [dataUrl],
+      image_size: "landscape_16_9",
+      output_format: "png",
+      sync_mode: false
+    })
+  });
+
+  if (!submitResp.ok) {
+    const text = await submitResp.text();
+    console.error(`Fal AI submit error: ${submitResp.status}`, text.substring(0, 500));
+    throw new Error(`Fal AI error ${submitResp.status}: ${text}`);
+  }
+
+  const submitResult = await submitResp.json() as { request_id: string; status_url?: string };
+  const requestId = submitResult.request_id;
+
+  if (!requestId) {
+    throw new Error("Fal AI did not return a request_id");
+  }
+
+  // Poll for completion
+  const statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
+  const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`;
+  const maxAttempts = 60; // 60 * 2s = 2 minutes max wait
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+    attempts++;
+
+    const statusResp = await fetch(statusUrl, {
+      headers: { "Authorization": `Key ${apiKey}` }
+    });
+
+    if (!statusResp.ok) {
+      console.warn(`Fal AI status check failed: ${statusResp.status}`);
+      continue;
+    }
+
+    const status = await statusResp.json() as { status: string };
+
+    if (status.status === "COMPLETED") {
+      // Fetch the result
+      const resultResp = await fetch(resultUrl, {
+        headers: { "Authorization": `Key ${apiKey}` }
+      });
+
+      if (!resultResp.ok) {
+        const text = await resultResp.text();
+        throw new Error(`Failed to fetch Fal AI result: ${text}`);
+      }
+
+      const result = await resultResp.json() as { images?: Array<{ url: string }> };
+
+      if (!result.images || result.images.length === 0) {
+        throw new Error("No images in Fal AI result");
+      }
+
+      // Fetch images and convert to base64
+      const images: string[] = [];
+      for (const img of result.images) {
+        const imageResponse = await fetch(img.url);
+        const imageBuffer = await imageResponse.arrayBuffer();
+        // Convert ArrayBuffer to base64 using Web APIs
+        const uint8Array = new Uint8Array(imageBuffer);
+        let binaryString = '';
+        for (let i = 0; i < uint8Array.length; i++) {
+          binaryString += String.fromCharCode(uint8Array[i]);
+        }
+        const base64 = btoa(binaryString);
+        images.push(base64);
+      }
+
+      return images;
+    } else if (status.status === "FAILED") {
+      throw new Error("Fal AI generation failed");
+    }
+    // Continue polling for IN_QUEUE, IN_PROGRESS
+  }
+
+  throw new Error("Fal AI generation timed out");
 }
 
 export default {
@@ -442,17 +566,44 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     variants,
     templateId,
     source,
-    parentGenerationId
+    parentGenerationId,
+    provider = 'gemini',
+    model: requestedModel
   } = body || {};
   if (!prompt || !Array.isArray(frames) || frames.length === 0) {
     return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
   }
 
-  const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) {
+  // Validate provider
+  const validProviders: Provider[] = ['gemini', 'fal-flux', 'fal-qwen', 'all'];
+  if (!validProviders.includes(provider as Provider)) {
+    return errorResponse(
+      "Invalid provider. Must be 'gemini', 'fal-flux', 'fal-qwen', or 'all'",
+      400,
+      "INVALID_PROVIDER"
+    );
+  }
+
+  // Determine which providers to use
+  const providersToUse: SingleProvider[] = provider === 'all'
+    ? ['gemini', 'fal-flux', 'fal-qwen']
+    : [provider as SingleProvider];
+
+  // Check for required API keys based on providers
+  const geminiKey = env.GEMINI_API_KEY;
+  const falKey = env.FAL_KEY;
+
+  const needsGemini = providersToUse.includes('gemini');
+  const needsFal = providersToUse.includes('fal-flux') || providersToUse.includes('fal-qwen');
+
+  if (needsGemini && !geminiKey) {
     return errorResponse("Missing GEMINI_API_KEY", 500, "MISSING_API_KEY");
   }
-  const model = env.MODEL_ID || DEFAULT_MODEL;
+  if (needsFal && !falKey) {
+    return errorResponse("Missing FAL_KEY", 500, "MISSING_FAL_KEY");
+  }
+
+  const geminiModel = env.MODEL_ID || DEFAULT_MODEL;
   const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
   const count = Math.max(1, Math.min(Number(variants) || 1, 8));
 
@@ -490,6 +641,10 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
 
   const FEATURE_ID = env.FEATURE_ID || "credits";
 
+  // Calculate total credits needed based on providers
+  // Each provider has its own cost per image, multiplied by count
+  const totalCreditsNeeded = providersToUse.reduce((sum, p) => sum + PROVIDER_CREDITS[p] * count, 0);
+
   // Skip credit check in development mode
   const isDevelopment = env.NODE_ENV === 'development';
   let autumn: Autumn | null = null;
@@ -502,15 +657,14 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
     customer_id = deriveCustomerId(user.email);
 
-    // Check for required credits (1 credit per variant requested)
-    // We've configured Gemini to return exactly 1 image per API call
-    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+    // Check for required credits based on provider costs
+    const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: totalCreditsNeeded });
     if (!checkRes?.data?.allowed) {
       return errorResponse(
         "Insufficient credits",
         402,
         "INSUFFICIENT_CREDITS",
-        { feature_id: FEATURE_ID, required: count }
+        { feature_id: FEATURE_ID, required: totalCreditsNeeded }
       );
     }
   }
@@ -615,35 +769,65 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
       };
 
       try {
-        write({ type: "start", total: count, generationId: generation.id });
+        // Calculate total expected images across all providers
+        const totalExpectedImages = providersToUse.length * count;
+        write({ type: "start", total: totalExpectedImages, generationId: generation.id });
 
-        const CONCURRENCY = 3;
-        for (let i = 0; i < count; i += CONCURRENCY) {
-          const batchSize = Math.min(CONCURRENCY, count - i);
-          const batch = Array.from({ length: batchSize }, async () => {
-            const json = await callGeminiGenerate(apiKey, model, reqParts);
+        // Helper function to generate with a specific provider
+        async function generateWithProvider(prov: SingleProvider): Promise<LabeledImage[]> {
+          const labeledImages: LabeledImage[] = [];
+
+          if (prov === 'gemini') {
+            const json = await callGeminiGenerate(geminiKey!, geminiModel, reqParts);
             const cand = json?.candidates?.[0];
             const parts = cand?.content?.parts ?? [];
-            const imgs: string[] = [];
-
-            // Log the number of parts returned by Gemini for debugging
             console.log(`Gemini API returned ${parts.length} parts in response`);
 
             for (const p of parts) {
               if (p?.inlineData?.data && p?.inlineData?.mimeType) {
                 const { data, mimeType } = p.inlineData;
-                imgs.push(`data:${mimeType};base64,${data}`);
+                labeledImages.push({
+                  dataUrl: `data:${mimeType};base64,${data}`,
+                  provider: 'gemini'
+                });
               }
             }
+          } else {
+            // Fal providers
+            const falModel = prov === 'fal-flux' ? FAL_MODEL_FLUX : FAL_MODEL_QWEN;
+            const images = await callFalGenerate(falKey!, prompt, framesArray, falModel);
+            for (const base64 of images) {
+              labeledImages.push({
+                dataUrl: `data:image/png;base64,${base64}`,
+                provider: prov
+              });
+            }
+          }
 
-            console.log(`Extracted ${imgs.length} images from Gemini response`);
-            return imgs;
-          });
+          return labeledImages;
+        }
 
-          const settled = await Promise.allSettled(batch);
+        // Generate for each provider in parallel batches
+        const CONCURRENCY = 3;
+
+        for (let i = 0; i < count; i += CONCURRENCY) {
+          const batchSize = Math.min(CONCURRENCY, count - i);
+
+          // For each variant in this batch, generate with all providers
+          const batchPromises: Promise<LabeledImage[]>[] = [];
+
+          for (let v = 0; v < batchSize; v++) {
+            // Generate with each provider for this variant
+            for (const prov of providersToUse) {
+              batchPromises.push(generateWithProvider(prov));
+            }
+          }
+
+          const settled = await Promise.allSettled(batchPromises);
+
           for (const s of settled) {
             if (s.status === "fulfilled") {
-              const imgs = s.value;
+              const labeledImages = s.value;
               const outputsToPersist: Array<{
                 variant_index: number;
                 r2_key: string;
@@ -656,16 +840,17 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
                 variantIndex: number;
                 storageKey: string;
                 mimeType: string;
+                provider: SingleProvider;
               }> = [];
 
-              for (const dataUrl of imgs) {
+              for (const labeled of labeledImages) {
                 const variantIndex = outputIndex++;
                 try {
                   const storageResult = await r2.saveGenerationOutputFromDataUrl(
                     userId,
                     generation.id,
                     variantIndex,
-                    dataUrl
+                    labeled.dataUrl
                   );
                   outputsToPersist.push({
                     variant_index: variantIndex,
@@ -675,10 +860,11 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
                     hash: storageResult.hash
                   });
                   pendingMessages.push({
-                    dataUrl,
+                    dataUrl: labeled.dataUrl,
                     variantIndex,
                     storageKey: storageResult.key,
-                    mimeType: storageResult.contentType
+                    mimeType: storageResult.contentType,
+                    provider: labeled.provider
                   });
                 } catch (storageError) {
                   console.error('Failed to persist generation output', storageError);
@@ -705,12 +891,13 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
                   dataUrl: pending.dataUrl,
                   outputId: persisted?.id,
                   storageKey: pending.storageKey,
-                  mimeType: pending.mimeType
+                  mimeType: pending.mimeType,
+                  provider: pending.provider
                 });
               });
 
               doneVariants += 1;
-              write({ type: "progress", generationId: generation.id, done: doneVariants, total: count });
+              write({ type: "progress", generationId: generation.id, done: doneVariants, total: totalExpectedImages });
             } else {
               doneVariants += 1;
               write({
@@ -718,25 +905,18 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
                 generationId: generation.id,
                 error: String(s.reason || "unknown")
               });
-              write({ type: "progress", generationId: generation.id, done: doneVariants, total: count });
+              write({ type: "progress", generationId: generation.id, done: doneVariants, total: totalExpectedImages });
             }
           }
         }
 
         // Track credit usage (skip in development)
-        // We've configured Gemini to return exactly 1 image per API call
-        // So we charge based on variants requested (count), not actual images generated
-        // Log both values for monitoring
+        // Charge based on provider-specific costs
         const actualImagesGenerated = outputIndex;
         if (!isDevelopment && autumn && customer_id) {
           try {
-            await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
-            console.log(`Tracked ${count} credits for generation ${generation.id} (requested: ${count} variants, generated: ${actualImagesGenerated} images)`);
-
-            // Alert if mismatch detected (Gemini returned more images than expected)
-            if (actualImagesGenerated !== count) {
-              console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${count}.`);
-            }
+            await autumn.track({ customer_id, feature_id: FEATURE_ID, value: totalCreditsNeeded });
+            console.log(`Tracked ${totalCreditsNeeded} credits for generation ${generation.id} (providers: ${providersToUse.join(', ')}, variants: ${count}, generated: ${actualImagesGenerated} images)`);
           } catch (trackError) {
             console.warn('Failed to track credit usage', trackError);
           }
