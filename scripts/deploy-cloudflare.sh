@@ -232,6 +232,28 @@ setup_secrets() {
             echo "✅ NEXTAUTH_SECRET set"
         fi
     fi
+
+    # Check if FAL_KEY is set (optional)
+    if [ -z "$FAL_KEY" ]; then
+        if secret_exists "FAL_KEY"; then
+            echo "✅ FAL_KEY already set in worker (skipping)"
+        else
+            echo "⚠️  FAL_KEY not set (optional for Fal AI features)"
+            echo "   You can set it manually later with:"
+            echo "   wrangler secret put FAL_KEY"
+        fi
+    else
+        if secret_exists "FAL_KEY"; then
+            echo "⚠️  FAL_KEY already exists in worker"
+            echo "   To update it, run: wrangler secret put FAL_KEY"
+        else
+            echo "Setting FAL_KEY..."
+            echo "$FAL_KEY" | wrangler secret put FAL_KEY
+            echo "✅ FAL_KEY set"
+        fi
+    fi
+
+    # Note: FAL_MODEL is now hardcoded to fal-ai/flux-2-pro/edit, no env vars needed
 }
 
 # Function to test deployment

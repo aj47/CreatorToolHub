@@ -26,11 +26,15 @@ npm install
 
 **For Development (Simplified Setup):**
 
-Create `.env.local` with just the Gemini API key:
+Create `.env.local` with the required API keys:
 
 ```bash
-# Only required for development
+# Required for development
 GEMINI_API_KEY=your_gemini_api_key_here
+
+# Optional: Fal AI Configuration (for image editing features)
+FAL_KEY=your_fal_api_key_here
+# Note: Fal AI models are hardcoded (fal-ai/flux-2-pro/edit and fal-ai/qwen-image-edit/image-to-image)
 ```
 
 **Development Mode Features:**
@@ -41,7 +45,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 **For Production:**
 
-Copy `.env.local.example` to `.env.local` and fill in all values:
+Copy `.env.production.example` to your Cloudflare Pages environment variables and fill in all values:
 
 ```bash
 # Required for production
@@ -52,6 +56,10 @@ GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 AUTUMN_SECRET_KEY=your_autumn_secret_key
 NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID=credits
 GEMINI_API_KEY=your_gemini_api_key_here
+
+# Fal AI Configuration (for image editing features)
+FAL_KEY=your_fal_api_key_here
+# Note: Fal AI models are hardcoded (fal-ai/flux-2-pro/edit and fal-ai/qwen-image-edit/image-to-image)
 ```
 
 Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/).

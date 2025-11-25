@@ -13,6 +13,7 @@ import {
 
 export interface Env {
   GEMINI_API_KEY: string;
+  FAL_KEY?: string; // Fal AI API key for image editing (uses fal-ai/flux-2-pro/edit model)
   MODEL_ID?: string; // optional override via Wrangler vars
   AUTUMN_SECRET_KEY?: string;
   FEATURE_ID?: string;

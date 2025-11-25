@@ -4,7 +4,8 @@ export const runtime = "edge";
 import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
-import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils } from "@/lib/types/refinement";
+import { fal } from "@fal-ai/client";
+import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils, FAL_MODEL_FLUX, FAL_MODEL_QWEN, FalModel, SingleProvider } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
@@ -39,8 +40,14 @@ async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: s
       </svg>
     `;
 
-    // Convert SVG to base64
-    const mockImageBase64 = Buffer.from(mockImageSvg).toString('base64');
+    // Convert SVG to base64 using Web APIs (Edge runtime compatible)
+    const encoder = new TextEncoder();
+    const svgBytes = encoder.encode(mockImageSvg);
+    let binaryString = '';
+    for (let i = 0; i < svgBytes.length; i++) {
+      binaryString += String.fromCharCode(svgBytes[i]);
+    }
+    const mockImageBase64 = btoa(binaryString);
 
     return mockImageBase64;
 
@@ -62,10 +69,10 @@ async function refineImageWithGemini(
   try {
     // Build request parts: base image first, then the combined prompt
     const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
-    
+
     // Add the base image
     reqParts.push({ inlineData: { mimeType: imageMime, data: baseImageData } });
-    
+
     // Add the combined prompt
     reqParts.push({ text: combinedPrompt });
 
@@ -96,6 +103,70 @@ async function refineImageWithGemini(
   }
 }
 
+async function refineImageWithFal(
+  apiKey: string,
+  baseImageData: string,
+  feedbackPrompt: string,
+  referenceImages?: string[],
+  provider?: SingleProvider
+): Promise<string> {
+  // Configure Fal client
+  fal.config({
+    credentials: apiKey
+  });
+
+  try {
+    // Convert base64 to data URL for Fal AI
+    const dataUrl = `data:image/png;base64,${baseImageData}`;
+
+    // Build image_urls array: base image first, then reference images
+    const imageUrls = [dataUrl];
+    if (referenceImages && referenceImages.length > 0) {
+      // Add reference images (convert to data URLs if needed)
+      referenceImages.forEach(refImg => {
+        const refDataUrl = refImg.startsWith('data:')
+          ? refImg
+          : `data:image/png;base64,${refImg}`;
+        imageUrls.push(refDataUrl);
+      });
+    }
+
+    // Use Flux model for fal-flux, Qwen for fal-qwen
+    const falModel = provider === 'fal-qwen' ? FAL_MODEL_QWEN : FAL_MODEL_FLUX;
+    const result = await fal.subscribe(falModel, {
+      input: {
+        prompt: feedbackPrompt,
+        image_urls: imageUrls,
+        image_size: "landscape_16_9",
+        output_format: "png",
+        sync_mode: false
+      },
+      logs: false,
+    }) as { data: { images: Array<{ url: string }> } };
+
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error("No images generated");
+    }
+
+    // Fetch the image and convert to base64
+    const imageUrl = result.data.images[0].url;
+    const imageResponse = await fetch(imageUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    // Convert ArrayBuffer to base64 using Web APIs (Edge runtime compatible)
+    const uint8Array = new Uint8Array(imageBuffer);
+    let binaryString = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binaryString += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binaryString);
+
+    return base64;
+  } catch (error) {
+    console.error("Fal refinement error:", error);
+    throw new Error(`Image refinement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Require authentication - bypass in development
@@ -113,13 +184,16 @@ export async function POST(req: Request) {
     }
 
     const requestData: RefinementRequest = await req.json();
-    const { 
-      baseImageUrl, 
-      baseImageData, 
-      originalPrompt, 
-      feedbackPrompt, 
-      templateId, 
-      parentIterationId 
+    const {
+      baseImageUrl,
+      baseImageData,
+      originalPrompt,
+      feedbackPrompt,
+      templateId,
+      parentIterationId,
+      provider = 'gemini', // Default to Gemini for backward compatibility
+      referenceImages = [], // Optional reference images for Fal AI
+      model,
     } = requestData;
 
     // Validate required fields
@@ -130,16 +204,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get API key
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    // Validate provider
+    const validProviders: SingleProvider[] = ['gemini', 'fal-flux', 'fal-qwen'];
+    if (!validProviders.includes(provider as SingleProvider)) {
       return Response.json(
-        { success: false, error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
+        { success: false, error: "Invalid provider. Must be 'gemini', 'fal-flux', or 'fal-qwen'" },
+        { status: 400 }
       );
     }
 
-    // Autumn credit check: each refinement costs 1 credit
+    // Get API key based on provider
+    let apiKey: string | undefined;
+    if (provider === 'fal-flux' || provider === 'fal-qwen') {
+      apiKey = process.env.FAL_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { success: false, error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+    } else {
+      apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      if (!apiKey) {
+        return Response.json(
+          { success: false, error: "Service temporarily unavailable" },
+          { status: 503 }
+        );
+      }
+    }
+
+    // Autumn credit check: Gemini costs 4 credits, Fal AI costs 1 credit
     const FEATURE_ID = process.env.NEXT_PUBLIC_AUTUMN_THUMBNAIL_FEATURE_ID || "credits";
     const deriveCustomerId = (email: string) => {
       const raw = email.toLowerCase();
@@ -155,8 +249,8 @@ export async function POST(req: Request) {
     const secretKey = process.env.AUTUMN_SECRET_KEY;
     const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
-    // Each refinement consumes 1 credit
-    const creditsRequired = 1;
+    // Credit cost depends on provider: Gemini = 4 credits, Fal AI = 1 credit
+    const creditsRequired = provider === 'gemini' ? 4 : 1;
 
     let allowed = true;
     let autumn: Autumn | null = null;
@@ -216,8 +310,17 @@ Please apply the refinement request to modify the image while maintaining the ov
       // In development mode, create a mock refined image by applying a simple visual modification
       // This simulates the refinement process for UI testing
       refinedImageBase64 = await createMockRefinedImage(baseImageData, feedbackPrompt);
+    } else if (provider === 'fal-flux' || provider === 'fal-qwen') {
+      // Generate refined image using Fal AI
+      refinedImageBase64 = await refineImageWithFal(
+        apiKey,
+        baseImageData,
+        feedbackPrompt,
+        referenceImages,
+        provider
+      );
     } else {
-      // Generate refined image using real Gemini API
+      // Generate refined image using Gemini API
       refinedImageBase64 = await refineImageWithGemini(
         apiKey,
         baseImageData,

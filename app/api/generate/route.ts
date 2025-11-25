@@ -4,9 +4,24 @@ export const runtime = "edge";
 import { getUser, createAuthToken } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
+import { fal } from "@fal-ai/client";
+import { FAL_MODEL_FLUX, FAL_MODEL_QWEN, FalModel, Provider, SingleProvider } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
+
+// Credit costs per provider
+const PROVIDER_CREDITS: Record<SingleProvider, number> = {
+  'gemini': 4,
+  'fal-flux': 1,
+  'fal-qwen': 1,
+};
+
+// Result type with provider label
+interface LabeledImage {
+  url: string;
+  provider: SingleProvider;
+}
 
 async function generateImagesWithGemini(
   apiKey: string,
@@ -59,6 +74,59 @@ async function generateImagesWithGemini(
   }
 }
 
+async function generateImagesWithFal(
+  apiKey: string,
+  prompt: string,
+  frames: string[],
+  model: FalModel = FAL_MODEL_FLUX
+): Promise<string[]> {
+  fal.config({
+    credentials: apiKey
+  });
+
+  try {
+    // Use the first frame as the reference image
+    const referenceFrame = frames[0];
+    const dataUrl = `data:image/png;base64,${referenceFrame}`;
+
+    // Use specified model (Flux or Qwen)
+    const result = await fal.subscribe(model, {
+      input: {
+        prompt,
+        image_urls: [dataUrl],
+        image_size: "landscape_16_9",
+        output_format: "png",
+        sync_mode: false
+      },
+      logs: false,
+    }) as { data: { images: Array<{ url: string }> } };
+
+    if (!result.data.images || result.data.images.length === 0) {
+      throw new Error("No images generated");
+    }
+
+    // Fetch the image and convert to base64
+    const images: string[] = [];
+    for (const img of result.data.images) {
+      const imageResponse = await fetch(img.url);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      // Convert ArrayBuffer to base64 using Web APIs (Edge runtime compatible)
+      const uint8Array = new Uint8Array(imageBuffer);
+      let binaryString = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binaryString += String.fromCharCode(uint8Array[i]);
+      }
+      const base64 = btoa(binaryString);
+      images.push(base64);
+    }
+
+    return images;
+  } catch (error) {
+    console.error(`Fal generation error (${model}):`, error);
+    throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Require authentication - bypass in development
@@ -75,7 +143,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage, variants, framesMime, source } = await req.json();
+    const { prompt, frames = [], layoutImage, variants, framesMime, source, provider = 'gemini', model } = await req.json();
 
     // Proxy to worker API for database persistence (both development and production)
     const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || 'https://creator-tool-hub.techfren.workers.dev';
@@ -102,7 +170,9 @@ export async function POST(req: Request) {
             frames,
             framesMime,
             variants,
-            source: source || 'thumbnails'
+            source: source || 'thumbnails',
+            provider,
+            model
           })
         });
 
@@ -142,11 +212,38 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
+    // Validate provider
+    const validProviders: Provider[] = ['gemini', 'fal-flux', 'fal-qwen', 'all'];
+    if (!validProviders.includes(provider as Provider)) {
       return Response.json(
-        { error: "Missing GEMINI_API_KEY or GOOGLE_API_KEY" },
-        { status: 500 }
+        { error: "Invalid provider. Must be 'gemini', 'fal-flux', 'fal-qwen', or 'all'" },
+        { status: 400 }
+      );
+    }
+
+    // Determine which providers to use
+    const providersToUse: SingleProvider[] = provider === 'all'
+      ? ['gemini', 'fal-flux', 'fal-qwen']
+      : [provider as SingleProvider];
+
+    // Get API keys
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const falKey = process.env.FAL_KEY;
+
+    // Check if required keys are available for selected providers
+    const needsGemini = providersToUse.includes('gemini');
+    const needsFal = providersToUse.includes('fal-flux') || providersToUse.includes('fal-qwen');
+
+    if (needsGemini && !geminiKey) {
+      return Response.json(
+        { error: "Gemini service temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+    if (needsFal && !falKey) {
+      return Response.json(
+        { error: "Fal AI service temporarily unavailable" },
+        { status: 503 }
       );
     }
 
@@ -166,16 +263,19 @@ export async function POST(req: Request) {
     const secretKey = process.env.AUTUMN_SECRET_KEY;
     const autumnEnabled = !!secretKey && process.env.NODE_ENV === 'production';
 
-    // Each request consumes credits equal to the variant count
-    // We've configured Gemini to return exactly 1 image per API call
+    // Calculate total credits: sum of credits for each provider
+    // For 'all' provider, each provider generates 1 variant
     const count = Math.max(1, Math.min(Number(variants) || 1, 8));
+    const totalCreditsRequired = providersToUse.reduce((sum, p) => {
+      return sum + (count * PROVIDER_CREDITS[p]);
+    }, 0);
 
     let allowed = true;
     let autumn: Autumn | null = null;
     if (autumnEnabled) {
       autumn = new Autumn({ secretKey: secretKey as string });
       try {
-        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: count });
+        const checkRes = await autumn.check({ customer_id, feature_id: FEATURE_ID, required_balance: totalCreditsRequired });
         allowed = !!checkRes?.data?.allowed;
       } catch (e) {
         if (process.env.NODE_ENV === "production") {
@@ -189,56 +289,71 @@ export async function POST(req: Request) {
       }
       if (!allowed) {
         return Response.json(
-          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: count },
+          { error: "Insufficient credits", code: "insufficient_credits", feature_id: FEATURE_ID, required: totalCreditsRequired },
           { status: 402 }
         );
       }
     }
 
-    // Run multiple variant calls with limited concurrency to avoid CPU spikes
+    // Run generation for each provider in parallel
     const imageMime = (typeof framesMime === "string" && framesMime.startsWith("image/")) ? framesMime : "image/png";
-    const CONCURRENCY = 2; // limit fan-out to reduce CPU time per request
 
-    const imagesAll: string[] = [];
-    for (let i = 0; i < count; i += CONCURRENCY) {
-      const batchSize = Math.min(CONCURRENCY, count - i);
-      const batch = Array.from({ length: batchSize }, () =>
-        generateImagesWithGemini(apiKey, prompt, frames, imageMime, layoutImage)
-      );
-      const settled = await Promise.allSettled(batch);
-      imagesAll.push(...settled.flatMap((s) => s.status === "fulfilled" ? s.value : []));
+    // Helper to generate for a single provider
+    async function generateForProvider(p: SingleProvider): Promise<LabeledImage[]> {
+      const results: LabeledImage[] = [];
+
+      for (let i = 0; i < count; i++) {
+        try {
+          let images: string[] = [];
+          if (p === 'gemini') {
+            images = await generateImagesWithGemini(geminiKey!, prompt, frames, imageMime, layoutImage);
+          } else if (p === 'fal-flux') {
+            images = await generateImagesWithFal(falKey!, prompt, frames, FAL_MODEL_FLUX);
+          } else if (p === 'fal-qwen') {
+            images = await generateImagesWithFal(falKey!, prompt, frames, FAL_MODEL_QWEN);
+          }
+          for (const base64 of images) {
+            results.push({ url: `data:image/png;base64,${base64}`, provider: p });
+          }
+        } catch (error) {
+          console.error(`Error generating with ${p}:`, error);
+        }
+      }
+      return results;
     }
 
-    if (imagesAll.length === 0) {
+    // Generate with all providers in parallel
+    const providerResults = await Promise.all(
+      providersToUse.map(p => generateForProvider(p))
+    );
+
+    // Flatten results
+    const allImages: LabeledImage[] = providerResults.flat();
+
+    if (allImages.length === 0) {
       return Response.json(
         { error: "Failed to generate any images" },
         { status: 500 }
       );
     }
 
-    // Track credit usage equal to the variant count after a successful generation
-    // We've configured Gemini to return exactly 1 image per API call
-    // Log both values for monitoring
-    const actualImagesGenerated = imagesAll.length;
+    // Track credit usage after a successful generation
+    const actualImagesGenerated = allImages.length;
     if (autumn) {
       try {
-        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: count });
-        console.log(`Tracked ${count} credits (requested: ${count} variants, generated: ${actualImagesGenerated} images)`);
-
-        // Alert if mismatch detected
-        if (actualImagesGenerated !== count) {
-          console.warn(`⚠️ Image count mismatch! Expected ${count} images but got ${actualImagesGenerated}. User was charged for ${count}.`);
-        }
+        await autumn.track({ customer_id, feature_id: FEATURE_ID, value: totalCreditsRequired });
+        console.log(`Tracked ${totalCreditsRequired} credits (providers: ${providersToUse.join(', ')}, generated: ${actualImagesGenerated} images)`);
       } catch (e) {
         console.warn("Autumn track failed; continuing without failing request", e);
       }
     }
 
-    // Return images as data URLs for direct client use
-    // Note: Dimension enforcement will be handled on the client side
-    const dataUrls = imagesAll.map(base64 => `data:image/png;base64,${base64}`);
-
-    return Response.json({ images: dataUrls });
+    // Return labeled images for UI to display with provider info
+    return Response.json({
+      images: allImages.map(img => img.url),
+      labeledImages: allImages,
+      totalCredits: totalCreditsRequired
+    });
   } catch (err: unknown) {
     console.error("/api/generate error", err);
     return Response.json(

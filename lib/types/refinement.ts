@@ -35,7 +35,17 @@ export interface RefinementState {
   feedbackPrompt: string; // Current feedback prompt input
   isCopying: boolean; // Whether a copy operation is in progress
   isDownloading: boolean; // Whether a download operation is in progress
+  referenceImages: string[]; // Reference images (base64 data) for refinement
 }
+
+// Fal AI models for image editing
+export const FAL_MODEL_FLUX = "fal-ai/flux-2-pro/edit" as const; // FLUX.2 [pro] from Black Forest Labs
+export const FAL_MODEL_QWEN = "fal-ai/qwen-image-edit/image-to-image" as const; // Qwen Image Edit
+export type FalModel = typeof FAL_MODEL_FLUX | typeof FAL_MODEL_QWEN;
+
+// Provider types
+export type Provider = 'gemini' | 'fal-flux' | 'fal-qwen' | 'all';
+export type SingleProvider = Exclude<Provider, 'all'>;
 
 export interface RefinementRequest {
   baseImageUrl: string; // The base thumbnail to refine
@@ -44,6 +54,9 @@ export interface RefinementRequest {
   feedbackPrompt: string; // User's refinement feedback
   templateId: string; // Template ID for context
   parentIterationId?: string; // ID of parent iteration if continuing a chain
+  provider?: SingleProvider; // AI provider to use for refinement (default: gemini)
+  referenceImages?: string[]; // Optional reference images (base64 data) for Fal AI
+  model?: FalModel; // Optional Fal model selection
 }
 
 export interface RefinementResponse {

@@ -32,3 +32,5 @@ pnpm-debug.log*
 .wrangler/
 .vercel/
 .next//
+.env
+.env.local.example

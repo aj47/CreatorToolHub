@@ -86,8 +86,10 @@ export default function Home() {
   const [count, setCount] = useState(1);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
+  const [labeledResults, setLabeledResults] = useState<Array<{url: string; provider: string}>>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal-flux' | 'fal-qwen' | 'all'>('gemini');
 
   const faqJsonLd = useMemo(
     () =>
@@ -122,6 +124,7 @@ export default function Home() {
     feedbackPrompt: "",
     isCopying: false,
     isDownloading: false,
+    referenceImages: [],
   });
   const [showHistoryBrowser, setShowHistoryBrowser] = useState(false);
 
@@ -863,8 +866,17 @@ export default function Home() {
     }
 
     // Client-side gate: block if out of credits for the number of generations requested
+    // Credit costs: Gemini = 4, Fal-Flux = 1, Fal-Qwen = 1
+    // For 'all' provider, sum all three: 4 + 1 + 1 = 6 credits per variant
     const perTemplate = Math.max(1, count);
-    const needed = perTemplate * (validSelectedIds.length || 0);
+    const getCreditsForProvider = (p: typeof selectedProvider) => {
+      if (p === 'gemini') return 4;
+      if (p === 'fal-flux' || p === 'fal-qwen') return 1;
+      if (p === 'all') return 6; // gemini (4) + flux (1) + qwen (1)
+      return 1;
+    };
+    const creditsPerVariant = getCreditsForProvider(selectedProvider);
+    const needed = perTemplate * creditsPerVariant * (validSelectedIds.length || 0);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
@@ -876,6 +888,7 @@ export default function Home() {
     // Clean up previous blob URLs before generating new ones
     cleanupBlobUrls();
     setResults([]);
+    setLabeledResults([]);
     setSuggestedRefinements({});
     setLoadingSuggestions({});
     setProgressDone(0);
@@ -981,7 +994,9 @@ export default function Home() {
           frames: normalizedFrames,
           framesMime: TARGET_MIME,
           variants: count,
-          source: "thumbnails"
+          source: "thumbnails",
+          provider: selectedProvider,
+          model: undefined
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1013,6 +1028,7 @@ export default function Home() {
           const data = await res.json();
           if (!res.ok) throw new Error(data?.error || "Unexpected error");
           const images = data?.images;
+          const labeledImages = data?.labeledImages as Array<{url: string; provider: string}> | undefined;
           if (!Array.isArray(images) || images.length === 0) {
             throw new Error("No images returned");
           }
@@ -1037,8 +1053,27 @@ export default function Home() {
             });
             setResults((prev) => [...prev, ...newBlobUrls]);
             setBlobUrls((prev) => [...prev, ...newBlobUrls]);
+            // Store labeled results for provider display
+            if (labeledImages) {
+              setLabeledResults((prev) => [
+                ...prev,
+                ...newBlobUrls.map((url, idx) => ({
+                  url,
+                  provider: labeledImages[idx]?.provider || selectedProvider
+                }))
+              ]);
+            } else {
+              setLabeledResults((prev) => [
+                ...prev,
+                ...newBlobUrls.map(url => ({ url, provider: selectedProvider }))
+              ]);
+            }
           } catch {
             setResults((prev) => [...prev, ...processedImages]);
+            setLabeledResults((prev) => [
+              ...prev,
+              ...processedImages.map(url => ({ url, provider: selectedProvider }))
+            ]);
           }
           overallDone += processedImages.length;
           setProgressDone(overallDone);
@@ -1315,6 +1350,7 @@ export default function Home() {
         feedbackPrompt: initialFeedback,
         isCopying: false,
         isDownloading: false,
+        referenceImages: [],
       });
     } catch (error) {
       setError('Failed to prepare thumbnail for refinement. Please try again.');
@@ -1443,6 +1479,7 @@ export default function Home() {
       feedbackPrompt: "",
       isCopying: false,
       isDownloading: false,
+      referenceImages: [],
     });
     setShowHistoryBrowser(false);
   };
@@ -1742,76 +1779,155 @@ export default function Home() {
           )}
 
           {currentStep === 3 && step1Done && step2Done && (
-            <section id="step3" style={{ display: "grid", gap: 8 }}>
+            <section id="step3" style={{ display: "grid", gap: 6, maxWidth: 800, margin: '0 auto', width: '100%' }}>
               {!loading && results.length === 0 && (
                 <>
-                  <label className={styles.formGroup}>
-                    <span className={styles.label}>Headline</span>
-                    <input
-                      type="text"
-                      placeholder="3–5 word hook (optional)"
-                      value={headline}
-                      onChange={(e) => setHeadline(e.target.value)}
-                      className={styles.input}
-                    />
-                  </label>
+                  {/* Compact form in a single card */}
+                  <div style={{
+                    border: '2px solid var(--nb-border)',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    background: 'var(--nb-card)',
+                    display: 'grid',
+                    gap: 8
+                  }}>
+                    {/* Headline - compact */}
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <label className={styles.label} style={{ fontSize: 11 }}>Headline (optional)</label>
+                      <input
+                        type="text"
+                        placeholder="3–5 word hook"
+                        value={headline}
+                        onChange={(e) => setHeadline(e.target.value)}
+                        style={{
+                          border: '2px solid #ddd',
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          fontSize: 14,
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
 
-                  <label className={styles.formGroup}>
-                    <span className={styles.label}>Additional notes (optional)</span>
-                    <textarea
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      rows={4}
-                      className={styles.textarea}
-                    />
-                  </label>
+                    {/* Notes - compact */}
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <label className={styles.label} style={{ fontSize: 11 }}>Additional notes (optional)</label>
+                      <textarea
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        rows={2}
+                        style={{
+                          border: '2px solid #ddd',
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          fontSize: 14,
+                          outline: 'none',
+                          resize: 'vertical',
+                          fontFamily: 'inherit'
+                        }}
+                      />
+                    </div>
 
-                  <div className={styles.inlineGroup}>
-                    <label className={styles.label} htmlFor="variants">Variants</label>
-                    <input
-                      id="variants"
-                      type="number"
-                      min={1}
-                      max={8}
-                      value={count}
-                      onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
-                      className={styles.number}
-                    />
+                    {/* Provider + Variants in one row */}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'end', flexWrap: 'wrap' }}>
+                      {/* AI Provider - compact */}
+                      <div style={{ flex: 1, minWidth: 200, display: 'grid', gap: 4 }}>
+                        <label className={styles.label} style={{ fontSize: 11 }}>AI Provider</label>
+                        <div style={{ display: "flex", gap: 4, flexWrap: 'wrap' }}>
+                          {[
+                            { value: 'gemini', label: 'Gemini', credits: '4cr' },
+                            { value: 'fal-flux', label: 'Flux', credits: '1cr' },
+                            { value: 'fal-qwen', label: 'Qwen', credits: '1cr' },
+                            { value: 'all', label: 'All', credits: '6cr' },
+                          ].map((opt) => (
+                            <label key={opt.value} style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              cursor: "pointer",
+                              padding: "6px 8px",
+                              border: `2px solid ${selectedProvider === opt.value ? 'var(--nb-accent)' : '#ddd'}`,
+                              borderRadius: 4,
+                              background: selectedProvider === opt.value ? '#f0f7ff' : 'white',
+                              transition: 'all 0.2s',
+                              flex: 1,
+                              minWidth: 70,
+                              fontSize: 13
+                            }}>
+                              <input
+                                type="radio"
+                                name="provider"
+                                value={opt.value}
+                                checked={selectedProvider === opt.value}
+                                onChange={(e) => setSelectedProvider(e.target.value as typeof selectedProvider)}
+                                disabled={loading}
+                              />
+                              <span style={{ fontWeight: selectedProvider === opt.value ? 'bold' : 'normal' }}>
+                                {opt.label}
+                              </span>
+                              <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{opt.credits}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                    {/* Variants - compact */}
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <label className={styles.label} htmlFor="variants" style={{ fontSize: 11 }}>Variants</label>
+                      <input
+                        id="variants"
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={count}
+                        onChange={(e) => setCount(parseInt(e.target.value || "1", 10))}
+                        style={{
+                          width: 60,
+                          border: '2px solid #ddd',
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          fontSize: 14,
+                          textAlign: 'center'
+                        }}
+                      />
+                    </div>
                   </div>
 
+                  {/* Generate button - compact */}
                   <button
                     className={styles.primary}
                     onClick={(e) => {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)))}
+                    style={{ padding: '10px 16px', fontSize: 14 }}
                   >
                     {authLoading
                       ? "Loading..."
                       : !isAuthed
-                        ? "Generate thumbnails (Free after sign-up)"
+                        ? "Generate (Free after sign-up)"
                         : (!loadingCustomer
-                            ? `Generate thumbnails (uses ${Math.max(1, count) * (getValidSelectedIds().length || 0)} credit${(Math.max(1, count) * (getValidSelectedIds().length || 0)) === 1 ? '' : 's'})`
-                            : "Generate thumbnails")}
+                            ? `Generate (${Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)} credits)`
+                            : "Generate")}
                   </button>
 
+                  {/* Info badge - compact */}
                   <div style={{
-                    fontSize: '12px',
+                    fontSize: 11,
                     color: '#666',
                     textAlign: 'center',
-                    marginTop: '8px',
-                    padding: '6px 12px',
+                    padding: '4px 8px',
                     background: '#f8f9fa',
-                    borderRadius: '4px',
-                    border: '1px solid #e9ecef'
+                    borderRadius: '4px'
                   }}>
-                    ✅ All thumbnails automatically sized to YouTube specs (1280×720)
+                    ✅ Auto-sized to 1280×720
                   </div>
 
                   <div className={styles.navRow}>
-                    <button onClick={() => goTo(2)}>← Back</button>
+                    <button onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
                   </div>
+                </div>
                 </>
               )}
 
@@ -1843,71 +1959,120 @@ export default function Home() {
 
               {!loading && results.length > 0 && !refinementState.isRefinementMode && (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                    <h3 style={{ margin: 0 }}>Results ({results.length})</h3>
-                    <button onClick={downloadAll} disabled={downloadingAll}>
-                      {downloadingAll ? "Downloading..." : "Download all"}
-                    </button>
+                  {/* Compact header */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: '0 4px' }}>
+                    <h3 style={{ margin: 0, fontSize: 16 }}>Results ({results.length})</h3>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={downloadAll} disabled={downloadingAll} style={{ padding: '6px 12px', fontSize: 13 }}>
+                        {downloadingAll ? "Downloading..." : "⬇ All"}
+                      </button>
+                      <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }} style={{ padding: '6px 12px', fontSize: 13 }}>
+                        ↻ New
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                    {results.map((src, i) => (
+
+                  {/* Grid layout for thumbnails - more space efficient */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    gap: 10
+                  }}>
+                    {results.map((src, i) => {
+                      const providerLabel = labeledResults[i]?.provider;
+                      const providerDisplayName = providerLabel === 'gemini' ? 'Gemini'
+                        : providerLabel === 'fal-flux' ? 'Flux'
+                        : providerLabel === 'fal-qwen' ? 'Qwen'
+                        : '';
+                      return (
                       <div
                         key={i}
                         className={refinementState.selectedThumbnailIndex === i ? styles.selectedThumbnail : ""}
                         style={{
                           border: refinementState.selectedThumbnailIndex === i
-                            ? "3px solid var(--nb-accent)"
+                            ? "2px solid var(--nb-accent)"
                             : "1px solid #ddd",
-                          padding: 8,
-                          borderRadius: 8,
-                          width: 320,
-                          flexShrink: 0
+                          padding: 6,
+                          borderRadius: 6,
+                          background: 'white',
+                          position: 'relative'
                         }}
                       >
+                        {/* Provider label badge */}
+                        {providerDisplayName && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 10,
+                            left: 10,
+                            background: providerLabel === 'gemini' ? '#4285f4' : providerLabel === 'fal-flux' ? '#9333ea' : '#f97316',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            zIndex: 1,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                          }}>
+                            {providerDisplayName}
+                          </div>
+                        )}
+                        {/* Image */}
                         {src ? (<img src={src} alt={`result-${i}`} style={{ width: '100%', display: 'block', borderRadius: 4 }} />) : null}
 
-                        {/* Action buttons */}
-                        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                        {/* Compact action buttons */}
+                        <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                           <button
                             onClick={() => download(src, i)}
                             disabled={downloadingIndex === i}
+                            style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
                           >
-                            {downloadingIndex === i ? "Downloading..." : "Download"}
+                            {downloadingIndex === i ? "..." : "⬇"}
                           </button>
                           <button
                             onClick={() => copyToClipboard(src, i)}
                             disabled={copyingIndex === i}
+                            style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
                           >
-                            {copyingIndex === i ? "Copying..." : "Copy"}
+                            {copyingIndex === i ? "..." : "📋"}
                           </button>
                         </div>
 
-                        {/* Refinement Section - grouped together */}
-                        <div className={styles.refinementSection}>
-                          <div className={styles.refinementHeader}>
-                            <span className={styles.refinementHeaderIcon}>✨</span>
-                            <span className={styles.refinementHeaderText}>Refine This Thumbnail</span>
-                          </div>
-                          <div className={styles.refinementDescription}>
-                            AI-powered improvements to make your thumbnail even better
+                        {/* Compact Refinement Section */}
+                        <div style={{
+                          marginTop: 6,
+                          padding: 8,
+                          background: '#f8f9ff',
+                          borderRadius: 4,
+                          border: '1px solid #e0e7ff'
+                        }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#555', marginBottom: 6 }}>
+                            ✨ Refine
                           </div>
 
-                          {/* Suggested Refinements */}
+                          {/* Suggested Refinements - compact */}
                           {loadingSuggestions[i] && (
-                            <div className={styles.suggestionsLoading}>
-                              <div className={styles.loadingSpinner}></div>
-                              <span>Generating AI suggestions...</span>
+                            <div style={{ fontSize: 11, color: '#666', padding: '4px 0' }}>
+                              Loading suggestions...
                             </div>
                           )}
                           {!loadingSuggestions[i] && suggestedRefinements[i] && suggestedRefinements[i].length > 0 && (
-                            <div className={styles.suggestionsGrid}>
-                              <div className={styles.suggestionsLabel}>💡 Quick Refinements (click to apply):</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
                               {suggestedRefinements[i].map((suggestion, idx) => (
                                 <button
                                   key={idx}
                                   onClick={() => handleApplySuggestedRefinement(i, suggestion)}
-                                  className={styles.suggestedRefinement}
-                                  title={`Click to apply: ${suggestion}`}
+                                  style={{
+                                    background: 'white',
+                                    border: '1px solid var(--nb-accent)',
+                                    borderRadius: 4,
+                                    padding: '5px 8px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    color: 'var(--nb-accent)',
+                                    fontWeight: 500
+                                  }}
+                                  title={suggestion}
                                 >
                                   {suggestion}
                                 </button>
@@ -1915,22 +2080,32 @@ export default function Home() {
                             </div>
                           )}
 
-                          {/* Custom Refine Button */}
+                          {/* Custom Refine Button - compact */}
                           <button
                             onClick={() => handleSelectThumbnailForRefinement(i)}
-                            className={styles.customRefineButton}
-                            title="Write your own custom refinement instructions to improve this thumbnail exactly how you want"
+                            style={{
+                              width: '100%',
+                              background: 'var(--nb-accent)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '6px 8px',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                            title="Write custom refinement instructions"
                           >
-                            ✏️ Custom Refine
+                            ✏️ Custom
                           </button>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
 
-                  <div className={styles.navRow}>
-                    <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }}>← Generate More</button>
-                    <button onClick={() => goTo(1)}>Start Over</button>
+                  {/* Compact nav */}
+                  <div className={styles.navRow} style={{ marginTop: 12 }}>
+                    <button onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
                   </div>
                 </>
               )}

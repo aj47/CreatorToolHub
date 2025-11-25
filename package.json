@@ -14,9 +14,15 @@
     "dev:local": "bash scripts/dev-local-stack.sh",
     "test:full-stack": "node scripts/test-full-stack.js",
     "test:perf": "node scripts/test-full-stack.js --perf-only",
-    "test:check": "bash scripts/test-with-check.sh"
+    "test:check": "bash scripts/test-with-check.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "PLAYWRIGHT_BASE_URL=https://creatortoolhub.com playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@fal-ai/client": "^1.7.2",
     "@google/genai": "^1.17.0",
     "autumn-js": "^0.1.33",
     "class-variance-authority": "^0.7.1",
@@ -28,6 +34,7 @@
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20",
     "@types/react": "^19",

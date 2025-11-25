@@ -8,7 +8,8 @@ import {
   RefinementUIState,
   RefinementRequest,
   RefinementResponse,
-  RefinementUtils
+  RefinementUtils,
+  SingleProvider
 } from "@/lib/types/refinement";
 import { enforceYouTubeDimensions, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
@@ -35,6 +36,61 @@ export default function ThumbnailRefinement({
     showHistory: false,
     isHistoryExpanded: false,
   });
+  const [selectedProvider, setSelectedProvider] = useState<SingleProvider>('gemini');
+
+  // Handle reference image upload
+  const handleReferenceImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const newImages: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          continue;
+        }
+
+        // Convert to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Extract base64 data (remove data:image/...;base64, prefix)
+            const base64Data = result.split(',')[1] || result;
+            resolve(base64Data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        newImages.push(base64);
+      }
+
+      if (newImages.length > 0) {
+        onUpdateRefinementState({
+          referenceImages: [...(refinementState.referenceImages || []), ...newImages]
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading reference images:', error);
+      onUpdateRefinementState({
+        refinementError: 'Failed to upload reference images'
+      });
+    }
+
+    // Reset input
+    e.target.value = '';
+  }, [refinementState.referenceImages, onUpdateRefinementState]);
+
+  // Handle removing a reference image
+  const handleRemoveReferenceImage = useCallback((index: number) => {
+    const newImages = (refinementState.referenceImages || []).filter((_, i) => i !== index);
+    onUpdateRefinementState({ referenceImages: newImages });
+  }, [refinementState.referenceImages, onUpdateRefinementState]);
 
   const currentHistory = refinementState.currentHistory;
   const currentIteration = currentHistory ? RefinementUtils.getCurrentIteration(currentHistory) : undefined;
@@ -51,8 +107,10 @@ export default function ThumbnailRefinement({
       return;
     }
 
-    if (credits < 1) {
-      onUpdateRefinementState({ refinementError: "You need 1 credit to refine this thumbnail." });
+    // Credit cost depends on provider: Gemini = 4 credits, Fal AI = 1 credit
+    const creditsRequired = selectedProvider === 'gemini' ? 4 : 1;
+    if (credits < creditsRequired) {
+      onUpdateRefinementState({ refinementError: `You need ${creditsRequired} credit${creditsRequired === 1 ? '' : 's'} to refine this thumbnail.` });
       return;
     }
 
@@ -109,13 +167,16 @@ export default function ThumbnailRefinement({
         }
       }
 
-      const request: RefinementRequest = {
+        const request: RefinementRequest = {
         baseImageUrl: currentIteration.imageUrl,
         baseImageData,
         originalPrompt,
         feedbackPrompt: refinementState.feedbackPrompt,
         templateId,
         parentIterationId: currentIteration.id,
+        provider: selectedProvider,
+          referenceImages: (refinementState.referenceImages && refinementState.referenceImages.length > 0) ? refinementState.referenceImages : undefined,
+          model: undefined,
       };
 
       const response = await fetch("/api/refine", {
@@ -407,6 +468,47 @@ export default function ThumbnailRefinement({
               )}
             </div>
 
+            {/* AI Provider Selection */}
+            <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
+                  AI Provider:
+                </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { value: 'gemini' as SingleProvider, label: 'Gemini', credits: '4cr' },
+                  { value: 'fal-flux' as SingleProvider, label: 'Flux', credits: '1cr' },
+                  { value: 'fal-qwen' as SingleProvider, label: 'Qwen', credits: '1cr' },
+                ].map((opt) => (
+                  <label key={opt.value} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    cursor: "pointer",
+                    padding: "8px 12px",
+                    border: `2px solid ${selectedProvider === opt.value ? 'var(--nb-accent)' : '#ddd'}`,
+                    borderRadius: 6,
+                    background: selectedProvider === opt.value ? '#f0f7ff' : 'white',
+                    transition: 'all 0.2s',
+                    flex: 1,
+                    minWidth: 80
+                  }}>
+                    <input
+                      type="radio"
+                      name="provider"
+                      value={opt.value}
+                      checked={selectedProvider === opt.value}
+                      onChange={(e) => setSelectedProvider(e.target.value as SingleProvider)}
+                      disabled={refinementState.isRefining}
+                    />
+                    <span style={{ fontWeight: selectedProvider === opt.value ? 'bold' : 'normal' }}>
+                      {opt.label}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{opt.credits}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Feedback Input */}
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
@@ -421,6 +523,95 @@ export default function ThumbnailRefinement({
               />
             </div>
 
+            {/* Reference Images (Fal AI only) */}
+            {(selectedProvider === 'fal-flux' || selectedProvider === 'fal-qwen') && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                  Reference Images (Optional):
+                </label>
+                <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                  Upload reference images to guide the AI in applying specific styles or elements.
+                </p>
+
+                {/* Upload Button */}
+                <label style={{
+                  display: "inline-block",
+                  padding: "8px 16px",
+                  backgroundColor: "#6c757d",
+                  color: "white",
+                  borderRadius: 4,
+                  cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                  fontWeight: "bold",
+                  fontSize: 14,
+                  opacity: refinementState.isRefining ? 0.6 : 1
+                }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleReferenceImageUpload}
+                    disabled={refinementState.isRefining}
+                    style={{ display: "none" }}
+                  />
+                  📎 Add Reference Images
+                </label>
+
+                {/* Display uploaded reference images */}
+                {refinementState.referenceImages && refinementState.referenceImages.length > 0 && (
+                  <div style={{
+                    marginTop: 12,
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap"
+                  }}>
+                    {refinementState.referenceImages.map((imgBase64, index) => (
+                      <div key={index} style={{
+                        position: "relative",
+                        width: 80,
+                        height: 80,
+                        border: "2px solid #ddd",
+                        borderRadius: 4,
+                        overflow: "hidden"
+                      }}>
+                        <img
+                          src={`data:image/png;base64,${imgBase64}`}
+                          alt={`Reference ${index + 1}`}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover"
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRemoveReferenceImage(index)}
+                          disabled={refinementState.isRefining}
+                          style={{
+                            position: "absolute",
+                            top: 2,
+                            right: 2,
+                            width: 20,
+                            height: 20,
+                            padding: 0,
+                            backgroundColor: "rgba(220, 53, 69, 0.9)",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "50%",
+                            cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                            fontSize: 12,
+                            lineHeight: "20px",
+                            fontWeight: "bold"
+                          }}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
@@ -429,7 +620,7 @@ export default function ThumbnailRefinement({
                   refinementState.isRefining ||
                   !refinementState.feedbackPrompt.trim() ||
                   (!isAuthed) ||
-                  (credits < 1)
+                  (credits < (selectedProvider === 'gemini' ? 4 : 1))
                 }
                 style={{
                   padding: "12px 24px",
@@ -443,7 +634,7 @@ export default function ThumbnailRefinement({
               >
                 {refinementState.isRefining
                   ? "Refining..."
-                  : `Refine Thumbnail (uses 1 credit)`
+                  : `Refine Thumbnail (uses ${selectedProvider === 'gemini' ? '4 credits' : '1 credit'})`
                 }
               </button>
 
@@ -493,9 +684,9 @@ export default function ThumbnailRefinement({
       {currentHistory.iterations.length > 1 && (
         <div style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
           <button
-            onClick={() => setUIState(prev => ({ 
-              ...prev, 
-              isHistoryExpanded: !prev.isHistoryExpanded 
+            onClick={() => setUIState(prev => ({
+              ...prev,
+              isHistoryExpanded: !prev.isHistoryExpanded
             }))}
             style={{
               width: "100%",
@@ -507,16 +698,16 @@ export default function ThumbnailRefinement({
               fontWeight: "bold"
             }}
           >
-            Version History ({currentHistory.iterations.length} iterations) 
+            Version History ({currentHistory.iterations.length} iterations)
             {uiState.isHistoryExpanded ? " ▼" : " ▶"}
           </button>
-          
+
           {uiState.isHistoryExpanded && (
             <div style={{ padding: 16 }}>
-              <div style={{ 
-                display: "grid", 
-                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", 
-                gap: 12 
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 12
               }}>
                 {currentHistory.iterations.map((iteration, index) => (
                   <div
@@ -526,8 +717,8 @@ export default function ThumbnailRefinement({
                     }`}
                     onClick={() => handleRollback(iteration.id)}
                   >
-                    <img 
-                      src={iteration.imageUrl} 
+                    <img
+                      src={iteration.imageUrl}
                       alt={`Iteration ${index + 1}`}
                       style={{ display: "block", width: "100%" }}
                     />
@@ -535,17 +726,17 @@ export default function ThumbnailRefinement({
                       <div><strong>Iteration {index + 1}</strong></div>
                       {iteration.feedbackPrompt && (
                         <div style={{ marginTop: 4, opacity: 0.7 }}>
-                          {iteration.feedbackPrompt.length > 50 
+                          {iteration.feedbackPrompt.length > 50
                             ? `${iteration.feedbackPrompt.substring(0, 50)}...`
                             : iteration.feedbackPrompt
                           }
                         </div>
                       )}
                       {iteration.id === currentIteration.id && (
-                        <div style={{ 
-                          marginTop: 4, 
-                          color: "var(--nb-accent)", 
-                          fontWeight: "bold" 
+                        <div style={{
+                          marginTop: 4,
+                          color: "var(--nb-accent)",
+                          fontWeight: "bold"
                         }}>
                           Current
                         </div>
