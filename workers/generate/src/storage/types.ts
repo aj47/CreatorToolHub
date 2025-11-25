@@ -37,12 +37,15 @@ export interface Generation {
   id: string;
   user_id: string;
   template_id?: string;
+  template_name?: string;
   prompt: string;
   variants_requested: number;
   status: GenerationStatus;
   source?: string;
   parent_generation_id?: string;
   error_message?: string;
+  model?: string;
+  refinement_prompt?: string;
   created_at: string;
   updated_at: string;
 }
@@ -96,10 +99,13 @@ export interface UpdateTemplateRequest {
 
 export interface CreateGenerationRequest {
   template_id?: string;
+  template_name?: string;
   prompt: string;
   variants_requested?: number;
   source?: string;
   parent_generation_id?: string;
+  model?: string;
+  refinement_prompt?: string;
   inputs?: Array<{
     input_type: string;
     source_id?: string;
@@ -160,12 +166,15 @@ export interface GenerationRow {
   id: string;
   user_id: string;
   template_id: string | null;
+  template_name: string | null;
   prompt: string;
   variants_requested: number;
   status: string;
   source: string | null;
   parent_generation_id: string | null;
   error_message: string | null;
+  model: string | null;
+  refinement_prompt: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -918,8 +918,10 @@ export default function Home() {
       for (const tid of ids) {
         let batchDone = 0; // Track progress within this template
 
-        const promptOverride = customPresets[tid]?.prompt ?? curatedMap[tid]?.prompt;
-        const refUrls: string[] = (customPresets[tid]?.referenceImages ?? curatedMap[tid]?.referenceImages ?? []) as string[];
+        const templateInfo = customPresets[tid] ?? curatedMap[tid];
+        const templateName = templateInfo?.title || tid;
+        const promptOverride = templateInfo?.prompt;
+        const refUrls: string[] = (templateInfo?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
         const hasReferenceImages = useUserRefs || refUrls.length > 0;
         const hasSubjectImages = frames.length > 0;
@@ -1001,7 +1003,9 @@ export default function Home() {
           variants: count,
           source: "thumbnails",
           providers: Array.from(selectedProviders),
-          model: undefined
+          model: undefined,
+          templateId: tid,
+          templateName
         };
         const res = await fetch("/api/generate", {
           method: "POST",

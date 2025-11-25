@@ -153,12 +153,15 @@ export function convertGenerationRow(row: any): any {
     id: row.id,
     user_id: row.user_id,
     template_id: row.template_id || undefined,
+    template_name: row.template_name || undefined,
     prompt: row.prompt,
     variants_requested: typeof row.variants_requested === 'number' ? row.variants_requested : Number(row.variants_requested) || 1,
     status: row.status,
     source: row.source || undefined,
     parent_generation_id: row.parent_generation_id || undefined,
     error_message: row.error_message || undefined,
+    model: row.model || undefined,
+    refinement_prompt: row.refinement_prompt || undefined,
     created_at: row.created_at,
     updated_at: row.updated_at
   };

@@ -53,12 +53,15 @@ export interface CloudGeneration {
   id: string;
   user_id: string;
   template_id?: string | null;
+  template_name?: string | null;
   prompt: string;
   variants_requested: number;
   status: CloudGenerationStatus;
   source?: string | null;
   parent_generation_id?: string | null;
   error_message?: string | null;
+  model?: string | null;
+  refinement_prompt?: string | null;
   created_at: string;
   updated_at: string;
   preview_url?: string | null;

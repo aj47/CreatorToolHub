@@ -83,6 +83,24 @@ export default function GenerationDetail({
                 <label>Variants</label>
                 <span>{generation.variants_requested}</span>
               </div>
+              {generation.model && (
+                <div>
+                  <label>Model(s)</label>
+                  <span>
+                    {generation.model.split(',').map(m =>
+                      m === 'gemini' ? 'Gemini' :
+                      m === 'fal-flux' ? 'Flux' :
+                      m === 'fal-qwen' ? 'Qwen' : m
+                    ).join(', ')}
+                  </span>
+                </div>
+              )}
+              {generation.template_name && (
+                <div>
+                  <label>Template</label>
+                  <span>{generation.template_name}</span>
+                </div>
+              )}
             </div>
           </section>
 
@@ -99,6 +117,22 @@ export default function GenerationDetail({
               </button>
             </div>
           </section>
+
+          {/* Refinement Prompt */}
+          {generation.refinement_prompt && (
+            <section className={styles.section}>
+              <h3>Refinement Request</h3>
+              <div className={styles.promptBox}>
+                <p style={{ fontStyle: 'italic' }}>{generation.refinement_prompt}</p>
+                <button
+                  className="nb-btn nb-btn--small"
+                  onClick={() => copyToClipboard(generation.refinement_prompt!, "refinement")}
+                >
+                  {copied === "refinement" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Outputs */}
           {generation.outputs && generation.outputs.length > 0 && (
@@ -161,8 +195,8 @@ export default function GenerationDetail({
             </section>
           )}
 
-          {/* Template Info */}
-          {generation.template_id && (
+          {/* Template Info - show ID only if template_name is not set (for older generations) */}
+          {generation.template_id && !generation.template_name && (
             <section className={styles.section}>
               <h3>Template</h3>
               <p className="nb-muted">Template ID: {generation.template_id}</p>

@@ -584,10 +584,12 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     framesMime,
     variants,
     templateId,
+    templateName,
     source,
     parentGenerationId,
     providers,
-    model: requestedModel
+    model: requestedModel,
+    refinementPrompt
   } = body || {};
   if (!prompt || !Array.isArray(frames) || frames.length === 0) {
     return errorResponse("Missing prompt or frames", 400, "MISSING_DATA");
@@ -703,7 +705,8 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   }
   reqParts.push({ text: prompt });
 
-  // Validate templateId if provided
+  // Validate templateId if provided and get template name
+  let resolvedTemplateName = templateName;
   if (templateId) {
     const template = await db.getTemplate(templateId, userId);
     if (!template) {
@@ -713,6 +716,10 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
         "INVALID_TEMPLATE_ID",
         { templateId }
       );
+    }
+    // Use the template's title if no templateName was provided
+    if (!resolvedTemplateName) {
+      resolvedTemplateName = template.title;
     }
   }
 
@@ -729,16 +736,22 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
     }
   }
 
+  // Determine the model string (join providers for multi-provider generations)
+  const modelString = providersToUse.join(',');
+
   // Create generation record with retry logic
   let generation;
   try {
     generation = await db.createGeneration(userId, {
       templateId,
+      templateName: resolvedTemplateName,
       prompt,
       variantsRequested: count,
       status: "running",
       source: typeof source === "string" ? source : "worker",
-      parentGenerationId
+      parentGenerationId,
+      model: modelString,
+      refinementPrompt
     });
   } catch (error) {
     console.error('Failed to create generation:', error);

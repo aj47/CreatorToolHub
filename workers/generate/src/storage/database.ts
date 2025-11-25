@@ -276,11 +276,14 @@ export class DatabaseService {
     userId: string,
     params: {
       templateId?: string;
+      templateName?: string;
       prompt: string;
       variantsRequested?: number;
       status?: GenerationStatus;
       source?: string;
       parentGenerationId?: string;
+      model?: string;
+      refinementPrompt?: string;
     }
   ): Promise<Generation> {
     const generationId = generateUUID();
@@ -295,17 +298,20 @@ export class DatabaseService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const result = await this.db.prepare(`
-          INSERT INTO generations (id, user_id, template_id, prompt, variants_requested, status, source, parent_generation_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO generations (id, user_id, template_id, template_name, prompt, variants_requested, status, source, parent_generation_id, model, refinement_prompt, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           generationId,
           userId,
           params.templateId || null,
+          params.templateName || null,
           params.prompt,
           variantsRequested,
           status,
           params.source || null,
           params.parentGenerationId || null,
+          params.model || null,
+          params.refinementPrompt || null,
           now,
           now
         ).run();

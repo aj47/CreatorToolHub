@@ -5,8 +5,7 @@ import { CloudGeneration } from "@/lib/storage/client";
 import GenerationDetail from "./GenerationDetail";
 import styles from "./GenerationsList.module.css";
 
-// Trigger rebuild to ensure correct environment variables are used
-// NODE_ENV=production should read from .env.production
+const PAGE_SIZE = 12;
 
 interface GenerationsListProps {
   onRefresh?: () => void;
@@ -15,18 +14,26 @@ interface GenerationsListProps {
 export default function GenerationsList({ onRefresh }: GenerationsListProps) {
   const [generations, setGenerations] = useState<CloudGeneration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedGeneration, setSelectedGeneration] = useState<CloudGeneration | null>(null);
-  const [limit] = useState(20);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchGenerations = useCallback(async () => {
+  const fetchGenerations = useCallback(async (before?: string, append = false) => {
     try {
-      setIsLoading(true);
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
 
-      const url = `/api/user/generations?limit=${limit}`;
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE + 1) }); // +1 to check if there are more
+      if (before) {
+        params.set('before', before);
+      }
 
-      const response = await fetch(url, {
+      const response = await fetch(`/api/user/generations?${params}`, {
         credentials: "include",
       });
 
@@ -34,19 +41,41 @@ export default function GenerationsList({ onRefresh }: GenerationsListProps) {
         throw new Error(`Failed to fetch generations: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      setGenerations(data);
+      const data: CloudGeneration[] = await response.json();
+
+      // Check if there are more results
+      const hasMoreResults = data.length > PAGE_SIZE;
+      setHasMore(hasMoreResults);
+
+      // Only keep PAGE_SIZE items
+      const pageData = hasMoreResults ? data.slice(0, PAGE_SIZE) : data;
+
+      if (append) {
+        setGenerations(prev => [...prev, ...pageData]);
+      } else {
+        setGenerations(pageData);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load generations");
-      setGenerations([]);
+      if (!append) {
+        setGenerations([]);
+      }
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  }, [limit]);
+  }, []);
 
   useEffect(() => {
     fetchGenerations();
   }, [fetchGenerations]);
+
+  const handleLoadMore = useCallback(() => {
+    if (generations.length > 0 && hasMore && !isLoadingMore) {
+      const lastGeneration = generations[generations.length - 1];
+      fetchGenerations(lastGeneration.created_at, true);
+    }
+  }, [generations, hasMore, isLoadingMore, fetchGenerations]);
 
   const handleDelete = async (generationId: string) => {
     if (!confirm("Are you sure you want to delete this generation?")) return;
@@ -147,12 +176,45 @@ export default function GenerationsList({ onRefresh }: GenerationsListProps) {
               <p className={styles.prompt}>{generation.prompt}</p>
               <div className={styles.stats}>
                 <span>{generation.outputs?.length || 0} outputs</span>
-                {generation.template_id && <span>• Template</span>}
+                {generation.model && (
+                  <span title="AI Model(s) used">
+                    • {generation.model.split(',').map(m =>
+                      m === 'gemini' ? 'Gemini' :
+                      m === 'fal-flux' ? 'Flux' :
+                      m === 'fal-qwen' ? 'Qwen' : m
+                    ).join(', ')}
+                  </span>
+                )}
+                {generation.template_name && (
+                  <span title="Template used">• {generation.template_name}</span>
+                )}
+                {generation.refinement_prompt && (
+                  <span title="Refinement applied">• Refined</span>
+                )}
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {hasMore && (
+        <div className={styles.pagination}>
+          <button
+            className="nb-btn"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
+
+      {!hasMore && generations.length > 0 && (
+        <div className={styles.pagination}>
+          <span className="nb-muted">All generations loaded</span>
+        </div>
+      )}
 
       {selectedGeneration && (
         <GenerationDetail

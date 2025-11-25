@@ -154,7 +154,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, frames = [], layoutImage, variants, framesMime, source, providers, model } = await req.json();
+    const { prompt, frames = [], layoutImage, variants, framesMime, source, providers, model, templateId, templateName } = await req.json();
 
     // Normalize providers - support both array and legacy single provider format
     let providersArray: SingleProvider[];
@@ -202,7 +202,9 @@ export async function POST(req: Request) {
             variants,
             source: source || 'thumbnails',
             providers: providersArray,
-            model
+            model,
+            templateId,
+            templateName
           })
         });
 
