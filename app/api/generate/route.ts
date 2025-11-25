@@ -89,15 +89,26 @@ async function generateImagesWithFal(
     const referenceFrame = frames[0];
     const dataUrl = `data:image/png;base64,${referenceFrame}`;
 
+    // Build input based on model type
+    // Flux uses image_urls (array), Qwen uses image_url (singular)
+    const isQwen = model === FAL_MODEL_QWEN;
+    const input = isQwen
+      ? {
+          prompt,
+          image_url: dataUrl, // Qwen uses singular image_url
+          output_format: "png",
+        }
+      : {
+          prompt,
+          image_urls: [dataUrl], // Flux uses plural image_urls
+          image_size: "landscape_16_9",
+          output_format: "png",
+          sync_mode: false
+        };
+
     // Use specified model (Flux or Qwen)
     const result = await fal.subscribe(model, {
-      input: {
-        prompt,
-        image_urls: [dataUrl],
-        image_size: "landscape_16_9",
-        output_format: "png",
-        sync_mode: false
-      },
+      input,
       logs: false,
     }) as { data: { images: Array<{ url: string }> } };
 

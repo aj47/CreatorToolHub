@@ -133,14 +133,26 @@ async function refineImageWithFal(
 
     // Use Flux model for fal-flux, Qwen for fal-qwen
     const falModel = provider === 'fal-qwen' ? FAL_MODEL_QWEN : FAL_MODEL_FLUX;
+    const isQwen = falModel === FAL_MODEL_QWEN;
+
+    // Build input based on model type
+    // Flux uses image_urls (array), Qwen uses image_url (singular)
+    const input = isQwen
+      ? {
+          prompt: feedbackPrompt,
+          image_url: imageUrls[0], // Qwen uses singular image_url
+          output_format: "png",
+        }
+      : {
+          prompt: feedbackPrompt,
+          image_urls: imageUrls, // Flux uses plural image_urls
+          image_size: "landscape_16_9",
+          output_format: "png",
+          sync_mode: false
+        };
+
     const result = await fal.subscribe(falModel, {
-      input: {
-        prompt: feedbackPrompt,
-        image_urls: imageUrls,
-        image_size: "landscape_16_9",
-        output_format: "png",
-        sync_mode: false
-      },
+      input,
       logs: false,
     }) as { data: { images: Array<{ url: string }> } };
 

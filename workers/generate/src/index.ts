@@ -168,6 +168,23 @@ async function callFalGenerate(
   const referenceFrame = frames[0];
   const dataUrl = `data:image/png;base64,${referenceFrame}`;
 
+  // Build input based on model type
+  // Flux uses image_urls (array), Qwen uses image_url (singular)
+  const isQwen = model === FAL_MODEL_QWEN;
+  const requestBody = isQwen
+    ? {
+        prompt,
+        image_url: dataUrl, // Qwen uses singular image_url
+        output_format: "png",
+      }
+    : {
+        prompt,
+        image_urls: [dataUrl], // Flux uses plural image_urls
+        image_size: "landscape_16_9",
+        output_format: "png",
+        sync_mode: false
+      };
+
   // Submit request to Fal AI queue
   const submitResp = await fetch(`https://queue.fal.run/${model}`, {
     method: "POST",
@@ -175,13 +192,7 @@ async function callFalGenerate(
       "Content-Type": "application/json",
       "Authorization": `Key ${apiKey}`
     },
-    body: JSON.stringify({
-      prompt,
-      image_urls: [dataUrl],
-      image_size: "landscape_16_9",
-      output_format: "png",
-      sync_mode: false
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!submitResp.ok) {
@@ -190,16 +201,24 @@ async function callFalGenerate(
     throw new Error(`Fal AI error ${submitResp.status}: ${text}`);
   }
 
-  const submitResult = await submitResp.json() as { request_id: string; status_url?: string };
+  const submitResult = await submitResp.json() as { request_id: string; status_url?: string; response_url?: string };
   const requestId = submitResult.request_id;
 
   if (!requestId) {
     throw new Error("Fal AI did not return a request_id");
   }
 
-  // Poll for completion
-  const statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
-  const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`;
+  // For models with subpaths (like fal-ai/qwen-image-edit/image-to-image),
+  // the subpath should be used when making the request, but NOT when getting status/results.
+  // Extract the base model ID (first two path segments) for status/result URLs.
+  const modelParts = model.split('/');
+  const baseModelId = modelParts.length > 2
+    ? `${modelParts[0]}/${modelParts[1]}`
+    : model;
+
+  // Use the URLs from the response if available, otherwise construct them
+  const statusUrl = submitResult.status_url || `https://queue.fal.run/${baseModelId}/requests/${requestId}/status`;
+  const resultUrl = submitResult.response_url || `https://queue.fal.run/${baseModelId}/requests/${requestId}`;
   const maxAttempts = 60; // 60 * 2s = 2 minutes max wait
   let attempts = 0;
 

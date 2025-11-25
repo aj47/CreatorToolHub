@@ -86,17 +86,29 @@ export async function POST(request: Request) {
 
     // Use specified model or default to Flux
     const modelToUse = model || FAL_MODEL_FLUX;
+    const isQwen = modelToUse === FAL_MODEL_QWEN;
+
+    // Build input based on model type
+    // Flux uses image_urls (array), Qwen uses image_url (singular)
+    const input = isQwen
+      ? {
+          prompt,
+          image_url: image_urls[0], // Qwen uses singular image_url
+          output_format,
+        }
+      : {
+          prompt,
+          image_urls, // Flux uses plural image_urls
+          image_size,
+          enable_prompt_expansion,
+          seed,
+          output_format,
+          sync_mode
+        };
+
     // Call Fal AI API
     const result = await fal.subscribe(modelToUse, {
-      input: {
-        prompt,
-        image_urls,
-        image_size,
-        enable_prompt_expansion,
-        seed,
-        output_format,
-        sync_mode
-      },
+      input,
       logs: false,
     }) as { data: FalEditImageResponse; requestId: string };
 
