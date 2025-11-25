@@ -9,7 +9,7 @@ import {
   RefinementRequest,
   RefinementResponse,
   RefinementUtils,
-  FalModel
+  SingleProvider
 } from "@/lib/types/refinement";
 import { enforceYouTubeDimensions, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
 
@@ -36,8 +36,7 @@ export default function ThumbnailRefinement({
     showHistory: false,
     isHistoryExpanded: false,
   });
-  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
-  const [selectedFalModel, setSelectedFalModel] = useState<FalModel>("fal-ai/alpha-image-232/edit-image");
+  const [selectedProvider, setSelectedProvider] = useState<SingleProvider>('gemini');
 
   // Handle reference image upload
   const handleReferenceImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,7 +176,7 @@ export default function ThumbnailRefinement({
         parentIterationId: currentIteration.id,
         provider: selectedProvider,
           referenceImages: (refinementState.referenceImages && refinementState.referenceImages.length > 0) ? refinementState.referenceImages : undefined,
-          model: selectedProvider === 'fal' ? selectedFalModel : undefined,
+          model: undefined,
       };
 
       const response = await fetch("/api/refine", {
@@ -474,110 +473,40 @@ export default function ThumbnailRefinement({
                 <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
                   AI Provider:
                 </label>
-              <div style={{ display: "flex", gap: 12 }}>
-                <label style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  cursor: "pointer",
-                  padding: "8px 12px",
-                  border: `2px solid ${selectedProvider === 'gemini' ? 'var(--nb-accent)' : '#ddd'}`,
-                  borderRadius: 6,
-                  background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
-                  transition: 'all 0.2s'
-                }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { value: 'gemini' as SingleProvider, label: 'Gemini', credits: '4cr' },
+                  { value: 'fal-flux' as SingleProvider, label: 'Flux', credits: '1cr' },
+                  { value: 'fal-qwen' as SingleProvider, label: 'Qwen', credits: '1cr' },
+                ].map((opt) => (
+                  <label key={opt.value} style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    cursor: "pointer",
+                    padding: "8px 12px",
+                    border: `2px solid ${selectedProvider === opt.value ? 'var(--nb-accent)' : '#ddd'}`,
+                    borderRadius: 6,
+                    background: selectedProvider === opt.value ? '#f0f7ff' : 'white',
+                    transition: 'all 0.2s',
+                    flex: 1,
+                    minWidth: 80
+                  }}>
                     <input
-                    type="radio"
-                    name="provider"
-                    value="gemini"
-                    checked={selectedProvider === 'gemini'}
-                    onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                    disabled={refinementState.isRefining}
-                  />
-                  <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
-                    Gemini (Google)
-                  </span>
-                </label>
-                <label style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  cursor: "pointer",
-                  padding: "8px 12px",
-                  border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
-                  borderRadius: 6,
-                  background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
-                  transition: 'all 0.2s'
-                }}>
-                  <input
-                    type="radio"
-                    name="provider"
-                    value="fal"
-                    checked={selectedProvider === 'fal'}
-                    onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                    disabled={refinementState.isRefining}
-                  />
-                    <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
-                      Fal AI (Flux)
+                      type="radio"
+                      name="provider"
+                      value={opt.value}
+                      checked={selectedProvider === opt.value}
+                      onChange={(e) => setSelectedProvider(e.target.value as SingleProvider)}
+                      disabled={refinementState.isRefining}
+                    />
+                    <span style={{ fontWeight: selectedProvider === opt.value ? 'bold' : 'normal' }}>
+                      {opt.label}
                     </span>
-                </label>
-              </div>
-
-              {selectedProvider === 'fal' && (
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: "block", marginBottom: 6, fontWeight: "bold" }}>
-                    Fal Model:
+                    <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{opt.credits}</span>
                   </label>
-                  <div style={{ display: "flex", gap: 8, flexWrap: 'wrap' }}>
-                    <label style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      cursor: "pointer",
-                      padding: "8px 12px",
-                      border: `2px solid ${selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'var(--nb-accent)' : '#ddd'}`,
-                      borderRadius: 6,
-                      background: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? '#f0f7ff' : 'white',
-                      transition: 'all 0.2s'
-                    }}>
-                      <input
-                        type="radio"
-                        name="fal-model"
-                        value="fal-ai/alpha-image-232/edit-image"
-                        checked={selectedFalModel === 'fal-ai/alpha-image-232/edit-image'}
-                        onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
-                        disabled={refinementState.isRefining}
-                      />
-                      <span style={{ fontWeight: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'bold' : 'normal' }}>
-                        Flux (alpha-image-232)
-                      </span>
-                    </label>
-                    <label style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      cursor: "pointer",
-                      padding: "8px 12px",
-                      border: `2px solid ${selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'var(--nb-accent)' : '#ddd'}`,
-                      borderRadius: 6,
-                      background: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? '#f0f7ff' : 'white',
-                      transition: 'all 0.2s'
-                    }}>
-                      <input
-                        type="radio"
-                        name="fal-model"
-                        value="fal-ai/qwen-image-edit/image-to-image"
-                        checked={selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image'}
-                        onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
-                        disabled={refinementState.isRefining}
-                      />
-                      <span style={{ fontWeight: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'bold' : 'normal' }}>
-                        Qwen Image Edit
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
 
             {/* Feedback Input */}
@@ -595,7 +524,7 @@ export default function ThumbnailRefinement({
             </div>
 
             {/* Reference Images (Fal AI only) */}
-            {selectedProvider === 'fal' && (
+            {(selectedProvider === 'fal-flux' || selectedProvider === 'fal-qwen') && (
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
                   Reference Images (Optional):

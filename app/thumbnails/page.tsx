@@ -9,7 +9,7 @@ import TemplateGallery from "@/components/TemplateGallery";
 import { curatedMap, curatedStyles } from "@/lib/gallery/curatedStyles";
 import ThumbnailRefinement from "@/components/ThumbnailRefinement";
 import RefinementHistoryBrowser from "@/components/RefinementHistoryBrowser";
-import { RefinementState, RefinementHistory, RefinementUtils, FalModel } from "@/lib/types/refinement";
+import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types/refinement";
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -86,10 +86,10 @@ export default function Home() {
   const [count, setCount] = useState(1);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
+  const [labeledResults, setLabeledResults] = useState<Array<{url: string; provider: string}>>([]);
   const [blobUrls, setBlobUrls] = useState<string[]>([]); // Track blob URLs for cleanup
   const [copyingIndex, setCopyingIndex] = useState<number | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal'>('gemini');
-  const [selectedFalModel, setSelectedFalModel] = useState<FalModel>("fal-ai/alpha-image-232/edit-image");
+  const [selectedProvider, setSelectedProvider] = useState<'gemini' | 'fal-flux' | 'fal-qwen' | 'all'>('gemini');
 
   const faqJsonLd = useMemo(
     () =>
@@ -866,9 +866,16 @@ export default function Home() {
     }
 
     // Client-side gate: block if out of credits for the number of generations requested
-    // Gemini costs 4 credits per variant, Fal AI costs 1 credit per variant
+    // Credit costs: Gemini = 4, Fal-Flux = 1, Fal-Qwen = 1
+    // For 'all' provider, sum all three: 4 + 1 + 1 = 6 credits per variant
     const perTemplate = Math.max(1, count);
-    const creditsPerVariant = selectedProvider === 'gemini' ? 4 : 1;
+    const getCreditsForProvider = (p: typeof selectedProvider) => {
+      if (p === 'gemini') return 4;
+      if (p === 'fal-flux' || p === 'fal-qwen') return 1;
+      if (p === 'all') return 6; // gemini (4) + flux (1) + qwen (1)
+      return 1;
+    };
+    const creditsPerVariant = getCreditsForProvider(selectedProvider);
     const needed = perTemplate * creditsPerVariant * (validSelectedIds.length || 0);
     if (!loadingCustomer && credits < needed) {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
@@ -881,6 +888,7 @@ export default function Home() {
     // Clean up previous blob URLs before generating new ones
     cleanupBlobUrls();
     setResults([]);
+    setLabeledResults([]);
     setSuggestedRefinements({});
     setLoadingSuggestions({});
     setProgressDone(0);
@@ -988,7 +996,7 @@ export default function Home() {
           variants: count,
           source: "thumbnails",
           provider: selectedProvider,
-          model: selectedProvider === 'fal' ? selectedFalModel : undefined
+          model: undefined
         };
         const res = await fetch("/api/generate", {
           method: "POST",
@@ -1020,6 +1028,7 @@ export default function Home() {
           const data = await res.json();
           if (!res.ok) throw new Error(data?.error || "Unexpected error");
           const images = data?.images;
+          const labeledImages = data?.labeledImages as Array<{url: string; provider: string}> | undefined;
           if (!Array.isArray(images) || images.length === 0) {
             throw new Error("No images returned");
           }
@@ -1044,8 +1053,27 @@ export default function Home() {
             });
             setResults((prev) => [...prev, ...newBlobUrls]);
             setBlobUrls((prev) => [...prev, ...newBlobUrls]);
+            // Store labeled results for provider display
+            if (labeledImages) {
+              setLabeledResults((prev) => [
+                ...prev,
+                ...newBlobUrls.map((url, idx) => ({
+                  url,
+                  provider: labeledImages[idx]?.provider || selectedProvider
+                }))
+              ]);
+            } else {
+              setLabeledResults((prev) => [
+                ...prev,
+                ...newBlobUrls.map(url => ({ url, provider: selectedProvider }))
+              ]);
+            }
           } catch {
             setResults((prev) => [...prev, ...processedImages]);
+            setLabeledResults((prev) => [
+              ...prev,
+              ...processedImages.map(url => ({ url, provider: selectedProvider }))
+            ]);
           }
           overallDone += processedImages.length;
           setProgressDone(overallDone);
@@ -1322,6 +1350,7 @@ export default function Home() {
         feedbackPrompt: initialFeedback,
         isCopying: false,
         isDownloading: false,
+        referenceImages: [],
       });
     } catch (error) {
       setError('Failed to prepare thumbnail for refinement. Please try again.');
@@ -1450,6 +1479,7 @@ export default function Home() {
       feedbackPrompt: "",
       isCopying: false,
       isDownloading: false,
+      referenceImages: [],
     });
     setShowHistoryBrowser(false);
   };
@@ -1803,119 +1833,43 @@ export default function Home() {
                       {/* AI Provider - compact */}
                       <div style={{ flex: 1, minWidth: 200, display: 'grid', gap: 4 }}>
                         <label className={styles.label} style={{ fontSize: 11 }}>AI Provider</label>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <label style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            cursor: "pointer",
-                            padding: "6px 8px",
-                            border: `2px solid ${selectedProvider === 'gemini' ? 'var(--nb-accent)' : '#ddd'}`,
-                            borderRadius: 4,
-                            background: selectedProvider === 'gemini' ? '#f0f7ff' : 'white',
-                            transition: 'all 0.2s',
-                            flex: 1,
-                            fontSize: 13
-                          }}>
-                            <input
-                              type="radio"
-                              name="provider"
-                              value="gemini"
-                              checked={selectedProvider === 'gemini'}
-                              onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                              disabled={loading}
-                            />
-                            <span style={{ fontWeight: selectedProvider === 'gemini' ? 'bold' : 'normal' }}>
-                              Gemini
-                            </span>
-                            <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>4cr</span>
-                          </label>
-                        <label style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          cursor: "pointer",
-                          padding: "6px 8px",
-                          border: `2px solid ${selectedProvider === 'fal' ? 'var(--nb-accent)' : '#ddd'}`,
-                          borderRadius: 4,
-                          background: selectedProvider === 'fal' ? '#f0f7ff' : 'white',
-                          transition: 'all 0.2s',
-                          flex: 1,
-                          fontSize: 13
-                        }}>
-                          <input
-                            type="radio"
-                            name="provider"
-                            value="fal"
-                            checked={selectedProvider === 'fal'}
-                            onChange={(e) => setSelectedProvider(e.target.value as 'gemini' | 'fal')}
-                            disabled={loading}
-                          />
-                          <span style={{ fontWeight: selectedProvider === 'fal' ? 'bold' : 'normal' }}>
-                            Fal AI
-                          </span>
-                          <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>1cr</span>
-                        </label>
-                      </div>
-
-                      {selectedProvider === 'fal' && (
-                        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
-                          <label className={styles.label} style={{ fontSize: 11 }}>Fal Model</label>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
+                        <div style={{ display: "flex", gap: 4, flexWrap: 'wrap' }}>
+                          {[
+                            { value: 'gemini', label: 'Gemini', credits: '4cr' },
+                            { value: 'fal-flux', label: 'Flux', credits: '1cr' },
+                            { value: 'fal-qwen', label: 'Qwen', credits: '1cr' },
+                            { value: 'all', label: 'All', credits: '6cr' },
+                          ].map((opt) => (
+                            <label key={opt.value} style={{
+                              display: "flex",
+                              alignItems: "center",
                               gap: 4,
-                              cursor: 'pointer',
-                              padding: '6px 8px',
-                              border: `2px solid ${selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'var(--nb-accent)' : '#ddd'}`,
+                              cursor: "pointer",
+                              padding: "6px 8px",
+                              border: `2px solid ${selectedProvider === opt.value ? 'var(--nb-accent)' : '#ddd'}`,
                               borderRadius: 4,
-                              background: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? '#f0f7ff' : 'white',
+                              background: selectedProvider === opt.value ? '#f0f7ff' : 'white',
                               transition: 'all 0.2s',
                               flex: 1,
-                              fontSize: 12
+                              minWidth: 70,
+                              fontSize: 13
                             }}>
                               <input
                                 type="radio"
-                                name="fal-model"
-                                value="fal-ai/alpha-image-232/edit-image"
-                                checked={selectedFalModel === 'fal-ai/alpha-image-232/edit-image'}
-                                onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
+                                name="provider"
+                                value={opt.value}
+                                checked={selectedProvider === opt.value}
+                                onChange={(e) => setSelectedProvider(e.target.value as typeof selectedProvider)}
                                 disabled={loading}
                               />
-                              <span style={{ fontWeight: selectedFalModel === 'fal-ai/alpha-image-232/edit-image' ? 'bold' : 'normal' }}>
-                                Flux (alpha-image-232)
+                              <span style={{ fontWeight: selectedProvider === opt.value ? 'bold' : 'normal' }}>
+                                {opt.label}
                               </span>
+                              <span style={{ fontSize: 10, color: '#999', marginLeft: 'auto' }}>{opt.credits}</span>
                             </label>
-                            <label style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              cursor: 'pointer',
-                              padding: '6px 8px',
-                              border: `2px solid ${selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'var(--nb-accent)' : '#ddd'}`,
-                              borderRadius: 4,
-                              background: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? '#f0f7ff' : 'white',
-                              transition: 'all 0.2s',
-                              flex: 1,
-                              fontSize: 12
-                            }}>
-                              <input
-                                type="radio"
-                                name="fal-model"
-                                value="fal-ai/qwen-image-edit/image-to-image"
-                                checked={selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image'}
-                                onChange={(e) => setSelectedFalModel(e.target.value as FalModel)}
-                                disabled={loading}
-                              />
-                              <span style={{ fontWeight: selectedFalModel === 'fal-ai/qwen-image-edit/image-to-image' ? 'bold' : 'normal' }}>
-                                Qwen Image Edit
-                              </span>
-                            </label>
-                          </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
 
                     {/* Variants - compact */}
                     <div style={{ display: 'grid', gap: 4 }}>
@@ -1946,7 +1900,7 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : 1) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || frames.length === 0 || (!loadingCustomer && credits < (Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)))}
                     style={{ padding: '10px 16px', fontSize: 14 }}
                   >
                     {authLoading
@@ -1954,7 +1908,7 @@ export default function Home() {
                       : !isAuthed
                         ? "Generate (Free after sign-up)"
                         : (!loadingCustomer
-                            ? `Generate (${Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : 1) * (getValidSelectedIds().length || 0)} credits)`
+                            ? `Generate (${Math.max(1, count) * (selectedProvider === 'gemini' ? 4 : selectedProvider === 'all' ? 6 : 1) * (getValidSelectedIds().length || 0)} credits)`
                             : "Generate")}
                   </button>
 
@@ -2024,7 +1978,13 @@ export default function Home() {
                     gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                     gap: 10
                   }}>
-                    {results.map((src, i) => (
+                    {results.map((src, i) => {
+                      const providerLabel = labeledResults[i]?.provider;
+                      const providerDisplayName = providerLabel === 'gemini' ? 'Gemini'
+                        : providerLabel === 'fal-flux' ? 'Flux'
+                        : providerLabel === 'fal-qwen' ? 'Qwen'
+                        : '';
+                      return (
                       <div
                         key={i}
                         className={refinementState.selectedThumbnailIndex === i ? styles.selectedThumbnail : ""}
@@ -2034,9 +1994,28 @@ export default function Home() {
                             : "1px solid #ddd",
                           padding: 6,
                           borderRadius: 6,
-                          background: 'white'
+                          background: 'white',
+                          position: 'relative'
                         }}
                       >
+                        {/* Provider label badge */}
+                        {providerDisplayName && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 10,
+                            left: 10,
+                            background: providerLabel === 'gemini' ? '#4285f4' : providerLabel === 'fal-flux' ? '#9333ea' : '#f97316',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            zIndex: 1,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                          }}>
+                            {providerDisplayName}
+                          </div>
+                        )}
                         {/* Image */}
                         {src ? (<img src={src} alt={`result-${i}`} style={{ width: '100%', display: 'block', borderRadius: 4 }} />) : null}
 
@@ -2121,7 +2100,7 @@ export default function Home() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
 
                   {/* Compact nav */}

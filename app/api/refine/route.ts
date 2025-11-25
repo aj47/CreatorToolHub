@@ -5,7 +5,7 @@ import { getUser } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { Autumn } from "autumn-js";
 import { fal } from "@fal-ai/client";
-import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils, FalModel } from "@/lib/types/refinement";
+import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementUtils, FAL_MODEL_FLUX, FAL_MODEL_QWEN, FalModel, SingleProvider } from "@/lib/types/refinement";
 
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
@@ -40,8 +40,14 @@ async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: s
       </svg>
     `;
 
-    // Convert SVG to base64
-    const mockImageBase64 = Buffer.from(mockImageSvg).toString('base64');
+    // Convert SVG to base64 using Web APIs (Edge runtime compatible)
+    const encoder = new TextEncoder();
+    const svgBytes = encoder.encode(mockImageSvg);
+    let binaryString = '';
+    for (let i = 0; i < svgBytes.length; i++) {
+      binaryString += String.fromCharCode(svgBytes[i]);
+    }
+    const mockImageBase64 = btoa(binaryString);
 
     return mockImageBase64;
 
@@ -102,7 +108,7 @@ async function refineImageWithFal(
   baseImageData: string,
   feedbackPrompt: string,
   referenceImages?: string[],
-  model?: FalModel
+  provider?: SingleProvider
 ): Promise<string> {
   // Configure Fal client
   fal.config({
@@ -125,11 +131,9 @@ async function refineImageWithFal(
       });
     }
 
-    const modelId: FalModel = model === "fal-ai/qwen-image-edit/image-to-image"
-      ? "fal-ai/qwen-image-edit/image-to-image"
-      : "fal-ai/alpha-image-232/edit-image";
-
-    const result = await fal.subscribe(modelId, {
+    // Use Flux model for fal-flux, Qwen for fal-qwen
+    const falModel = provider === 'fal-qwen' ? FAL_MODEL_QWEN : FAL_MODEL_FLUX;
+    const result = await fal.subscribe(falModel, {
       input: {
         prompt: feedbackPrompt,
         image_urls: imageUrls,
@@ -201,16 +205,17 @@ export async function POST(req: Request) {
     }
 
     // Validate provider
-    if (provider !== 'gemini' && provider !== 'fal') {
+    const validProviders: SingleProvider[] = ['gemini', 'fal-flux', 'fal-qwen'];
+    if (!validProviders.includes(provider as SingleProvider)) {
       return Response.json(
-        { success: false, error: "Invalid provider. Must be 'gemini' or 'fal'" },
+        { success: false, error: "Invalid provider. Must be 'gemini', 'fal-flux', or 'fal-qwen'" },
         { status: 400 }
       );
     }
 
     // Get API key based on provider
     let apiKey: string | undefined;
-    if (provider === 'fal') {
+    if (provider === 'fal-flux' || provider === 'fal-qwen') {
       apiKey = process.env.FAL_KEY;
       if (!apiKey) {
         return Response.json(
@@ -305,14 +310,14 @@ Please apply the refinement request to modify the image while maintaining the ov
       // In development mode, create a mock refined image by applying a simple visual modification
       // This simulates the refinement process for UI testing
       refinedImageBase64 = await createMockRefinedImage(baseImageData, feedbackPrompt);
-    } else if (provider === 'fal') {
+    } else if (provider === 'fal-flux' || provider === 'fal-qwen') {
       // Generate refined image using Fal AI
       refinedImageBase64 = await refineImageWithFal(
         apiKey,
         baseImageData,
         feedbackPrompt,
         referenceImages,
-        model
+        provider
       );
     } else {
       // Generate refined image using Gemini API

@@ -14,7 +14,12 @@
     "dev:local": "bash scripts/dev-local-stack.sh",
     "test:full-stack": "node scripts/test-full-stack.js",
     "test:perf": "node scripts/test-full-stack.js --perf-only",
-    "test:check": "bash scripts/test-with-check.sh"
+    "test:check": "bash scripts/test-with-check.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "PLAYWRIGHT_BASE_URL=https://creatortoolhub.com playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@fal-ai/client": "^1.7.2",

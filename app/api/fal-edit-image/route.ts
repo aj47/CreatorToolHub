@@ -3,8 +3,7 @@ export const runtime = "edge";
 
 import { getUser } from "@/lib/auth";
 import { fal } from "@fal-ai/client";
-
-type FalModel = "fal-ai/alpha-image-232/edit-image" | "fal-ai/qwen-image-edit/image-to-image";
+import { FAL_MODEL_FLUX, FAL_MODEL_QWEN, FalModel } from "@/lib/types/refinement";
 
 interface FalEditImageRequest {
   prompt: string;
@@ -85,12 +84,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const modelId: FalModel = model === "fal-ai/qwen-image-edit/image-to-image"
-      ? "fal-ai/qwen-image-edit/image-to-image"
-      : "fal-ai/alpha-image-232/edit-image";
-
+    // Use specified model or default to Flux
+    const modelToUse = model || FAL_MODEL_FLUX;
     // Call Fal AI API
-    const result = await fal.subscribe(modelId, {
+    const result = await fal.subscribe(modelToUse, {
       input: {
         prompt,
         image_urls,

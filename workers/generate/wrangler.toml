@@ -25,6 +25,8 @@ R2_PUBLIC_URL = "https://pub-d8e8e8e8e8e8e8e8.r2.dev"
 # Secrets (these need to be set separately with `wrangler secret put`)
 # GEMINI_API_KEY - Set with: wrangler secret put GEMINI_API_KEY
 # AUTUMN_SECRET_KEY - Set with: wrangler secret put AUTUMN_SECRET_KEY
+# FAL_KEY - Set with: wrangler secret put FAL_KEY
+# Note: FAL_MODEL is hardcoded to fal-ai/flux-2-pro/edit
 
 # Routes for user data APIs only (not /api/generate or /api/autumn - those are handled by Next.js)
 # The Next.js /api/generate route will proxy to the worker at its workers.dev subdomain

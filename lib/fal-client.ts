@@ -6,13 +6,7 @@
  */
 
 import { fal } from "@fal-ai/client";
-
-const FAL_MODELS = [
-  "fal-ai/alpha-image-232/edit-image",
-  "fal-ai/qwen-image-edit/image-to-image"
-] as const;
-type FalModel = typeof FAL_MODELS[number];
-const DEFAULT_FAL_MODEL: FalModel = "fal-ai/alpha-image-232/edit-image";
+import { FAL_MODEL_FLUX, FalModel } from "./types/refinement";
 
 export interface FalEditImageInput {
   prompt: string;
@@ -65,11 +59,9 @@ export function initializeFalClient(apiKey: string) {
 export async function editImageWithFal(
   input: FalEditImageInput
 ): Promise<{ data: FalEditImageOutput; requestId: string }> {
-  const model = input.model && FAL_MODELS.includes(input.model)
-    ? input.model
-    : DEFAULT_FAL_MODEL;
-
-  const result = await fal.subscribe(model, {
+  // Use the specified model or default to Flux
+  const modelToUse = input.model || FAL_MODEL_FLUX;
+  const result = await fal.subscribe(modelToUse, {
     input: {
       prompt: input.prompt,
       image_urls: input.image_urls,
