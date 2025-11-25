@@ -34,8 +34,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Optional: Fal AI Configuration (for image editing features)
 FAL_KEY=your_fal_api_key_here
-FAL_MODEL_PRIMARY=fal-ai/alpha-image-232/edit-image
-FAL_MODEL_SECONDARY=fal-ai/qwen-image-edit/image-to-image
+# Note: Fal AI models are hardcoded (fal-ai/flux-2-pro/edit and fal-ai/qwen-image-edit/image-to-image)
 ```
 
 **Development Mode Features:**
@@ -60,8 +59,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Fal AI Configuration (for image editing features)
 FAL_KEY=your_fal_api_key_here
-FAL_MODEL_PRIMARY=fal-ai/alpha-image-232/edit-image
-FAL_MODEL_SECONDARY=fal-ai/qwen-image-edit/image-to-image
+# Note: Fal AI models are hardcoded (fal-ai/flux-2-pro/edit and fal-ai/qwen-image-edit/image-to-image)
 ```
 
 Get Google OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/).
