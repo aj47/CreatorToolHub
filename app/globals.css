@@ -532,6 +532,18 @@ a {
   .nb-actions .nb-btn { width: 100%; text-align: center; }
 }
 
+/* Account grid (dashboard) */
+.nb-account-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .nb-account-grid {
+    gap: 12px;
+  }
+}
+
 /* Footer */
 .nb-footer {
   margin-top: 24px;
