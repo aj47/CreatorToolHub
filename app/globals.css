@@ -489,12 +489,15 @@ a {
   gap: 8px;
   border-bottom: 1px solid #e0e0e0;
   margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .nb-tab {
   padding: 10px 16px;
   background: transparent;
   color: #666;
   border: none;
+  border-left: 3px solid transparent;
   cursor: pointer;
   font-weight: 600;
 }
