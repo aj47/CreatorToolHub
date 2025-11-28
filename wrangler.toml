@@ -21,3 +21,9 @@ WORKER_BASE_URL = "https://creator-tool-hub.techfren.workers.dev"
 
 [env.preview]
 compatibility_flags = ["nodejs_compat"]
+
+[env.preview.vars]
+NEXT_PUBLIC_WORKER_API_URL = "https://creator-tool-hub.techfren.workers.dev"
+WORKER_BASE_URL = "https://creator-tool-hub.techfren.workers.dev"
+NEXTAUTH_URL = "https://staging.creatortoolhub.pages.dev"
+NEXT_PUBLIC_SITE_URL = "https://staging.creatortoolhub.pages.dev"
