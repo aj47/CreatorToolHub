@@ -2,21 +2,29 @@ export const runtime = "edge";
 
 import { getAuthToken, createAuthToken, createAuthCookie, createInvalidatedToken } from "@/lib/auth";
 import { User } from "@/lib/auth/types";
+import { getRequestContext } from '@cloudflare/next-on-pages';
 
 // Environment variables configuration for Cloudflare Pages
-// In Cloudflare Pages, environment variables are injected at build/runtime
-// We'll try multiple approaches to access them
+// In Cloudflare Pages, secrets must be accessed via getRequestContext().env
 function getEnvVars() {
-  // Try to access environment variables in different ways for Cloudflare Pages
-  const getEnvVar = (key: string, fallback: string) => {
-    // Try process.env first (might work in some contexts)
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key];
+  // First, try to get Cloudflare context (this is where secrets live)
+  let cfEnv: Record<string, unknown> = {};
+  try {
+    const ctx = getRequestContext();
+    cfEnv = (ctx.env || {}) as Record<string, unknown>;
+  } catch {
+    // getRequestContext may fail in some contexts
+  }
+
+  const getEnvVar = (key: string, fallback: string): string => {
+    // Try Cloudflare context.env first (where secrets are)
+    if (cfEnv[key] && typeof cfEnv[key] === 'string') {
+      return cfEnv[key] as string;
     }
 
-    // Try globalThis (Cloudflare Workers/Pages sometimes use this)
-    if (typeof globalThis !== 'undefined' && (globalThis as any)[key]) {
-      return (globalThis as any)[key];
+    // Try process.env (for vars from wrangler.toml)
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key] as string;
     }
 
     // Return fallback
