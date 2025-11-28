@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useCustomer } from "autumn-js/react";
 import GenerationsList from "@/components/GenerationsList";
 
@@ -55,45 +55,29 @@ function DashboardContent() {
         <section className="nb-section">
           <div className="nb-card" style={{ maxWidth: 1200, margin: "0 auto" }}>
             <h1>Dashboard (Development Mode)</h1>
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #e0e0e0", marginBottom: 16 }}>
-                <button
-                  onClick={() => setActiveTab("generations")}
-                  style={{
-                    padding: "8px 16px",
-                    background: activeTab === "generations" ? "#333" : "transparent",
-                    color: activeTab === "generations" ? "white" : "#666",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "1em",
-                  }}
-                >
-                  Generations
-                </button>
-                <button
-                  onClick={() => setActiveTab("account")}
-                  style={{
-                    padding: "8px 16px",
-                    background: activeTab === "account" ? "#333" : "transparent",
-                    color: activeTab === "account" ? "white" : "#666",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "1em",
-                  }}
-                >
-                  Account
-                </button>
-              </div>
-
-              {activeTab === "generations" && <GenerationsList />}
-
-              {activeTab === "account" && (
-                <div>
-                  <p>Credits: {credits} (mock)</p>
-                  <p>Development mode - Autumn billing is disabled.</p>
-                </div>
-              )}
+            <div className="nb-tabs">
+              <button
+                onClick={() => setActiveTab("generations")}
+                className={`nb-tab ${activeTab === "generations" ? "nb-tab--active" : ""}`}
+              >
+                Generations
+              </button>
+              <button
+                onClick={() => setActiveTab("account")}
+                className={`nb-tab ${activeTab === "account" ? "nb-tab--active" : ""}`}
+              >
+                Account
+              </button>
             </div>
+
+            {activeTab === "generations" && <GenerationsList />}
+
+            {activeTab === "account" && (
+              <div>
+                <p>Credits: {credits} (mock)</p>
+                <p>Development mode - Autumn billing is disabled.</p>
+              </div>
+            )}
           </div>
         </section>
       </main>
@@ -104,30 +88,16 @@ function DashboardContent() {
     <main className="nb-main">
       <section className="nb-section">
         <div className="nb-card" style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #e0e0e0", marginBottom: 24 }}>
+          <div className="nb-tabs">
             <button
               onClick={() => setActiveTab("generations")}
-              style={{
-                padding: "8px 16px",
-                background: activeTab === "generations" ? "#333" : "transparent",
-                color: activeTab === "generations" ? "white" : "#666",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "1em",
-              }}
+              className={`nb-tab ${activeTab === "generations" ? "nb-tab--active" : ""}`}
             >
               Generations
             </button>
             <button
               onClick={() => setActiveTab("account")}
-              style={{
-                padding: "8px 16px",
-                background: activeTab === "account" ? "#333" : "transparent",
-                color: activeTab === "account" ? "white" : "#666",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "1em",
-              }}
+              className={`nb-tab ${activeTab === "account" ? "nb-tab--active" : ""}`}
             >
               Account
             </button>
@@ -141,7 +111,7 @@ function DashboardContent() {
               {isLoading && <p className="nb-muted">Loading…</p>}
               {error && <p className="nb-error">{error.message}</p>}
               {customer && (
-                <div style={{ display: "grid", gap: 12 }}>
+                <div className="nb-account-grid">
                   <div>
                     <div className="nb-muted">Signed in as</div>
                     <div>{customer.name || customer.email || customer.id}</div>
@@ -155,7 +125,7 @@ function DashboardContent() {
                         <div className="nb-kpi-label">Credits remaining</div>
                       </div>
                     </div>
-                    <div className="nb-actions" style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <div className="nb-actions">
                       <a className="nb-btn nb-btn--accent" href="/pricing">Upgrade / Buy credits</a>
                       <button className="nb-btn" onClick={async () => { const res = await openBillingPortal({}); if (res?.data?.url) window.location.href = res.data.url; }}>Billing portal</button>
                       <button className="nb-btn" onClick={() => refetch()}>Refresh</button>
@@ -165,7 +135,6 @@ function DashboardContent() {
                           try {
                             await fetch('/api/auth/signout', { method: 'POST' });
                           } finally {
-                            // Force a hard refresh to clear all cached state
                             window.location.replace('/');
                           }
                         }}
@@ -204,4 +173,3 @@ function DashboardContent() {
 export default function DashboardPage() {
   return <DashboardContent />;
 }
-

@@ -483,6 +483,67 @@ a {
 
 
 
+/* Tabs (dashboard) */
+.nb-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.nb-tab {
+  padding: 10px 16px;
+  background: transparent;
+  color: #666;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+.nb-tab:hover { background: #f0f0f0; }
+.nb-tab--active { background: #333; color: #fff; }
+.nb-tab--active:hover { background: #444; }
+
+/* Actions row */
+.nb-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+  .nb-tabs {
+    flex-direction: column;
+    gap: 0;
+    border-bottom: none;
+  }
+  .nb-tab {
+    border-bottom: 1px solid #e0e0e0;
+    text-align: left;
+  }
+  .nb-tab:last-child { border-bottom: none; }
+  .nb-tab--active { border-left: 3px solid #333; }
+
+  .nb-actions {
+    flex-direction: column;
+  }
+  .nb-actions .nb-btn { width: 100%; text-align: center; }
+}
+
+/* Account grid (dashboard) */
+.nb-account-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .nb-account-grid {
+    gap: 12px;
+  }
+}
+
 /* Footer */
 .nb-footer {
   margin-top: 24px;
