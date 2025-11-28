@@ -111,7 +111,7 @@ function DashboardContent() {
               {isLoading && <p className="nb-muted">Loading…</p>}
               {error && <p className="nb-error">{error.message}</p>}
               {customer && (
-                <div style={{ display: "grid", gap: 16 }}>
+                <div className="nb-account-grid">
                   <div>
                     <div className="nb-muted">Signed in as</div>
                     <div>{customer.name || customer.email || customer.id}</div>
