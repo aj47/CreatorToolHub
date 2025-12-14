@@ -523,94 +523,92 @@ export default function ThumbnailRefinement({
               />
             </div>
 
-            {/* Reference Images (Fal AI only) */}
-            {(selectedProvider === 'fal-flux' || selectedProvider === 'fal-qwen') && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
-                  Reference Images (Optional):
-                </label>
-                <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
-                  Upload reference images to guide the AI in applying specific styles or elements.
-                </p>
+            {/* Reference Images */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
+                Reference Images (Optional):
+              </label>
+              <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                Upload reference images to guide the AI in applying specific styles or elements.
+              </p>
 
-                {/* Upload Button */}
-                <label style={{
-                  display: "inline-block",
-                  padding: "8px 16px",
-                  backgroundColor: "#6c757d",
-                  color: "white",
-                  borderRadius: 4,
-                  cursor: refinementState.isRefining ? "not-allowed" : "pointer",
-                  fontWeight: "bold",
-                  fontSize: 14,
-                  opacity: refinementState.isRefining ? 0.6 : 1
+              {/* Upload Button */}
+              <label style={{
+                display: "inline-block",
+                padding: "8px 16px",
+                backgroundColor: "#6c757d",
+                color: "white",
+                borderRadius: 4,
+                cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                fontWeight: "bold",
+                fontSize: 14,
+                opacity: refinementState.isRefining ? 0.6 : 1
+              }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleReferenceImageUpload}
+                  disabled={refinementState.isRefining}
+                  style={{ display: "none" }}
+                />
+                📎 Add Reference Images
+              </label>
+
+              {/* Display uploaded reference images */}
+              {refinementState.referenceImages && refinementState.referenceImages.length > 0 && (
+                <div style={{
+                  marginTop: 12,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap"
                 }}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleReferenceImageUpload}
-                    disabled={refinementState.isRefining}
-                    style={{ display: "none" }}
-                  />
-                  📎 Add Reference Images
-                </label>
-
-                {/* Display uploaded reference images */}
-                {refinementState.referenceImages && refinementState.referenceImages.length > 0 && (
-                  <div style={{
-                    marginTop: 12,
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap"
-                  }}>
-                    {refinementState.referenceImages.map((imgBase64, index) => (
-                      <div key={index} style={{
-                        position: "relative",
-                        width: 80,
-                        height: 80,
-                        border: "2px solid #ddd",
-                        borderRadius: 4,
-                        overflow: "hidden"
-                      }}>
-                        <img
-                          src={`data:image/png;base64,${imgBase64}`}
-                          alt={`Reference ${index + 1}`}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover"
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRemoveReferenceImage(index)}
-                          disabled={refinementState.isRefining}
-                          style={{
-                            position: "absolute",
-                            top: 2,
-                            right: 2,
-                            width: 20,
-                            height: 20,
-                            padding: 0,
-                            backgroundColor: "rgba(220, 53, 69, 0.9)",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "50%",
-                            cursor: refinementState.isRefining ? "not-allowed" : "pointer",
-                            fontSize: 12,
-                            lineHeight: "20px",
-                            fontWeight: "bold"
-                          }}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                  {refinementState.referenceImages.map((imgBase64, index) => (
+                    <div key={index} style={{
+                      position: "relative",
+                      width: 80,
+                      height: 80,
+                      border: "2px solid #ddd",
+                      borderRadius: 4,
+                      overflow: "hidden"
+                    }}>
+                      <img
+                        src={`data:image/png;base64,${imgBase64}`}
+                        alt={`Reference ${index + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover"
+                        }}
+                      />
+                      <button
+                        onClick={() => handleRemoveReferenceImage(index)}
+                        disabled={refinementState.isRefining}
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          right: 2,
+                          width: 20,
+                          height: 20,
+                          padding: 0,
+                          backgroundColor: "rgba(220, 53, 69, 0.9)",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "50%",
+                          cursor: refinementState.isRefining ? "not-allowed" : "pointer",
+                          fontSize: 12,
+                          lineHeight: "20px",
+                          fontWeight: "bold"
+                        }}
+                        title="Remove"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Action Buttons */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

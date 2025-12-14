@@ -62,16 +62,28 @@ async function refineImageWithGemini(
   apiKey: string,
   baseImageData: string,
   combinedPrompt: string,
-  imageMime: string = "image/png"
+  imageMime: string = "image/png",
+  referenceImages?: string[]
 ): Promise<string> {
   const genAI = new GoogleGenAI({ apiKey });
 
   try {
-    // Build request parts: base image first, then the combined prompt
+    // Build request parts: base image first, then reference images, then the combined prompt
     const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
 
     // Add the base image
     reqParts.push({ inlineData: { mimeType: imageMime, data: baseImageData } });
+
+    // Add reference images if provided
+    if (referenceImages && referenceImages.length > 0) {
+      for (const refImg of referenceImages) {
+        // Extract base64 data if it's a data URL
+        const base64Data = refImg.startsWith('data:')
+          ? refImg.split(',')[1] || refImg
+          : refImg;
+        reqParts.push({ inlineData: { mimeType: "image/png", data: base64Data } });
+      }
+    }
 
     // Add the combined prompt
     reqParts.push({ text: combinedPrompt });
@@ -337,7 +349,8 @@ Please apply the refinement request to modify the image while maintaining the ov
         apiKey,
         baseImageData,
         combinedPrompt,
-        "image/png"
+        "image/png",
+        referenceImages
       );
     }
 
