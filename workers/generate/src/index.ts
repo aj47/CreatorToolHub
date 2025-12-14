@@ -158,6 +158,70 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
   return resp.json();
 }
 
+/**
+ * Upload a base64 image to Fal's storage and return the URL.
+ * Fal's queue API requires HTTP URLs, not data URIs.
+ *
+ * Uses Fal's two-step upload process:
+ * 1. Initiate upload to get upload_url and file_url
+ * 2. PUT the file content to upload_url
+ * 3. Return file_url for use in API calls
+ */
+async function uploadToFalStorage(apiKey: string, base64Image: string): Promise<string> {
+  const contentType = 'image/png';
+  const fileName = `image-${Date.now()}.png`;
+
+  // Step 1: Initiate the upload
+  const initiateResponse = await fetch(
+    'https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content_type: contentType,
+        file_name: fileName,
+      }),
+    }
+  );
+
+  if (!initiateResponse.ok) {
+    const text = await initiateResponse.text();
+    console.error(`Fal storage initiate error: ${initiateResponse.status}`, text.substring(0, 500));
+    throw new Error(`Fal storage initiate error ${initiateResponse.status}: ${text}`);
+  }
+
+  const { upload_url: uploadUrl, file_url: fileUrl } = await initiateResponse.json() as {
+    upload_url: string;
+    file_url: string;
+  };
+
+  // Step 2: Convert base64 to binary and upload to the presigned URL
+  const binaryString = atob(base64Image);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType,
+    },
+    body: bytes,
+  });
+
+  if (!uploadResponse.ok) {
+    const text = await uploadResponse.text();
+    console.error(`Fal storage upload error: ${uploadResponse.status}`, text.substring(0, 500));
+    throw new Error(`Fal storage upload error ${uploadResponse.status}: ${text}`);
+  }
+
+  return fileUrl;
+}
+
 async function callFalGenerate(
   apiKey: string,
   prompt: string,
@@ -166,7 +230,10 @@ async function callFalGenerate(
 ): Promise<string[]> {
   // Use the first frame as the reference image
   const referenceFrame = frames[0];
-  const dataUrl = `data:image/png;base64,${referenceFrame}`;
+
+  // Upload the image to Fal's storage to get an HTTP URL
+  // Fal's queue API requires HTTP URLs, not data URIs
+  const imageUrl = await uploadToFalStorage(apiKey, referenceFrame);
 
   // Build input based on model type
   // Flux uses image_urls (array), Qwen uses image_url (singular)
@@ -174,12 +241,12 @@ async function callFalGenerate(
   const requestBody = isQwen
     ? {
         prompt,
-        image_url: dataUrl, // Qwen uses singular image_url
+        image_url: imageUrl, // Qwen uses singular image_url
         output_format: "png",
       }
     : {
         prompt,
-        image_urls: [dataUrl], // Flux uses plural image_urls
+        image_urls: [imageUrl], // Flux uses plural image_urls
         image_size: "landscape_16_9",
         output_format: "png",
         sync_mode: false
