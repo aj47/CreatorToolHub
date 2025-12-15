@@ -54,20 +54,19 @@ export default function ThumbnailRefinement({
           continue;
         }
 
-        // Convert to base64
-        const base64 = await new Promise<string>((resolve, reject) => {
+        // Convert to data URL
+        const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
             const result = reader.result as string;
-            // Extract base64 data (remove data:image/...;base64, prefix)
-            const base64Data = result.split(',')[1] || result;
-            resolve(base64Data);
+            // Keep the full data URL including MIME type prefix
+            resolve(result);
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
 
-        newImages.push(base64);
+        newImages.push(dataUrl);
       }
 
       if (newImages.length > 0) {
@@ -573,7 +572,7 @@ export default function ThumbnailRefinement({
                       overflow: "hidden"
                     }}>
                       <img
-                        src={`data:image/png;base64,${imgBase64}`}
+                        src={imgBase64.startsWith('data:') ? imgBase64 : `data:image/png;base64,${imgBase64}`}
                         alt={`Reference ${index + 1}`}
                         style={{
                           width: "100%",

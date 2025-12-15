@@ -77,11 +77,22 @@ async function refineImageWithGemini(
     // Add reference images if provided
     if (referenceImages && referenceImages.length > 0) {
       for (const refImg of referenceImages) {
-        // Extract base64 data if it's a data URL
-        const base64Data = refImg.startsWith('data:')
-          ? refImg.split(',')[1] || refImg
-          : refImg;
-        reqParts.push({ inlineData: { mimeType: "image/png", data: base64Data } });
+        let base64Data: string;
+        let refMimeType = "image/png"; // Default to PNG if no MIME type info
+
+        if (refImg.startsWith('data:')) {
+          // Extract MIME type from data URL (e.g., "data:image/jpeg;base64,...")
+          const mimeMatch = refImg.match(/^data:([^;,]+)/);
+          if (mimeMatch && mimeMatch[1]) {
+            refMimeType = mimeMatch[1];
+          }
+          // Extract base64 data after the comma
+          base64Data = refImg.split(',')[1] || refImg;
+        } else {
+          base64Data = refImg;
+        }
+
+        reqParts.push({ inlineData: { mimeType: refMimeType, data: base64Data } });
       }
     }
 
