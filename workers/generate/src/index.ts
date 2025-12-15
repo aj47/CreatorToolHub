@@ -167,9 +167,14 @@ async function callGeminiGenerate(apiKey: string, model: string, parts: any[]) {
  * 2. PUT the file content to upload_url
  * 3. Return file_url for use in API calls
  */
-async function uploadToFalStorage(apiKey: string, base64Image: string): Promise<string> {
-  const contentType = 'image/png';
-  const fileName = `image-${Date.now()}.png`;
+async function uploadToFalStorage(
+  apiKey: string,
+  base64Image: string,
+  contentType: string = 'image/png'
+): Promise<string> {
+  // Derive file extension from content type
+  const ext = contentType.split('/')[1] || 'png';
+  const fileName = `image-${Date.now()}.${ext}`;
 
   // Step 1: Initiate the upload
   const initiateResponse = await fetch(
@@ -226,14 +231,25 @@ async function callFalGenerate(
   apiKey: string,
   prompt: string,
   frames: string[],
-  model: FalModel = FAL_MODEL_FLUX
+  model: FalModel = FAL_MODEL_FLUX,
+  contentType: string = 'image/png'
 ): Promise<string[]> {
+  // Validate frames array
+  if (!frames || frames.length === 0) {
+    throw new Error('Fal generation requires at least one frame');
+  }
+
   // Use the first frame as the reference image
   const referenceFrame = frames[0];
 
+  // Validate that referenceFrame is a non-empty string
+  if (typeof referenceFrame !== 'string' || referenceFrame.length === 0) {
+    throw new Error('Reference frame must be a non-empty base64 string');
+  }
+
   // Upload the image to Fal's storage to get an HTTP URL
   // Fal's queue API requires HTTP URLs, not data URIs
-  const imageUrl = await uploadToFalStorage(apiKey, referenceFrame);
+  const imageUrl = await uploadToFalStorage(apiKey, referenceFrame, contentType);
 
   // Build input based on model type
   // Flux uses image_urls (array), Qwen uses image_url (singular)
@@ -899,10 +915,10 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
           } else {
             // Fal providers
             const falModel = prov === 'fal-flux' ? FAL_MODEL_FLUX : FAL_MODEL_QWEN;
-            const images = await callFalGenerate(falKey!, prompt, framesArray, falModel);
+            const images = await callFalGenerate(falKey!, prompt, framesArray, falModel, imageMime);
             for (const base64 of images) {
               labeledImages.push({
-                dataUrl: `data:image/png;base64,${base64}`,
+                dataUrl: `data:${imageMime};base64,${base64}`,
                 provider: prov
               });
             }
