@@ -172,8 +172,11 @@ async function uploadToFalStorage(
   base64Image: string,
   contentType: string = 'image/png'
 ): Promise<string> {
-  // Derive file extension from content type
-  const ext = contentType.split('/')[1] || 'png';
+  // Normalize MIME type by stripping any parameters (e.g., 'image/png; charset=utf-8' -> 'image/png')
+  const normalizedContentType = contentType.split(';')[0].trim();
+
+  // Derive file extension from normalized content type
+  const ext = normalizedContentType.split('/')[1] || 'png';
   const fileName = `image-${Date.now()}.${ext}`;
 
   // Step 1: Initiate the upload
@@ -186,7 +189,7 @@ async function uploadToFalStorage(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        content_type: contentType,
+        content_type: normalizedContentType,
         file_name: fileName,
       }),
     }
@@ -195,7 +198,8 @@ async function uploadToFalStorage(
   if (!initiateResponse.ok) {
     const text = await initiateResponse.text();
     console.error(`Fal storage initiate error: ${initiateResponse.status}`, text.substring(0, 500));
-    throw new Error(`Fal storage initiate error ${initiateResponse.status}: ${text}`);
+    // Truncate error message to avoid leaking verbose upstream details to clients
+    throw new Error(`Fal storage initiate error ${initiateResponse.status}: ${text.substring(0, 200)}`);
   }
 
   const { upload_url: uploadUrl, file_url: fileUrl } = await initiateResponse.json() as {
@@ -229,7 +233,7 @@ async function uploadToFalStorage(
   const uploadResponse = await fetch(uploadUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': normalizedContentType,
     },
     body: bytes,
   });
@@ -237,7 +241,8 @@ async function uploadToFalStorage(
   if (!uploadResponse.ok) {
     const text = await uploadResponse.text();
     console.error(`Fal storage upload error: ${uploadResponse.status}`, text.substring(0, 500));
-    throw new Error(`Fal storage upload error ${uploadResponse.status}: ${text}`);
+    // Truncate error message to avoid leaking verbose upstream details to clients
+    throw new Error(`Fal storage upload error ${uploadResponse.status}: ${text.substring(0, 200)}`);
   }
 
   return fileUrl;
