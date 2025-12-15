@@ -686,3 +686,15 @@ a {
   margin: 0.5rem 0;
   white-space: pre-wrap;
 }
+
+/* Real-time thumbnail preview animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
