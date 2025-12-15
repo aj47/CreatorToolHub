@@ -360,7 +360,7 @@ export default function ThumbnailRefinement({
   };
 
   const handleCopy = async (src: string, imageData?: string) => {
-    onUpdateRefinementState({ isCopying: true });
+    onUpdateRefinementState({ isCopying: true, refinementError: undefined });
     try {
       // Check if clipboard API is available
       if (!navigator.clipboard || !navigator.clipboard.write) {
@@ -372,9 +372,11 @@ export default function ThumbnailRefinement({
       // Prefer using imageData (base64) if available - this is more reliable
       // than blob URLs which may have been revoked or have cross-context issues
       if (imageData) {
+        // If imageData already has a data: prefix, use it as-is to preserve correct MIME type
+        // Otherwise, use YOUTUBE_THUMBNAIL.MIME_TYPE since processed images are JPEG
         const dataUrl = imageData.startsWith('data:')
           ? imageData
-          : `data:image/png;base64,${imageData}`;
+          : `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${imageData}`;
         blob = dataUrlToBlob(dataUrl);
       } else if (src.startsWith('blob:')) {
         blob = await blobFromBlobUrlViaCanvas(src);
@@ -406,6 +408,12 @@ export default function ThumbnailRefinement({
         // Convert to PNG using canvas
         const pngBlob = await new Promise<Blob>((resolve, reject) => {
           const img = new Image();
+          const tempUrl = URL.createObjectURL(blob);
+
+          const cleanup = () => {
+            URL.revokeObjectURL(tempUrl);
+          };
+
           img.onload = () => {
             try {
               const canvas = document.createElement('canvas');
@@ -413,20 +421,26 @@ export default function ThumbnailRefinement({
               canvas.height = img.height;
               const ctx = canvas.getContext('2d');
               if (!ctx) {
+                cleanup();
                 reject(new Error('Could not get canvas context'));
                 return;
               }
               ctx.drawImage(img, 0, 0);
               canvas.toBlob((b) => {
+                cleanup();
                 if (b) resolve(b);
                 else reject(new Error('Failed to create PNG blob'));
               }, 'image/png');
             } catch (e) {
+              cleanup();
               reject(e);
             }
           };
-          img.onerror = () => reject(new Error('Failed to load image for conversion'));
-          img.src = URL.createObjectURL(blob);
+          img.onerror = () => {
+            cleanup();
+            reject(new Error('Failed to load image for conversion'));
+          };
+          img.src = tempUrl;
         });
         blob = pngBlob;
       }
