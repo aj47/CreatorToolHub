@@ -212,7 +212,15 @@ async function uploadToFalStorage(
   }
 
   // Step 2: Convert base64 to binary and upload to the presigned URL
-  const binaryString = atob(base64Image);
+  let binaryString: string;
+  try {
+    binaryString = atob(base64Image);
+  } catch (e) {
+    throw new Error(
+      `Invalid base64 image data: ${e instanceof Error ? e.message : 'atob decoding failed'}. ` +
+      `Ensure the image is a valid base64 string without data URI prefix.`
+    );
+  }
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
