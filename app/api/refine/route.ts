@@ -160,6 +160,10 @@ async function refineImageWithGemini(
     return images[0];
   } catch (error) {
     console.error("Gemini refinement error:", error);
+    // Re-throw ValidationError without wrapping so the route handler can return HTTP 400
+    if (error instanceof ValidationError) {
+      throw error;
+    }
     throw new Error(`Image refinement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
