@@ -375,16 +375,40 @@ export default function ThumbnailRefinement({
     }
   };
 
-  const handleCopy = async (src: string) => {
-    onUpdateRefinementState({ isCopying: true });
+  const handleCopy = async (src: string, imageData?: string) => {
+    onUpdateRefinementState({ isCopying: true, refinementError: undefined });
     try {
-      // Check if clipboard API is available
-      if (!navigator.clipboard || !navigator.clipboard.write) {
+      // Check if clipboard API and ClipboardItem are available
+      // Some environments expose navigator.clipboard.write but not ClipboardItem
+      if (!navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem === 'undefined') {
         throw new Error('Clipboard API not available');
       }
 
       let blob: Blob;
-      if (src.startsWith('blob:')) {
+
+      // Prefer using imageData (base64) if available - this is more reliable
+      // than blob URLs which may have been revoked or have cross-context issues
+      if (imageData) {
+        let dataUrl: string;
+        if (imageData.startsWith('data:')) {
+          // imageData already has a data: prefix, use it as-is to preserve correct MIME type
+          dataUrl = imageData;
+        } else if (src.startsWith('data:')) {
+          // Derive MIME type from src (imageUrl) to keep constructed dataUrl consistent
+          // with the actual image format (initial iterations may be PNG, not JPEG)
+          const mimeMatch = /^data:([^;,]+)/.exec(src);
+          const mimeType = mimeMatch ? mimeMatch[1] : YOUTUBE_THUMBNAIL.MIME_TYPE;
+          dataUrl = `data:${mimeType};base64,${imageData}`;
+        } else if (src.startsWith('blob:')) {
+          // When src is a blob: URL, imageData is produced via canvas.toDataURL('image/png')
+          // in handleSelectThumbnailForRefinement, so the raw base64 is PNG bytes
+          dataUrl = `data:image/png;base64,${imageData}`;
+        } else {
+          // Fallback to YOUTUBE_THUMBNAIL.MIME_TYPE for processed/refined images (JPEG)
+          dataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${imageData}`;
+        }
+        blob = dataUrlToBlob(dataUrl);
+      } else if (src.startsWith('blob:')) {
         blob = await blobFromBlobUrlViaCanvas(src);
       } else if (src.startsWith('data:')) {
         blob = dataUrlToBlob(src);
@@ -408,23 +432,59 @@ export default function ThumbnailRefinement({
         throw new Error('Invalid image data');
       }
 
-      // Create clipboard item with proper MIME type
-      const mimeType = blob.type || 'image/png';
-      const clipboardItem = new ClipboardItem({ [mimeType]: blob });
+      // For clipboard compatibility, ensure the blob is PNG format
+      // Some browsers (especially Safari) require PNG for clipboard writes
+      if (blob.type !== 'image/png') {
+        // Convert to PNG using canvas
+        const pngBlob = await new Promise<Blob>((resolve, reject) => {
+          const img = new Image();
+          const tempUrl = URL.createObjectURL(blob);
 
+          const cleanup = () => {
+            URL.revokeObjectURL(tempUrl);
+          };
+
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                cleanup();
+                reject(new Error('Could not get canvas context'));
+                return;
+              }
+              ctx.drawImage(img, 0, 0);
+              canvas.toBlob((b) => {
+                cleanup();
+                if (b) resolve(b);
+                else reject(new Error('Failed to create PNG blob'));
+              }, 'image/png');
+            } catch (e) {
+              cleanup();
+              reject(e);
+            }
+          };
+          img.onerror = () => {
+            cleanup();
+            reject(new Error('Failed to load image for conversion'));
+          };
+          img.src = tempUrl;
+        });
+        blob = pngBlob;
+      }
+
+      const clipboardItem = new ClipboardItem({ 'image/png': blob });
       await navigator.clipboard.write([clipboardItem]);
 
     } catch (error) {
-
-      // Fallback: try to copy as text (data URL)
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(src);
-        } else {
-          throw new Error('No clipboard access available');
-        }
-      } catch (fallbackError) {
-      }
+      // Log the error for debugging but don't fall back to text copy
+      // Text copy is never what users want when clicking "Copy" on an image
+      console.error('Failed to copy image to clipboard:', error);
+      onUpdateRefinementState({
+        refinementError: 'Failed to copy image. Please try downloading instead.'
+      });
     } finally {
       onUpdateRefinementState({ isCopying: false });
     }
@@ -670,7 +730,7 @@ export default function ThumbnailRefinement({
               </button>
 
               <button
-                onClick={() => handleCopy(currentIteration.imageUrl)}
+                onClick={() => handleCopy(currentIteration.imageUrl, currentIteration.imageData)}
                 disabled={refinementState.isCopying}
                 style={{
                   padding: "12px 24px",
