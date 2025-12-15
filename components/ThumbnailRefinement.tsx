@@ -362,8 +362,9 @@ export default function ThumbnailRefinement({
   const handleCopy = async (src: string, imageData?: string) => {
     onUpdateRefinementState({ isCopying: true, refinementError: undefined });
     try {
-      // Check if clipboard API is available
-      if (!navigator.clipboard || !navigator.clipboard.write) {
+      // Check if clipboard API and ClipboardItem are available
+      // Some environments expose navigator.clipboard.write but not ClipboardItem
+      if (!navigator.clipboard || !navigator.clipboard.write || typeof ClipboardItem === 'undefined') {
         throw new Error('Clipboard API not available');
       }
 
