@@ -116,8 +116,23 @@ async function refineImageWithGemini(
             refMimeType = mimeMatch[1];
           }
           // Extract base64 data after the comma
-          base64Data = refImg.split(',')[1] || refImg;
+          const extractedData = refImg.split(',')[1];
+          // Validate that base64 data exists and is not empty
+          if (!extractedData || extractedData.trim().length === 0) {
+            throw new ValidationError(
+              `Reference image ${i + 1} has an empty or invalid data payload. ` +
+              `Please re-upload the image.`
+            );
+          }
+          base64Data = extractedData;
         } else {
+          // For raw base64 strings (not data URLs), validate they're not empty
+          if (!refImg || refImg.trim().length === 0) {
+            throw new ValidationError(
+              `Reference image ${i + 1} has empty image data. ` +
+              `Please re-upload the image.`
+            );
+          }
           base64Data = refImg;
         }
 
