@@ -203,6 +203,14 @@ async function uploadToFalStorage(
     file_url: string;
   };
 
+  // Validate that we received valid URLs from the initiate response
+  if (!uploadUrl || typeof uploadUrl !== 'string') {
+    throw new Error('Fal storage initiate response missing valid upload_url');
+  }
+  if (!fileUrl || typeof fileUrl !== 'string') {
+    throw new Error('Fal storage initiate response missing valid file_url');
+  }
+
   // Step 2: Convert base64 to binary and upload to the presigned URL
   const binaryString = atob(base64Image);
   const bytes = new Uint8Array(binaryString.length);
