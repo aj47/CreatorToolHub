@@ -882,6 +882,18 @@ export default function Home() {
     setLoadingSuggestions({});
     setLoading(false);
     setError(null);
+    // Exit refinement mode if active to prevent getting stuck
+    setRefinementState(prev => ({
+      ...prev,
+      isRefinementMode: false,
+      selectedThumbnailIndex: undefined,
+      selectedThumbnailUrl: undefined,
+      currentHistory: undefined,
+      feedbackPrompt: "",
+      refinementError: undefined,
+    }));
+    // Close the history browser if open
+    setShowHistoryBrowser(false);
     goTo(1);
   };
 
