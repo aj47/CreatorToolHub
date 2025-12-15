@@ -849,6 +849,17 @@ export default function Home() {
     setBlobUrls([]);
   };
 
+  // Start over: clear results and go back to step 1
+  const handleStartOver = () => {
+    cleanupBlobUrls();
+    setResults([]);
+    setLabeledResults([]);
+    setSuggestedRefinements({});
+    setLoadingSuggestions({});
+    setError(null);
+    goTo(1);
+  };
+
   const generate = async () => {
     // Get all valid template IDs (custom + curated)
     const allValidTemplateIds = new Set([
@@ -2125,7 +2136,7 @@ export default function Home() {
 
                   {/* Compact nav */}
                   <div className={styles.navRow} style={{ marginTop: 12 }}>
-                    <button onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
+                    <button onClick={handleStartOver} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
                   </div>
                 </>
               )}
