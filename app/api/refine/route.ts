@@ -10,6 +10,17 @@ import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementU
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
 
+/**
+ * Custom error class for validation errors.
+ * These represent user-correctable input issues and should return HTTP 400.
+ */
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 // Gemini supports a limited set of image MIME types for inline data
 const GEMINI_SUPPORTED_IMAGE_MIME_TYPES = new Set([
   'image/png',
@@ -113,7 +124,7 @@ async function refineImageWithGemini(
         // Validate MIME type is supported by Gemini
         if (!isGeminiSupportedImageMimeType(refMimeType)) {
           const supportedTypes = Array.from(GEMINI_SUPPORTED_IMAGE_MIME_TYPES).join(', ');
-          throw new Error(
+          throw new ValidationError(
             `Reference image ${i + 1} has unsupported format "${refMimeType}". ` +
             `Gemini only supports: ${supportedTypes}. Please convert the image to a supported format.`
           );
@@ -431,10 +442,22 @@ Please apply the refinement request to modify the image while maintaining the ov
     return Response.json(response);
   } catch (err: unknown) {
     console.error("/api/refine error", err);
+
+    // Return 400 for validation errors (user-correctable input issues)
+    if (err instanceof ValidationError) {
+      return Response.json(
+        {
+          success: false,
+          error: err.message
+        },
+        { status: 400 }
+      );
+    }
+
     return Response.json(
-      { 
-        success: false, 
-        error: err instanceof Error ? err.message : "Unknown error" 
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown error"
       },
       { status: 500 }
     );
