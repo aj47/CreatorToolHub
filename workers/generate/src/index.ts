@@ -915,10 +915,12 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
           } else {
             // Fal providers
             const falModel = prov === 'fal-flux' ? FAL_MODEL_FLUX : FAL_MODEL_QWEN;
+            // Pass imageMime for upload content type, but Fal outputs PNG (output_format: "png")
             const images = await callFalGenerate(falKey!, prompt, framesArray, falModel, imageMime);
             for (const base64 of images) {
               labeledImages.push({
-                dataUrl: `data:${imageMime};base64,${base64}`,
+                // Fal always outputs PNG regardless of input format (output_format: "png")
+                dataUrl: `data:image/png;base64,${base64}`,
                 provider: prov
               });
             }
