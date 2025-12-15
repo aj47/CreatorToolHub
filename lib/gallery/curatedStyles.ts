@@ -36,14 +36,6 @@ const extras: StyleCard[] = [
     colors: ["#0F172A", "#38BDF8", "#FBBF24"],
   },
   {
-    id: "premium-saas-dark",
-    title: "Premium SaaS Dark",
-    prompt:
-      "Create a high-contrast, dark-mode premium SaaS thumbnail with pure black background. Use electric periwinkle/indigo blue (#6366F1) as the primary accent for headlines, key metrics, and data points. Apply clean modern sans-serif typography (Inter/SF Pro style) with large bold sentence-case headlines in white. Include minimal data visualization elements: horizontal performance axis with dotted guide lines, circular markers with numeric labels, and small arrows. Add subtle legend with colored dots. Use lots of negative space, maintain minimalist aesthetic with no clutter. Apply soft card shadow and keep all borders minimal. Include small all-caps footnote for technical precision. Typography should use tight letter-spacing for labels and axis text to create analytical, technical feel.",
-    previewUrl: "/template-previews/premium-saas-dark.png",
-    colors: ["#000000", "#1F1F1F", "#6366F1", "#E5E7EB", "#9CA3AF"],
-  },
-  {
     id: "minimal-highlight",
     title: "Minimal Highlight",
     prompt:
