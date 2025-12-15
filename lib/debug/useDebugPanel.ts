@@ -64,6 +64,8 @@ export function useDebugPanel() {
 
   // Keyboard shortcut: Ctrl+Shift+D to toggle
   useEffect(() => {
+    if (!debug.isEnabled()) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'D') {
         e.preventDefault();
@@ -90,10 +92,18 @@ export function useDebugPanel() {
     clearDebugLogs();
   }, []);
 
+  const safeStringify = (value: unknown): string => {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '[Unserializable data]';
+    }
+  };
+
   const filteredLogs = state.logs.filter(log => {
     if (state.categoryFilter && log.category !== state.categoryFilter) return false;
     if (state.filter) {
-      const searchStr = `${log.source} ${log.message} ${JSON.stringify(log.data)}`.toLowerCase();
+      const searchStr = `${log.source} ${log.message} ${safeStringify(log.data)}`.toLowerCase();
       return searchStr.includes(state.filter.toLowerCase());
     }
     return true;

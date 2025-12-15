@@ -3,6 +3,14 @@
 import React from 'react';
 import { useDebugPanel, DebugLogEntry } from './useDebugPanel';
 
+function safeStringify(value: unknown, indent?: number): string {
+  try {
+    return JSON.stringify(value, null, indent);
+  } catch {
+    return '[Unserializable data]';
+  }
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   api: 'bg-green-500',
   state: 'bg-blue-500',
@@ -37,7 +45,7 @@ function LogEntry({ entry }: { entry: DebugLogEntry }) {
       </div>
       {expanded && entry.data !== undefined && (
         <pre className="mt-1 p-2 bg-gray-900 rounded text-[10px] overflow-auto max-h-40">
-          {typeof entry.data === 'string' ? entry.data : JSON.stringify(entry.data, null, 2)}
+          {typeof entry.data === 'string' ? entry.data : safeStringify(entry.data, 2)}
         </pre>
       )}
     </div>
