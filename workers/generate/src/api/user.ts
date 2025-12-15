@@ -3,6 +3,18 @@ import { DatabaseService } from '../storage/database';
 import { R2StorageService } from '../storage/r2';
 import { deriveUserId } from '../storage/utils';
 
+// Helper to create JSON responses with no-cache headers to prevent stale data
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+    }
+  });
+}
+
 // Auth helpers (mirrored from main app)
 function getAuthToken(request: Request): string | null {
   const cookieHeader = request.headers.get("cookie");
@@ -52,10 +64,7 @@ export class UserAPI {
       user = { email: 'dev@example.com', name: 'Dev User', picture: '' };
     }
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
     const userId = deriveUserId(user.email);
@@ -80,10 +89,7 @@ export class UserAPI {
         const generationId = segments[4];
         const subresource = segments[5];
         if (!generationId) {
-          return new Response(JSON.stringify({ error: "Generation ID is required" }), {
-            status: 400,
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return jsonResponse({ error: "Generation ID is required" }, 400);
         }
         if (subresource === 'outputs') {
           return this.handleGenerationOutputs(request, userId, generationId, method);
@@ -93,33 +99,22 @@ export class UserAPI {
         return this.handleSettings(request, userId, method);
       }
 
-      return new Response(JSON.stringify({ error: "Not found" }), { 
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse({ error: "Not found" }, 404);
     } catch (error) {
       console.error('User API error:', error);
-      return new Response(JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Internal server error" 
-      }), { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse({
+        error: error instanceof Error ? error.message : "Internal server error"
+      }, 500);
     }
   }
 
   private async handleProfile(request: Request, userId: string, method: string): Promise<Response> {
     if (method === 'GET') {
       const user = await this.db.getUser(userId);
-      return new Response(JSON.stringify(user), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(user);
     }
-    
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { 
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleTemplates(request: Request, userId: string, method: string): Promise<Response> {
@@ -136,73 +131,52 @@ export class UserAPI {
         template.reference_images = refImages;
       }
       
-      return new Response(JSON.stringify(templates), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(templates);
     }
-    
+
     if (method === 'POST') {
       const data = await request.json();
       const { title, prompt, colors = [] } = data;
-      
+
       if (!title || !prompt) {
-        return new Response(JSON.stringify({ error: "Title and prompt are required" }), { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Title and prompt are required" }, 400);
       }
-      
+
       const template = await this.db.createTemplate(userId, title, prompt, colors);
-      return new Response(JSON.stringify(template), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(template, 201);
     }
-    
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { 
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleTemplate(request: Request, userId: string, templateId: string, method: string): Promise<Response> {
     if (method === 'GET') {
       const template = await this.db.getTemplate(templateId, userId);
       if (!template) {
-        return new Response(JSON.stringify({ error: "Template not found" }), { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Template not found" }, 404);
       }
-      
+
       // Add reference images
       const refImages = await this.db.getReferenceImages(template.id);
       for (const img of refImages) {
         img.url = await this.r2.getSignedUrl(img.r2_key);
       }
       template.reference_images = refImages;
-      
-      return new Response(JSON.stringify(template), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+
+      return jsonResponse(template);
     }
-    
+
     if (method === 'PUT') {
       const data = await request.json();
       const updated = await this.db.updateTemplate(templateId, userId, data);
-      
+
       if (!updated) {
-        return new Response(JSON.stringify({ error: "Template not found" }), { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Template not found" }, 404);
       }
-      
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+
+      return jsonResponse({ success: true });
     }
-    
+
     if (method === 'DELETE') {
       // Delete reference images first
       const refImages = await this.db.getReferenceImages(templateId);
@@ -210,24 +184,16 @@ export class UserAPI {
         await this.r2.deleteFile(img.r2_key);
         await this.db.deleteReferenceImage(img.id);
       }
-      
+
       const deleted = await this.db.deleteTemplate(templateId, userId);
       if (!deleted) {
-        return new Response(JSON.stringify({ error: "Template not found" }), { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Template not found" }, 404);
       }
-      
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+
+      return jsonResponse({ success: true });
     }
-    
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleGenerations(request: Request, userId: string, method: string): Promise<Response> {
@@ -263,15 +229,10 @@ export class UserAPI {
         })
       );
 
-      return new Response(JSON.stringify(generationsWithOutputs), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(generationsWithOutputs);
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleGenerationDetail(
@@ -283,10 +244,7 @@ export class UserAPI {
     if (method === 'GET') {
       const generation = await this.db.getGeneration(generationId, userId);
       if (!generation) {
-        return new Response(JSON.stringify({ error: "Generation not found" }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Generation not found" }, 404);
       }
 
       const [outputs, inputs] = await Promise.all([
@@ -301,12 +259,10 @@ export class UserAPI {
         }))
       );
 
-      return new Response(JSON.stringify({
+      return jsonResponse({
         ...generation,
         outputs: outputsWithUrls,
         inputs
-      }), {
-        headers: { 'Content-Type': 'application/json' }
       });
     }
 
@@ -328,21 +284,13 @@ export class UserAPI {
 
       const deleted = await this.db.deleteGeneration(generationId, userId);
       if (!deleted) {
-        return new Response(JSON.stringify({ error: "Generation not found" }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Generation not found" }, 404);
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse({ success: true });
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleGenerationOutputs(
@@ -354,10 +302,7 @@ export class UserAPI {
     if (method === 'GET') {
       const generation = await this.db.getGeneration(generationId, userId);
       if (!generation) {
-        return new Response(JSON.stringify({ error: "Generation not found" }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: "Generation not found" }, 404);
       }
 
       const outputs = await this.db.getGenerationOutputs(generationId);
@@ -368,26 +313,19 @@ export class UserAPI {
         }))
       );
 
-      return new Response(JSON.stringify(outputsWithUrls), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(outputsWithUrls);
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   private async handleSettings(request: Request, userId: string, method: string): Promise<Response> {
     if (method === 'GET') {
       const settings = await this.db.getSettings(userId);
-      return new Response(JSON.stringify(settings || {
+      return jsonResponse(settings || {
         user_id: userId,
         favorites: {},
         show_only_favs: false
-      }), {
-        headers: { 'Content-Type': 'application/json' }
       });
     }
 
@@ -397,14 +335,9 @@ export class UserAPI {
 
       const settings = await this.db.createOrUpdateSettings(userId, favorites, show_only_favs);
 
-      return new Response(JSON.stringify(settings), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return jsonResponse(settings);
     }
 
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 }
