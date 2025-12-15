@@ -196,7 +196,8 @@ export default function Home() {
               }
             } catch (error) {
               // Silently ignore abort errors
-              if (error instanceof Error && error.name === 'AbortError') {
+              // Use duck typing to check for AbortError since DOMException may not satisfy instanceof Error in all browsers
+              if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
                 return;
               }
               console.error("Failed to fetch suggested refinements:", error);
@@ -1213,7 +1214,8 @@ export default function Home() {
       }
     } catch (err: unknown) {
       // Don't show error if request was aborted (e.g., user clicked Start Over)
-      if (err instanceof Error && err.name === 'AbortError') {
+      // Use duck typing to check for AbortError since DOMException may not satisfy instanceof Error in all browsers
+      if (err && typeof err === 'object' && 'name' in err && err.name === 'AbortError') {
         return;
       }
       setError(err instanceof Error ? err.message : "Failed to generate");
