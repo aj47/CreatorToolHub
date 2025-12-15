@@ -1206,7 +1206,12 @@ export default function Home() {
       }
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {
-      setLoading(false);
+      // Only update loading state if this request wasn't aborted
+      // This prevents an aborted request from flipping loading to false
+      // while a newer request is still in progress
+      if (!abortSignal.aborted) {
+        setLoading(false);
+      }
     }
   };
 
