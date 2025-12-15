@@ -383,8 +383,12 @@ export default function ThumbnailRefinement({
           const mimeMatch = /^data:([^;,]+)/.exec(src);
           const mimeType = mimeMatch ? mimeMatch[1] : YOUTUBE_THUMBNAIL.MIME_TYPE;
           dataUrl = `data:${mimeType};base64,${imageData}`;
+        } else if (src.startsWith('blob:')) {
+          // When src is a blob: URL, imageData is produced via canvas.toDataURL('image/png')
+          // in handleSelectThumbnailForRefinement, so the raw base64 is PNG bytes
+          dataUrl = `data:image/png;base64,${imageData}`;
         } else {
-          // Fallback to YOUTUBE_THUMBNAIL.MIME_TYPE for processed images (typically JPEG)
+          // Fallback to YOUTUBE_THUMBNAIL.MIME_TYPE for processed/refined images (JPEG)
           dataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${imageData}`;
         }
         blob = dataUrlToBlob(dataUrl);
