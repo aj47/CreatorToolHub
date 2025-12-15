@@ -35,11 +35,20 @@ const FAL_KEY = process.env.FAL_KEY;
 const FAL_MODEL_FLUX = "fal-ai/flux-2-pro/edit";
 const FAL_MODEL_QWEN = "fal-ai/qwen-image-edit/image-to-image";
 
-// Small test image - 100x100 red square PNG
-const TEST_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAA5klEQVR4nO3QMQEAIAzAMMC/5+OCj0RBcnay7sy93/0A/2OWTGY' +
-  'JZZZQZglllllCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlC' +
-  'mSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQpkllFlCmSWUWUKZJZRZQ' +
-  'pkllFlCmSWUWUKZJZRZQpkllFlCPwn9BcS93xEhAAAAAElFTkSuQmCC';
+// Load a real image from the repo's template-previews
+function loadTestImage() {
+  const testImagePath = path.join(__dirname, '..', 'public', 'template-previews', 'cinematic.png');
+  try {
+    const imageBuffer = fs.readFileSync(testImagePath);
+    console.log(`✅ Loaded test image: ${testImagePath} (${imageBuffer.length} bytes)`);
+    return imageBuffer.toString('base64');
+  } catch (e) {
+    console.error(`❌ Failed to load test image: ${e.message}`);
+    process.exit(1);
+  }
+}
+
+const TEST_IMAGE_BASE64 = loadTestImage();
 
 async function uploadToFalStorage(apiKey, base64Image, contentType = 'image/png') {
   console.log('📤 Uploading image to Fal storage...');
