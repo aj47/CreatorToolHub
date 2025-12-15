@@ -1130,12 +1130,14 @@ export default function Home() {
                   const blobUrl = URL.createObjectURL(blob);
                   setResults((prev) => [...prev, blobUrl]);
                   setBlobUrls((prev) => [...prev, blobUrl]);
+                  setLabeledResults((prev) => [...prev, { url: blobUrl, provider: evt.provider || 'unknown' }]);
                   // Update cumulative progress for each streamed image (success path)
                   batchDone += 1;
                   setProgressDone(overallDone + batchDone);
 
                 } catch {
                   setResults((prev) => [...prev, evt.dataUrl]);
+                  setLabeledResults((prev) => [...prev, { url: evt.dataUrl, provider: evt.provider || 'unknown' }]);
                   // Update cumulative progress for each streamed image (fallback path)
                   batchDone += 1;
                   setProgressDone(overallDone + batchDone);
@@ -1974,6 +1976,79 @@ export default function Home() {
                   <div style={{ fontSize: "14px", opacity: 0.7 }}>
                     Creating {Math.max(1, count) * (selectedIds.length || 0)} thumbnail{(Math.max(1, count) * (selectedIds.length || 0)) === 1 ? '' : 's'}...
                   </div>
+
+                  {/* Real-time thumbnail preview - show thumbnails as they come in */}
+                  {results.length > 0 && (
+                    <div style={{ marginTop: 16, textAlign: 'left' }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, textAlign: 'center' }}>
+                        Thumbnails Ready ({results.length})
+                      </div>
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                        gap: 10
+                      }}>
+                        {results.map((src, i) => {
+                          const providerLabel = labeledResults[i]?.provider;
+                          const providerDisplayName = providerLabel === 'gemini' ? 'Gemini'
+                            : providerLabel === 'fal-flux' ? 'Flux'
+                            : providerLabel === 'fal-qwen' ? 'Qwen'
+                            : '';
+                          return (
+                            <div
+                              key={i}
+                              style={{
+                                border: "1px solid #ddd",
+                                padding: 6,
+                                borderRadius: 6,
+                                background: 'white',
+                                position: 'relative',
+                                animation: 'fadeIn 0.3s ease-in'
+                              }}
+                            >
+                              {/* Provider label badge */}
+                              {providerDisplayName && (
+                                <div style={{
+                                  position: 'absolute',
+                                  top: 10,
+                                  left: 10,
+                                  background: providerLabel === 'gemini' ? '#4285f4' : providerLabel === 'fal-flux' ? '#9333ea' : '#f97316',
+                                  color: 'white',
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  fontSize: 9,
+                                  fontWeight: 'bold',
+                                  zIndex: 1,
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                                }}>
+                                  {providerDisplayName}
+                                </div>
+                              )}
+                              {/* Image */}
+                              {src ? (<img src={src} alt={`preview-${i}`} style={{ width: '100%', display: 'block', borderRadius: 4 }} />) : null}
+                              {/* Compact action buttons */}
+                              <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                                <button
+                                  onClick={() => download(src, i)}
+                                  disabled={downloadingIndex === i}
+                                  style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
+                                >
+                                  {downloadingIndex === i ? "..." : "⬇ Download"}
+                                </button>
+                                <button
+                                  onClick={() => copyToClipboard(src, i)}
+                                  disabled={copyingIndex === i}
+                                  style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
+                                >
+                                  {copyingIndex === i ? "..." : "📋 Copy"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
