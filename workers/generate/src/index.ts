@@ -809,21 +809,48 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   }
   reqParts.push({ text: prompt });
 
+  // Built-in template IDs from the frontend (these don't exist in the database)
+  const BUILTIN_TEMPLATE_IDS: Record<string, string> = {
+    'vlog': 'Vlog',
+    'podcast': 'Podcast',
+    'screencast': 'Tech Screen Cast',
+    'gaming': 'Vibrant',
+    'cinematic': 'Cinematic',
+    'software-review': 'Software Review',
+    'minimal-highlight': 'Minimal Highlight',
+    'default': 'Default'
+  };
+
   // Validate templateId if provided and get template name
+  // For built-in templates, we don't store templateId in the database (since they don't exist there)
+  // Instead, we only store the templateName
   let resolvedTemplateName = templateName;
+  let resolvedTemplateId: string | undefined = templateId;
+
   if (templateId) {
-    const template = await db.getTemplate(templateId, userId);
-    if (!template) {
-      return errorResponse(
-        "Template not found or access denied",
-        400,
-        "INVALID_TEMPLATE_ID",
-        { templateId }
-      );
-    }
-    // Use the template's title if no templateName was provided
-    if (!resolvedTemplateName) {
-      resolvedTemplateName = template.title;
+    // Check if it's a built-in template first
+    if (BUILTIN_TEMPLATE_IDS[templateId]) {
+      // Use the built-in template's title if no templateName was provided
+      if (!resolvedTemplateName) {
+        resolvedTemplateName = BUILTIN_TEMPLATE_IDS[templateId];
+      }
+      // Don't pass built-in template IDs to the database (they would fail FK constraint)
+      resolvedTemplateId = undefined;
+    } else {
+      // Look up custom template in database
+      const template = await db.getTemplate(templateId, userId);
+      if (!template) {
+        return errorResponse(
+          "Template not found or access denied",
+          400,
+          "INVALID_TEMPLATE_ID",
+          { templateId }
+        );
+      }
+      // Use the template's title if no templateName was provided
+      if (!resolvedTemplateName) {
+        resolvedTemplateName = template.title;
+      }
     }
   }
 
@@ -847,7 +874,7 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
   let generation;
   try {
     generation = await db.createGeneration(userId, {
-      templateId,
+      templateId: resolvedTemplateId, // Use resolved ID (undefined for built-in templates)
       templateName: resolvedTemplateName,
       prompt,
       variantsRequested: count,
@@ -863,7 +890,7 @@ async function handleGeneration(request: AuthenticatedRequest, env: Env): Promis
       error instanceof Error ? error.message : "Failed to create generation",
       500,
       "GENERATION_CREATION_FAILED",
-      { userId, templateId, parentGenerationId }
+      { userId, templateId: resolvedTemplateId, parentGenerationId }
     );
   }
 
