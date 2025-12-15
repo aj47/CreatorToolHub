@@ -571,6 +571,16 @@ export default function Home() {
     };
   }, [videoUrl]);
 
+  // Abort in-flight requests on component unmount to prevent state updates after unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+    };
+  }, []);
+
   // Revoke blob URLs created for results to prevent memory leaks
   useEffect(() => {
     return () => {
