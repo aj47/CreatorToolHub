@@ -908,8 +908,10 @@ export default function Home() {
 
 
         // Initialize overall progress across all selected templates
+        // Account for number of providers: each provider generates 'count' images per template
         const perTemplate = Math.max(1, count);
-        const overallTotal = perTemplate * ids.length;
+        const numProviders = selectedProviders.size;
+        const overallTotal = perTemplate * numProviders * ids.length;
         let overallDone = 0;
         setProgressTotal(overallTotal);
         setProgressDone(0);
