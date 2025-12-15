@@ -46,6 +46,8 @@ const thumbnailFaqItems: { question: string; answer: string }[] = [
 export default function Home() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // AbortController for cancelling in-flight generation and suggestion requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoReady, setVideoReady] = useState(false);
@@ -145,11 +147,17 @@ export default function Home() {
   // Fetch suggested refinements when results are generated
   useEffect(() => {
     if (results.length > 0 && !refinementState.isRefinementMode) {
+      // Capture current abort signal to use in async callbacks
+      const currentAbortSignal = abortControllerRef.current?.signal;
+
       // Fetch suggestions for each result
       results.forEach((thumbnailUrl, index) => {
         if (thumbnailUrl && !suggestedRefinements[index] && !loadingSuggestions[index]) {
           // Call the fetch function inline to avoid dependency issues
           const fetchSuggestions = async () => {
+            // Check if aborted before starting
+            if (currentAbortSignal?.aborted) return;
+
             setLoadingSuggestions(prev => ({ ...prev, [index]: true }));
 
             try {
@@ -172,9 +180,13 @@ export default function Home() {
                   originalPrompt,
                   templateId: selectedIds[0] || "default",
                 }),
+                signal: currentAbortSignal,
               });
 
               const data = await response.json();
+
+              // Check if aborted before updating state
+              if (currentAbortSignal?.aborted) return;
 
               if (data.success && data.suggestions) {
                 setSuggestedRefinements(prev => ({
@@ -183,9 +195,16 @@ export default function Home() {
                 }));
               }
             } catch (error) {
+              // Silently ignore abort errors
+              if (error instanceof Error && error.name === 'AbortError') {
+                return;
+              }
               console.error("Failed to fetch suggested refinements:", error);
             } finally {
-              setLoadingSuggestions(prev => ({ ...prev, [index]: false }));
+              // Only update loading state if not aborted
+              if (!currentAbortSignal?.aborted) {
+                setLoadingSuggestions(prev => ({ ...prev, [index]: false }));
+              }
             }
           };
 
@@ -851,11 +870,17 @@ export default function Home() {
 
   // Start over: clear results and go back to step 1
   const handleStartOver = () => {
+    // Abort any in-flight generation or suggestion requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     cleanupBlobUrls();
     setResults([]);
     setLabeledResults([]);
     setSuggestedRefinements({});
     setLoadingSuggestions({});
+    setLoading(false);
     setError(null);
     goTo(1);
   };
@@ -897,6 +922,13 @@ export default function Home() {
       setError(needed <= 0 ? "Please select at least one template." : `You need ${needed} credit${needed === 1 ? '' : 's'} to run this. You have ${credits}.`);
       return;
     }
+    // Abort any previous in-flight requests before starting new generation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    const abortSignal = abortControllerRef.current.signal;
+
     setAuthRequired(false);
     setShowAuthModal(false);
     setError(null);
@@ -1024,6 +1056,7 @@ export default function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal: abortSignal,
         });
         if (res.status === 401) {
           setAuthRequired(true);
@@ -1167,6 +1200,10 @@ export default function Home() {
         }
       }
     } catch (err: unknown) {
+      // Don't show error if request was aborted (e.g., user clicked Start Over)
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       setError(err instanceof Error ? err.message : "Failed to generate");
     } finally {
       setLoading(false);
