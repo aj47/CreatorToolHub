@@ -1130,12 +1130,14 @@ export default function Home() {
                   const blobUrl = URL.createObjectURL(blob);
                   setResults((prev) => [...prev, blobUrl]);
                   setBlobUrls((prev) => [...prev, blobUrl]);
+                  setLabeledResults((prev) => [...prev, { url: blobUrl, provider: evt.provider || 'unknown' }]);
                   // Update cumulative progress for each streamed image (success path)
                   batchDone += 1;
                   setProgressDone(overallDone + batchDone);
 
                 } catch {
                   setResults((prev) => [...prev, evt.dataUrl]);
+                  setLabeledResults((prev) => [...prev, { url: evt.dataUrl, provider: evt.provider || 'unknown' }]);
                   // Update cumulative progress for each streamed image (fallback path)
                   batchDone += 1;
                   setProgressDone(overallDone + batchDone);
