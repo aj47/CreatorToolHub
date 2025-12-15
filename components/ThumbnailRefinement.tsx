@@ -373,11 +373,20 @@ export default function ThumbnailRefinement({
       // Prefer using imageData (base64) if available - this is more reliable
       // than blob URLs which may have been revoked or have cross-context issues
       if (imageData) {
-        // If imageData already has a data: prefix, use it as-is to preserve correct MIME type
-        // Otherwise, use YOUTUBE_THUMBNAIL.MIME_TYPE since processed images are JPEG
-        const dataUrl = imageData.startsWith('data:')
-          ? imageData
-          : `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${imageData}`;
+        let dataUrl: string;
+        if (imageData.startsWith('data:')) {
+          // imageData already has a data: prefix, use it as-is to preserve correct MIME type
+          dataUrl = imageData;
+        } else if (src.startsWith('data:')) {
+          // Derive MIME type from src (imageUrl) to keep constructed dataUrl consistent
+          // with the actual image format (initial iterations may be PNG, not JPEG)
+          const mimeMatch = /^data:([^;,]+)/.exec(src);
+          const mimeType = mimeMatch ? mimeMatch[1] : YOUTUBE_THUMBNAIL.MIME_TYPE;
+          dataUrl = `data:${mimeType};base64,${imageData}`;
+        } else {
+          // Fallback to YOUTUBE_THUMBNAIL.MIME_TYPE for processed images (typically JPEG)
+          dataUrl = `data:${YOUTUBE_THUMBNAIL.MIME_TYPE};base64,${imageData}`;
+        }
         blob = dataUrlToBlob(dataUrl);
       } else if (src.startsWith('blob:')) {
         blob = await blobFromBlobUrlViaCanvas(src);
