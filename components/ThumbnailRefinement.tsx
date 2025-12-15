@@ -38,6 +38,15 @@ export default function ThumbnailRefinement({
   });
   const [selectedProvider, setSelectedProvider] = useState<SingleProvider>('gemini');
 
+  // Supported image MIME types for Gemini and other providers
+  const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  ]);
+
   // Handle reference image upload
   const handleReferenceImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -45,12 +54,14 @@ export default function ThumbnailRefinement({
 
     try {
       const newImages: string[] = [];
+      const skippedFiles: string[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
+        // Validate file type against allowed MIME types
+        if (!SUPPORTED_IMAGE_MIME_TYPES.has(file.type)) {
+          skippedFiles.push(file.name);
           continue;
         }
 
@@ -67,6 +78,12 @@ export default function ThumbnailRefinement({
         });
 
         newImages.push(dataUrl);
+      }
+
+      if (skippedFiles.length > 0) {
+        onUpdateRefinementState({
+          refinementError: `Skipped unsupported files: ${skippedFiles.join(', ')}. Supported formats: PNG, JPEG, WebP, HEIC, HEIF.`
+        });
       }
 
       if (newImages.length > 0) {
@@ -529,6 +546,7 @@ export default function ThumbnailRefinement({
               </label>
               <p style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
                 Upload reference images to guide the AI in applying specific styles or elements.
+                Supported formats: PNG, JPEG, WebP, HEIC, HEIF.
               </p>
 
               {/* Upload Button */}
@@ -545,7 +563,7 @@ export default function ThumbnailRefinement({
               }}>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
                   multiple
                   onChange={handleReferenceImageUpload}
                   disabled={refinementState.isRefining}

@@ -10,6 +10,23 @@ import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementU
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
 
+// Gemini supports a limited set of image MIME types for inline data
+const GEMINI_SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+/**
+ * Validates that a MIME type is supported by Gemini for inline image data.
+ * Returns true if supported, false otherwise.
+ */
+function isGeminiSupportedImageMimeType(mimeType: string): boolean {
+  return GEMINI_SUPPORTED_IMAGE_MIME_TYPES.has(mimeType.toLowerCase());
+}
+
 // Function to create a mock refined image for development mode
 async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: string): Promise<string> {
   // In development mode, we'll create a simple visual modification to simulate refinement
@@ -76,7 +93,8 @@ async function refineImageWithGemini(
 
     // Add reference images if provided
     if (referenceImages && referenceImages.length > 0) {
-      for (const refImg of referenceImages) {
+      for (let i = 0; i < referenceImages.length; i++) {
+        const refImg = referenceImages[i];
         let base64Data: string;
         let refMimeType = "image/png"; // Default to PNG if no MIME type info
 
@@ -90,6 +108,15 @@ async function refineImageWithGemini(
           base64Data = refImg.split(',')[1] || refImg;
         } else {
           base64Data = refImg;
+        }
+
+        // Validate MIME type is supported by Gemini
+        if (!isGeminiSupportedImageMimeType(refMimeType)) {
+          const supportedTypes = Array.from(GEMINI_SUPPORTED_IMAGE_MIME_TYPES).join(', ');
+          throw new Error(
+            `Reference image ${i + 1} has unsupported format "${refMimeType}". ` +
+            `Gemini only supports: ${supportedTypes}. Please convert the image to a supported format.`
+          );
         }
 
         reqParts.push({ inlineData: { mimeType: refMimeType, data: base64Data } });
