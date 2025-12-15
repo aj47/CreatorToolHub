@@ -75,31 +75,45 @@ export class DatabaseService {
   /**
    * Ensure user exists in database with retry logic for D1 eventual consistency
    */
-  private async ensureUserExists(userId: string, email: string, name?: string, picture?: string, maxRetries: number = 3): Promise<void> {
+  private async ensureUserExists(userId: string, email: string, name?: string, picture?: string, maxRetries: number = 5): Promise<void> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const user = await this.getUser(userId);
       if (user) {
+        console.log(`ensureUserExists: User ${userId} verified on attempt ${attempt}`);
         return; // User exists, we're good
       }
 
-      if (attempt === maxRetries) {
-        // Final attempt - try to create user one more time
-        try {
-          const now = getCurrentTimestamp();
-          await this.db.prepare(`
-            INSERT OR IGNORE INTO users (id, email, name, picture, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-          `).bind(userId, email, name || null, picture || null, now, now).run();
-        } catch (error) {
-          console.error(`Failed to ensure user ${userId} exists after ${maxRetries} attempts:`, error);
-          throw new Error(`User creation failed after ${maxRetries} attempts. This may be due to database consistency issues.`);
-        }
-      } else {
+      console.log(`ensureUserExists: User ${userId} not found on attempt ${attempt}, trying to create...`);
+
+      // Try to create user on every attempt, not just the last one
+      try {
+        const now = getCurrentTimestamp();
+        await this.db.prepare(`
+          INSERT OR IGNORE INTO users (id, email, name, picture, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(userId, email, name || null, picture || null, now, now).run();
+        console.log(`ensureUserExists: INSERT OR IGNORE executed for user ${userId}`);
+      } catch (error) {
+        console.error(`ensureUserExists: INSERT failed for user ${userId}:`, error);
+        // Don't throw here, we'll verify on the next iteration
+      }
+
+      if (attempt < maxRetries) {
         // Wait before retry (exponential backoff)
-        const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000); // 100ms, 200ms, 400ms, max 1s
+        const delay = Math.min(100 * Math.pow(2, attempt - 1), 1000); // 100ms, 200ms, 400ms, 800ms, max 1s
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
+
+    // Final verification after all attempts
+    const finalCheck = await this.getUser(userId);
+    if (finalCheck) {
+      console.log(`ensureUserExists: User ${userId} verified on final check`);
+      return;
+    }
+
+    console.error(`ensureUserExists: User ${userId} still not found after ${maxRetries} attempts`);
+    throw new Error(`User creation failed after ${maxRetries} attempts. This may be due to database consistency issues.`);
   }
 
   async getUser(userId: string): Promise<User | null> {

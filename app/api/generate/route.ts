@@ -215,6 +215,14 @@ export async function POST(req: Request) {
             return Response.json(error, { status: workerRes.status });
           }
 
+          // For Fal providers, don't fall back - surface the worker error
+          // (Cloudflare Pages doesn't have FAL_KEY, so fallback would fail anyway)
+          if (providersArray.some(p => p.startsWith('fal-'))) {
+            const error = await workerRes.json().catch(() => ({ error: `Worker API error (status: ${workerRes.status})` }));
+            console.error("/api/generate: worker API failed for Fal provider", workerRes.status, error);
+            return Response.json(error, { status: workerRes.status });
+          }
+
           // For other failures (5xx, misconfiguration, etc.), fall back to direct Gemini handler
           console.warn("/api/generate: worker API returned", workerRes.status, "- falling back to direct Gemini handler");
           // Fall through to the direct Gemini path below
