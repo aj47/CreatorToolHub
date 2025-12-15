@@ -10,6 +10,34 @@ import { RefinementRequest, RefinementResponse, RefinementIteration, RefinementU
 // Use Gemini 3 Pro Image Preview - Google's most advanced image generation model (November 2025)
 const MODEL_ID = "gemini-3-pro-image-preview";
 
+/**
+ * Custom error class for validation errors.
+ * These represent user-correctable input issues and should return HTTP 400.
+ */
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
+// Gemini supports a limited set of image MIME types for inline data
+const GEMINI_SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+/**
+ * Validates that a MIME type is supported by Gemini for inline image data.
+ * Returns true if supported, false otherwise.
+ */
+function isGeminiSupportedImageMimeType(mimeType: string): boolean {
+  return GEMINI_SUPPORTED_IMAGE_MIME_TYPES.has(mimeType.toLowerCase());
+}
+
 // Function to create a mock refined image for development mode
 async function createMockRefinedImage(baseImageBase64: string, feedbackPrompt: string): Promise<string> {
   // In development mode, we'll create a simple visual modification to simulate refinement
@@ -62,16 +90,64 @@ async function refineImageWithGemini(
   apiKey: string,
   baseImageData: string,
   combinedPrompt: string,
-  imageMime: string = "image/png"
+  imageMime: string = "image/png",
+  referenceImages?: string[]
 ): Promise<string> {
   const genAI = new GoogleGenAI({ apiKey });
 
   try {
-    // Build request parts: base image first, then the combined prompt
+    // Build request parts: base image first, then reference images, then the combined prompt
     const reqParts: Array<{ inlineData?: { mimeType: string; data: string } } | { text: string }> = [];
 
     // Add the base image
     reqParts.push({ inlineData: { mimeType: imageMime, data: baseImageData } });
+
+    // Add reference images if provided
+    if (referenceImages && referenceImages.length > 0) {
+      for (let i = 0; i < referenceImages.length; i++) {
+        const refImg = referenceImages[i];
+        let base64Data: string;
+        let refMimeType = "image/png"; // Default to PNG if no MIME type info
+
+        if (refImg.startsWith('data:')) {
+          // Extract MIME type from data URL (e.g., "data:image/jpeg;base64,...")
+          const mimeMatch = refImg.match(/^data:([^;,]+)/);
+          if (mimeMatch && mimeMatch[1]) {
+            refMimeType = mimeMatch[1];
+          }
+          // Extract base64 data after the comma
+          const extractedData = refImg.split(',')[1];
+          // Validate that base64 data exists and is not empty
+          if (!extractedData || extractedData.trim().length === 0) {
+            throw new ValidationError(
+              `Reference image ${i + 1} has an empty or invalid data payload. ` +
+              `Please re-upload the image.`
+            );
+          }
+          base64Data = extractedData;
+        } else {
+          // For raw base64 strings (not data URLs), validate they're not empty
+          if (!refImg || refImg.trim().length === 0) {
+            throw new ValidationError(
+              `Reference image ${i + 1} has empty image data. ` +
+              `Please re-upload the image.`
+            );
+          }
+          base64Data = refImg;
+        }
+
+        // Validate MIME type is supported by Gemini
+        if (!isGeminiSupportedImageMimeType(refMimeType)) {
+          const supportedTypes = Array.from(GEMINI_SUPPORTED_IMAGE_MIME_TYPES).join(', ');
+          throw new ValidationError(
+            `Reference image ${i + 1} has unsupported format "${refMimeType}". ` +
+            `Gemini only supports: ${supportedTypes}. Please convert the image to a supported format.`
+          );
+        }
+
+        reqParts.push({ inlineData: { mimeType: refMimeType, data: base64Data } });
+      }
+    }
 
     // Add the combined prompt
     reqParts.push({ text: combinedPrompt });
@@ -99,6 +175,10 @@ async function refineImageWithGemini(
     return images[0];
   } catch (error) {
     console.error("Gemini refinement error:", error);
+    // Re-throw ValidationError without wrapping so the route handler can return HTTP 400
+    if (error instanceof ValidationError) {
+      throw error;
+    }
     throw new Error(`Image refinement failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -337,7 +417,8 @@ Please apply the refinement request to modify the image while maintaining the ov
         apiKey,
         baseImageData,
         combinedPrompt,
-        "image/png"
+        "image/png",
+        referenceImages
       );
     }
 
@@ -380,10 +461,22 @@ Please apply the refinement request to modify the image while maintaining the ov
     return Response.json(response);
   } catch (err: unknown) {
     console.error("/api/refine error", err);
+
+    // Return 400 for validation errors (user-correctable input issues)
+    if (err instanceof ValidationError) {
+      return Response.json(
+        {
+          success: false,
+          error: err.message
+        },
+        { status: 400 }
+      );
+    }
+
     return Response.json(
-      { 
-        success: false, 
-        error: err instanceof Error ? err.message : "Unknown error" 
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown error"
       },
       { status: 500 }
     );
