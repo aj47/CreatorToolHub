@@ -21,6 +21,14 @@ const builtinCards: StyleCard[] = Object.entries(profiles)
 
 const extras: StyleCard[] = [
   {
+    id: "metric-showdown",
+    title: "Metric Showdown",
+    prompt:
+      "Create a data comparison thumbnail with extreme numerical contrast as the hero element. Display two large, bold numbers in a versus/comparison layout (e.g., '7,000 vs 90' or 'Before: X / After: Y'). Use a dark, tech-forward background with subtle matrix-style or grid textures. Apply a single bright accent color (green, cyan, or yellow) to highlight the 'winning' or 'after' number. Include one simple icon or graphic element (brain, chart, or tech symbol) as a visual anchor. NO human faces. Maintain maximum contrast for mobile legibility. Typography should be massive and numeric-focused with minimal supporting text.",
+    previewUrl: "/template-previews/metric-showdown.png",
+    colors: ["#0A0A0A", "#22C55E", "#FBBF24"],
+  },
+  {
     id: "cinematic",
     title: "Cinematic",
     prompt:
@@ -31,7 +39,7 @@ const extras: StyleCard[] = [
     id: "software-review",
     title: "Software Review",
     prompt:
-      "Design a software review thumbnail that prominently showcases the product logo alongside an interface motif. Use a clean split layout with the logo or icon anchored on one side and a large, bold headline where at least one keyword is highlighted using a contrasting color bar or underline. Apply modern, tech-forward styling with crisp lighting, subtle gradients, and balanced spacing to convey clarity and trust.",
+      "Design a software review thumbnail that prominently showcases the product logo alongside an interface motif. Use a clean split layout with the logo or icon anchored on one side. If comparing tools or showing results, use large bold numbers or percentages as the focal point rather than text descriptions. Apply a dark background with one bright accent color for key metrics. Keep text minimal (2-4 words max) with at least one keyword highlighted using a contrasting color. Maintain high contrast for mobile viewing.",
     previewUrl: "/template-previews/software-review.png",
     colors: ["#0F172A", "#38BDF8", "#FBBF24"],
   },
