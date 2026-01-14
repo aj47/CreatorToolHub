@@ -13,6 +13,7 @@ import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { enforceYouTubeDimensionsBatch, fitImageToYouTubeTransparent, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
@@ -54,6 +55,12 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [refFrames, setRefFrames] = useState<Frame[]>([]);
+
+  // Whiteboard state
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [whiteboardCanvasData, setWhiteboardCanvasData] = useState<string | null>(null);
+  const [pendingVideoFrame, setPendingVideoFrame] = useState<string | null>(null);
+  const [showVideoCapture, setShowVideoCapture] = useState(false);
 
   // Cloud storage integration
   const hybridStorage = useHybridStorage();
@@ -262,7 +269,7 @@ export default function Home() {
 
   // Wizard/stepper state
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const step1Done = frames.length > 0; // at least one subject image/frame
+  const step1Done = frames.length > 0 || !!whiteboardCanvasData; // at least one subject image/frame OR whiteboard canvas
   const step2Done = selectedIds.length > 0; // at least one template selected
   const step3Done = true; // headline/notes optional, always allow progression
   const canGoTo = (n: number) => {
@@ -926,7 +933,7 @@ export default function Home() {
         const refUrls: string[] = (templateInfo?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
         const hasReferenceImages = useUserRefs || refUrls.length > 0;
-        const hasSubjectImages = frames.length > 0;
+        const hasSubjectImages = frames.length > 0 || !!whiteboardCanvasData;
 
         const finalPrompt = buildPrompt({
           profile: tid,
@@ -961,10 +968,17 @@ export default function Home() {
           }
         }
 
-        // Assemble frames: put subject images first, then reference images last
-        // This gives priority to the user's content while still providing style reference
+        // Assemble frames: if whiteboard canvas exists, use it as the ONLY reference image
+        // Otherwise, put subject images first, then reference images last
         let combinedFrames: string[] = [];
-        if (refB64.length > 0) {
+
+        if (whiteboardCanvasData) {
+          // Whiteboard canvas is the single reference image
+          const canvasB64 = whiteboardCanvasData.startsWith('data:')
+            ? whiteboardCanvasData.split(',')[1] || ''
+            : whiteboardCanvasData;
+          combinedFrames = [canvasB64];
+        } else if (refB64.length > 0) {
           const primary = frames.map((f) => f.b64);
           // Subject images first, then reference images
           const ordered = [...primary, ...refB64];
@@ -1555,9 +1569,23 @@ export default function Home() {
           <>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+            {/* Primary option: Whiteboard Canvas */}
+            <button
+              type="button"
+              className={styles.fileInput}
+              onClick={() => setShowWhiteboard(true)}
+              style={{
+                background: whiteboardCanvasData ? 'var(--nb-accent)' : undefined,
+                color: whiteboardCanvasData ? '#fff' : undefined,
+                borderStyle: 'solid'
+              }}
+              aria-label="Open Whiteboard"
+            >
+              <span>🎨 {whiteboardCanvasData ? 'Edit Whiteboard' : 'Open Whiteboard'}</span>
+            </button>
             <label className={styles.fileInput} aria-label="Add Video(s)">
               <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
-              <span>Add Video(s)</span>
+              <span>📹 Add Video(s)</span>
             </label>
             <label
               className={styles.fileInput}
@@ -1566,7 +1594,7 @@ export default function Home() {
               title={framesFull ? "Limit reached (3 subject images)" : undefined}
             >
               <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} disabled={framesFull} />
-              <span>Add Images</span>
+              <span>🖼️ Add Images</span>
             </label>
             {process.env.NODE_ENV === "development" && (
               <>
@@ -1694,7 +1722,61 @@ export default function Home() {
 
             <canvas ref={canvasRef} style={{ display: "none" }} />
 
-            {frames.length > 0 && (
+            {/* Whiteboard Canvas Preview */}
+            {whiteboardCanvasData && (
+              <section style={{
+                border: '3px solid var(--nb-accent)',
+                borderRadius: 12,
+                padding: 16,
+                background: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)',
+                boxShadow: '4px 4px 0 var(--nb-border)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    🎨 Whiteboard Canvas
+                    <span style={{
+                      background: 'var(--nb-accent)',
+                      color: '#fff',
+                      fontSize: 11,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontWeight: 600
+                    }}>
+                      Active
+                    </span>
+                  </h3>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setShowWhiteboard(true)} style={{ fontSize: 13 }}>
+                      ✏️ Edit
+                    </button>
+                    <button
+                      onClick={() => setWhiteboardCanvasData(null)}
+                      style={{ fontSize: 13, color: 'crimson' }}
+                    >
+                      🗑️ Clear
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <img
+                    src={whiteboardCanvasData}
+                    alt="Whiteboard canvas preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: 300,
+                      border: '2px dashed var(--nb-border)',
+                      borderRadius: 8,
+                      background: '#fff'
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
+                  This canvas will be used as the reference image for generation
+                </p>
+              </section>
+            )}
+
+            {frames.length > 0 && !whiteboardCanvasData && (
               <section>
                 <h3>Subject frames/images ({frames.length}/3)</h3>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -2270,6 +2352,88 @@ export default function Home() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
                   <button onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Whiteboard Canvas Modal */}
+          {showWhiteboard && (
+            <WhiteboardCanvas
+              onExport={(dataUrl) => {
+                setWhiteboardCanvasData(dataUrl);
+                setShowWhiteboard(false);
+                setPendingVideoFrame(null);
+              }}
+              onClose={() => {
+                setShowWhiteboard(false);
+                setPendingVideoFrame(null);
+              }}
+              initialImage={whiteboardCanvasData || undefined}
+              existingVideoUrl={videoUrl}
+              videoFrameToAdd={pendingVideoFrame}
+            />
+          )}
+
+          {/* Video Frame Capture Modal for Whiteboard (legacy - now handled inside WhiteboardCanvas) */}
+          {showVideoCapture && videoUrl && !showWhiteboard && (
+            <div role="dialog" aria-modal="true" style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.9)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10000,
+              padding: 20
+            }}>
+              <div style={{
+                background: '#fff',
+                color: '#111',
+                padding: 20,
+                borderRadius: 10,
+                border: '3px solid var(--nb-border)',
+                boxShadow: '8px 8px 0 var(--nb-border)',
+                maxWidth: '90vw',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16
+              }}>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>Capture Frame for Whiteboard</div>
+                <p style={{ margin: 0, fontSize: 14 }}>Scrub to find the perfect moment, then click &quot;Add to Whiteboard&quot;</p>
+                <video
+                  src={videoUrl}
+                  controls
+                  style={{ maxWidth: '100%', maxHeight: '50vh', background: '#000' }}
+                  id="whiteboard-video-capture"
+                />
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setShowVideoCapture(false)}
+                    className="nb-btn"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const video = document.getElementById('whiteboard-video-capture') as HTMLVideoElement;
+                      if (!video) return;
+                      const canvas = document.createElement('canvas');
+                      canvas.width = video.videoWidth;
+                      canvas.height = video.videoHeight;
+                      const ctx = canvas.getContext('2d');
+                      if (!ctx) return;
+                      ctx.drawImage(video, 0, 0);
+                      const dataUrl = canvas.toDataURL('image/png');
+                      setPendingVideoFrame(dataUrl);
+                      setShowVideoCapture(false);
+                    }}
+                    className="nb-btn nb-btn--accent"
+                  >
+                    📸 Add to Whiteboard
+                  </button>
                 </div>
               </div>
             </div>

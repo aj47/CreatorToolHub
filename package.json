@@ -26,6 +26,7 @@
     "@google/genai": "^1.17.0",
     "autumn-js": "^0.1.33",
     "class-variance-authority": "^0.7.1",
+    "fabric": "^7.1.0",
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
