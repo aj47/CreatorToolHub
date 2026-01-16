@@ -152,47 +152,62 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
   const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
   const currentShape = useRef<fabric.Object | null>(null);
 
-  // Ref to track current history index for use in callbacks
-  const historyIndexRef = useRef(historyIndex);
-  useEffect(() => {
-    historyIndexRef.current = historyIndex;
-  }, [historyIndex]);
+  // Ref to track current history for use in callbacks (avoids stale closure issues)
+  const historyRef = useRef<HistoryState[]>([]);
+  const historyIndexRef = useRef(-1);
 
   // ============ Save History ============
   const saveHistory = useCallback(() => {
     if (isHistoryAction.current || !fabricRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
-    setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndexRef.current + 1);
-      newHistory.push({ json });
-      return newHistory;
-    });
-    setHistoryIndex(prev => prev + 1);
+
+    // Use refs to get current values and update them synchronously
+    const currentHistory = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+
+    // Truncate any redo history and add new state
+    const newHistory = currentHistory.slice(0, currentIndex + 1);
+    newHistory.push({ json });
+    const newIndex = newHistory.length - 1;
+
+    // Update refs synchronously to prevent race conditions
+    historyRef.current = newHistory;
+    historyIndexRef.current = newIndex;
+
+    // Update state for UI re-renders
+    setHistory(newHistory);
+    setHistoryIndex(newIndex);
   }, []);
 
   // ============ Undo ============
   const handleUndo = useCallback(() => {
-    if (historyIndex <= 0 || !fabricRef.current) return;
+    const currentIndex = historyIndexRef.current;
+    const currentHistory = historyRef.current;
+    if (currentIndex <= 0 || !fabricRef.current) return;
     isHistoryAction.current = true;
-    const newIndex = historyIndex - 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIndex].json)).then(() => {
+    const newIndex = currentIndex - 1;
+    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json)).then(() => {
       fabricRef.current?.renderAll();
+      historyIndexRef.current = newIndex;
       setHistoryIndex(newIndex);
       isHistoryAction.current = false;
     });
-  }, [history, historyIndex]);
+  }, []);
 
   // ============ Redo ============
   const handleRedo = useCallback(() => {
-    if (historyIndex >= history.length - 1 || !fabricRef.current) return;
+    const currentIndex = historyIndexRef.current;
+    const currentHistory = historyRef.current;
+    if (currentIndex >= currentHistory.length - 1 || !fabricRef.current) return;
     isHistoryAction.current = true;
-    const newIndex = historyIndex + 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIndex].json)).then(() => {
+    const newIndex = currentIndex + 1;
+    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json)).then(() => {
       fabricRef.current?.renderAll();
+      historyIndexRef.current = newIndex;
       setHistoryIndex(newIndex);
       isHistoryAction.current = false;
     });
-  }, [history, historyIndex]);
+  }, []);
 
   // ============ Calculate Scale ============
   const calculateScale = useCallback(() => {
