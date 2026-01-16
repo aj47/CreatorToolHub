@@ -932,7 +932,8 @@ export default function Home() {
         const promptOverride = templateInfo?.prompt;
         const refUrls: string[] = (templateInfo?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
-        const hasReferenceImages = useUserRefs || refUrls.length > 0;
+        // When whiteboard canvas is used, it replaces all other images, so no separate reference images exist
+        const hasReferenceImages = whiteboardCanvasData ? false : (useUserRefs || refUrls.length > 0);
         const hasSubjectImages = frames.length > 0 || !!whiteboardCanvasData;
 
         const finalPrompt = buildPrompt({
@@ -1634,7 +1635,7 @@ export default function Home() {
           {importing && (
             <div role="status" aria-live="polite" style={{ fontSize: 12, textAlign: "center" }}>
               Importing images… {importing.done}/{importing.total}
-              <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
+              <button type="button" style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
             </div>
           )}
           {importing?.errors?.length ? (
@@ -1714,7 +1715,7 @@ export default function Home() {
                     }}
                   />
                 </div>
-                <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
+                <button type="button" onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
                   Capture frame at current time
                 </button>
               </div>
@@ -1746,10 +1747,11 @@ export default function Home() {
                     </span>
                   </h3>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => setShowWhiteboard(true)} style={{ fontSize: 13 }}>
+                    <button type="button" onClick={() => setShowWhiteboard(true)} style={{ fontSize: 13 }}>
                       ✏️ Edit
                     </button>
                     <button
+                      type="button"
                       onClick={() => setWhiteboardCanvasData(null)}
                       style={{ fontSize: 13, color: 'crimson' }}
                     >
@@ -1787,9 +1789,9 @@ export default function Home() {
                       </span>
                       {f.dataUrl ? (<img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />) : null}
                       <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                        <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
-                        <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
-                        <button onClick={() => removeFrame(i)}>Remove</button>
+                        <button type="button" onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
+                        <button type="button" onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
+                        <button type="button" onClick={() => removeFrame(i)}>Remove</button>
                       </div>
                     </div>
                   ))}
@@ -1798,7 +1800,7 @@ export default function Home() {
             )}
 
             <div className={styles.navRow}>
-              <button onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
+              <button type="button" onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
             </div>
             </>
           )}
@@ -1867,8 +1869,8 @@ export default function Home() {
               />
 
               <div className={styles.navRow}>
-                <button onClick={() => goTo(1)}>← Back</button>
-                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
+                <button type="button" onClick={() => goTo(1)}>← Back</button>
+                <button type="button" onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
               </div>
             </section>
           )}
@@ -1999,6 +2001,7 @@ export default function Home() {
 
                   {/* Generate button - compact */}
                   <button
+                    type="button"
                     className={styles.primary}
                     onClick={(e) => {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
@@ -2029,7 +2032,7 @@ export default function Home() {
                   </div>
 
                   <div className={styles.navRow}>
-                    <button onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
+                    <button type="button" onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
                   </div>
                 </div>
                 </>
@@ -2111,6 +2114,7 @@ export default function Home() {
                               {/* Compact action buttons */}
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button
+                                  type="button"
                                   onClick={() => download(src, i)}
                                   disabled={downloadingIndex === i}
                                   style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
@@ -2118,6 +2122,7 @@ export default function Home() {
                                   {downloadingIndex === i ? "..." : "⬇ Download"}
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => copyToClipboard(src, i)}
                                   disabled={copyingIndex === i}
                                   style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
@@ -2140,10 +2145,10 @@ export default function Home() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: '0 4px' }}>
                     <h3 style={{ margin: 0, fontSize: 16 }}>Results ({results.length})</h3>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={downloadAll} disabled={downloadingAll} style={{ padding: '6px 12px', fontSize: 13 }}>
+                      <button type="button" onClick={downloadAll} disabled={downloadingAll} style={{ padding: '6px 12px', fontSize: 13 }}>
                         {downloadingAll ? "Downloading..." : "⬇ All"}
                       </button>
-                      <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }} style={{ padding: '6px 12px', fontSize: 13 }}>
+                      <button type="button" onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }} style={{ padding: '6px 12px', fontSize: 13 }}>
                         ↻ New
                       </button>
                     </div>
@@ -2199,6 +2204,7 @@ export default function Home() {
                         {/* Compact action buttons */}
                         <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                           <button
+                            type="button"
                             onClick={() => download(src, i)}
                             disabled={downloadingIndex === i}
                             style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
@@ -2206,6 +2212,7 @@ export default function Home() {
                             {downloadingIndex === i ? "..." : "⬇"}
                           </button>
                           <button
+                            type="button"
                             onClick={() => copyToClipboard(src, i)}
                             disabled={copyingIndex === i}
                             style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
@@ -2236,6 +2243,7 @@ export default function Home() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
                               {suggestedRefinements[i].map((suggestion, idx) => (
                                 <button
+                                  type="button"
                                   key={idx}
                                   onClick={() => handleApplySuggestedRefinement(i, suggestion)}
                                   style={{
@@ -2259,6 +2267,7 @@ export default function Home() {
 
                           {/* Custom Refine Button - compact */}
                           <button
+                            type="button"
                             onClick={() => handleSelectThumbnailForRefinement(i)}
                             style={{
                               width: '100%',
@@ -2282,7 +2291,7 @@ export default function Home() {
 
                   {/* Compact nav */}
                   <div className={styles.navRow} style={{ marginTop: 12 }}>
-                    <button onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
+                    <button type="button" onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
                   </div>
                 </>
               )}
@@ -2292,6 +2301,7 @@ export default function Home() {
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                     <button
+                      type="button"
                       onClick={handleExitRefinementMode}
                       style={{
                         padding: "8px 16px",
@@ -2338,7 +2348,7 @@ export default function Home() {
             <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
               <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It’s free after you sign up.</div>
-              <button onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
+              <button type="button" onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
                 Sign in with Google
               </button>
             </div>
@@ -2350,8 +2360,8 @@ export default function Home() {
                 <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Sign in to generate — it’s free</div>
                 <p style={{ marginTop: 0 }}>Create thumbnails for free after you sign up. We’ll also track your credits.</p>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
-                  <button onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
+                  <button type="button" onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
+                  <button type="button" onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
                 </div>
               </div>
             </div>
@@ -2411,12 +2421,14 @@ export default function Home() {
                 />
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                   <button
+                    type="button"
                     onClick={() => setShowVideoCapture(false)}
                     className="nb-btn"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       const video = document.getElementById('whiteboard-video-capture') as HTMLVideoElement;
                       if (!video) return;
@@ -2444,6 +2456,7 @@ export default function Home() {
           <section style={{ marginTop: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
               <button
+                type="button"
                 onClick={() => setShowHistoryBrowser(!showHistoryBrowser)}
                 className={`${styles.historyButton} ${showHistoryBrowser ? styles.historyButtonActive : ""}`}
               >

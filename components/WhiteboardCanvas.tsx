@@ -152,17 +152,23 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
   const shapeStartPoint = useRef<{ x: number; y: number } | null>(null);
   const currentShape = useRef<fabric.Object | null>(null);
 
+  // Ref to track current history index for use in callbacks
+  const historyIndexRef = useRef(historyIndex);
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
+
   // ============ Save History ============
   const saveHistory = useCallback(() => {
     if (isHistoryAction.current || !fabricRef.current) return;
     const json = JSON.stringify(fabricRef.current.toJSON());
     setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
+      const newHistory = prev.slice(0, historyIndexRef.current + 1);
       newHistory.push({ json });
       return newHistory;
     });
     setHistoryIndex(prev => prev + 1);
-  }, [historyIndex]);
+  }, []);
 
   // ============ Undo ============
   const handleUndo = useCallback(() => {
@@ -791,6 +797,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
   // ============ Tool Button ============
   const ToolButton = ({ tool, icon, label }: { tool: Tool; icon: string; label: string }) => (
     <button
+      type="button"
       style={{
         ...styles.button,
         ...(activeTool === tool ? styles.activeButton : {}),
@@ -862,6 +869,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
 
         {/* Undo/Redo */}
         <button
+          type="button"
           style={{ ...styles.button, opacity: historyIndex <= 0 ? 0.5 : 1 }}
           onClick={handleUndo}
           disabled={historyIndex <= 0}
@@ -870,6 +878,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
           ↩️ Undo
         </button>
         <button
+          type="button"
           style={{ ...styles.button, opacity: historyIndex >= history.length - 1 ? 0.5 : 1 }}
           onClick={handleRedo}
           disabled={historyIndex >= history.length - 1}
@@ -878,13 +887,14 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
           ↪️ Redo
         </button>
 
-        <button style={styles.button} onClick={handleDelete} title="Delete Selected">
+        <button type="button" style={styles.button} onClick={handleDelete} title="Delete Selected">
           🗑️ Delete
         </button>
 
         {cropMode ? (
           <>
             <button
+              type="button"
               style={{ ...styles.button, background: '#22c55e', color: '#fff' }}
               onClick={handleApplyCrop}
               title="Apply Crop"
@@ -892,6 +902,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
               ✅ Apply Crop
             </button>
             <button
+              type="button"
               style={{ ...styles.button, background: '#ef4444', color: '#fff' }}
               onClick={handleCancelCrop}
               title="Cancel Crop"
@@ -900,7 +911,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
             </button>
           </>
         ) : (
-          <button style={styles.button} onClick={handleCropImage} title="Crop Selected Image">
+          <button type="button" style={styles.button} onClick={handleCropImage} title="Crop Selected Image">
             ✂️ Crop
           </button>
         )}
@@ -937,12 +948,14 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
             style={styles.hiddenInput}
           />
           <button
+            type="button"
             style={styles.button}
             onClick={() => fileInputRef.current?.click()}
           >
             📁 Import Image
           </button>
           <button
+            type="button"
             style={styles.button}
             onClick={handleAddFromVideoClick}
             title={internalVideoUrl || existingVideoUrl ? "Capture frame from loaded video" : "Select a video to capture frames"}
@@ -956,10 +969,11 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
         </div>
 
         <div style={styles.buttonGroup}>
-          <button style={styles.button} onClick={onClose}>
+          <button type="button" style={styles.button} onClick={onClose}>
             ❌ Cancel
           </button>
           <button
+            type="button"
             style={{ ...styles.button, ...styles.accentButton }}
             onClick={handleExport}
           >
@@ -1006,6 +1020,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
             />
             <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
               <button
+                type="button"
                 onClick={() => videoInputRef.current?.click()}
                 style={{
                   padding: '8px 16px',
@@ -1019,6 +1034,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
               </button>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
+                  type="button"
                   onClick={() => setShowVideoCapture(false)}
                   style={{
                     padding: '8px 16px',
@@ -1031,6 +1047,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleCaptureVideoFrame}
                   style={{
                     padding: '8px 16px',
