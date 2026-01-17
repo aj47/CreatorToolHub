@@ -186,12 +186,18 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     if (currentIndex <= 0 || !fabricRef.current) return;
     isHistoryAction.current = true;
     const newIndex = currentIndex - 1;
-    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json)).then(() => {
-      fabricRef.current?.renderAll();
-      historyIndexRef.current = newIndex;
-      setHistoryIndex(newIndex);
-      isHistoryAction.current = false;
-    });
+    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json))
+      .then(() => {
+        fabricRef.current?.renderAll();
+        historyIndexRef.current = newIndex;
+        setHistoryIndex(newIndex);
+      })
+      .catch((err) => {
+        console.error('Undo failed:', err);
+      })
+      .finally(() => {
+        isHistoryAction.current = false;
+      });
   }, []);
 
   // ============ Redo ============
@@ -201,12 +207,18 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     if (currentIndex >= currentHistory.length - 1 || !fabricRef.current) return;
     isHistoryAction.current = true;
     const newIndex = currentIndex + 1;
-    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json)).then(() => {
-      fabricRef.current?.renderAll();
-      historyIndexRef.current = newIndex;
-      setHistoryIndex(newIndex);
-      isHistoryAction.current = false;
-    });
+    fabricRef.current.loadFromJSON(JSON.parse(currentHistory[newIndex].json))
+      .then(() => {
+        fabricRef.current?.renderAll();
+        historyIndexRef.current = newIndex;
+        setHistoryIndex(newIndex);
+      })
+      .catch((err) => {
+        console.error('Redo failed:', err);
+      })
+      .finally(() => {
+        isHistoryAction.current = false;
+      });
   }, []);
 
   // ============ Calculate Scale ============
@@ -625,6 +637,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
         if (isEditingText) {
           return;
         }
+        e.preventDefault(); // Prevent browser back navigation
         handleDelete();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
@@ -824,16 +837,20 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
       }),
     });
 
-    // Remove crop rectangle
+    // Remove crop rectangle (suppress history for this removal since it's part of the crop action)
+    isHistoryAction.current = true;
     canvas.remove(cropRect);
+    isHistoryAction.current = false;
+
     cropRectRef.current = null;
     cropTargetRef.current = null;
     setCropMode(false);
 
     canvas.setActiveObject(img);
     canvas.renderAll();
-    // Note: saveHistory is called by object:modified event handler when clipPath is set
-  }, []);
+    // Explicitly save history since programmatic set() calls don't emit object:modified
+    saveHistory();
+  }, [saveHistory]);
 
   const handleCancelCrop = useCallback(() => {
     const canvas = fabricRef.current;
