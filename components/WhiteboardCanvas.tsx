@@ -793,7 +793,10 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     cropTargetRef.current = img;
     setCropMode(true);
 
+    // Suppress history when adding crop rectangle (it's a temporary UI overlay, not a user action)
+    isHistoryAction.current = true;
     canvas.add(cropRect);
+    isHistoryAction.current = false;
     canvas.setActiveObject(cropRect);
     canvas.renderAll();
   }, []);
@@ -857,7 +860,10 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     const cropRect = cropRectRef.current;
 
     if (canvas && cropRect) {
+      // Suppress history when removing crop rectangle (it's a temporary UI overlay, not a user action)
+      isHistoryAction.current = true;
       canvas.remove(cropRect);
+      isHistoryAction.current = false;
     }
 
     cropRectRef.current = null;
