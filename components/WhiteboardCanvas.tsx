@@ -601,10 +601,17 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     if (!canvas) return;
 
     const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    // Suppress automatic history during batch delete to avoid multiple entries
+    isHistoryAction.current = true;
     activeObjects.forEach(obj => canvas.remove(obj));
     canvas.discardActiveObject();
     canvas.renderAll();
-  }, []);
+    // Re-enable history and save a single entry for the entire delete operation
+    isHistoryAction.current = false;
+    saveHistory();
+  }, [saveHistory]);
 
   // ============ Keyboard Shortcuts ============
   useEffect(() => {
