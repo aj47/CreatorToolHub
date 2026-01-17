@@ -251,7 +251,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
         });
         canvas.add(img);
         canvas.renderAll();
-        saveHistory();
+        // Note: saveHistory is called by object:added event handler
       });
     } else {
       // Save initial state
@@ -675,11 +675,11 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
       canvas.add(img);
       canvas.setActiveObject(img);
       canvas.renderAll();
-      saveHistory();
+      // Note: saveHistory is called by object:added event handler
     });
 
     setShowVideoCapture(false);
-  }, [saveHistory]);
+  }, []);
 
   const handleAddFromVideoClick = useCallback(() => {
     if (internalVideoUrl || existingVideoUrl) {
@@ -720,10 +720,13 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
 
     // Create a crop rectangle
     const img = activeObj as fabric.FabricImage;
-    const imgLeft = img.left || 0;
-    const imgTop = img.top || 0;
-    const imgWidth = (img.width || 100) * (img.scaleX || 1);
-    const imgHeight = (img.height || 100) * (img.scaleY || 1);
+
+    // Use getBoundingRect to get the actual visual bounds regardless of origin setting
+    const boundingRect = img.getBoundingRect();
+    const imgLeft = boundingRect.left;
+    const imgTop = boundingRect.top;
+    const imgWidth = boundingRect.width;
+    const imgHeight = boundingRect.height;
 
     const cropRect = new fabric.Rect({
       left: imgLeft + imgWidth * 0.1,
@@ -755,19 +758,22 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
 
     if (!canvas || !cropRect || !img) return;
 
-    // Get crop rectangle bounds
-    const rectLeft = cropRect.left || 0;
-    const rectTop = cropRect.top || 0;
-    const rectWidth = (cropRect.width || 0) * (cropRect.scaleX || 1);
-    const rectHeight = (cropRect.height || 0) * (cropRect.scaleY || 1);
+    // Get crop rectangle bounds (visual position on canvas)
+    const rectBounds = cropRect.getBoundingRect();
+    const rectLeft = rectBounds.left;
+    const rectTop = rectBounds.top;
+    const rectWidth = rectBounds.width;
+    const rectHeight = rectBounds.height;
 
-    // Get image bounds
-    const imgLeft = img.left || 0;
-    const imgTop = img.top || 0;
+    // Get image bounds (visual position on canvas)
+    const imgBounds = img.getBoundingRect();
+    const imgLeft = imgBounds.left;
+    const imgTop = imgBounds.top;
     const imgScaleX = img.scaleX || 1;
     const imgScaleY = img.scaleY || 1;
 
-    // Calculate clip path relative to image
+    // Calculate clip path relative to image's local coordinate system
+    // The clip path needs to be in the image's unscaled, local coordinates
     const clipLeft = (rectLeft - imgLeft) / imgScaleX;
     const clipTop = (rectTop - imgTop) / imgScaleY;
     const clipWidth = rectWidth / imgScaleX;
@@ -792,8 +798,8 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
 
     canvas.setActiveObject(img);
     canvas.renderAll();
-    saveHistory();
-  }, [saveHistory]);
+    // Note: saveHistory is called by object:modified event handler when clipPath is set
+  }, []);
 
   const handleCancelCrop = useCallback(() => {
     const canvas = fabricRef.current;
