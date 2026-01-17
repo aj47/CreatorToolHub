@@ -13,6 +13,7 @@ import { RefinementState, RefinementHistory, RefinementUtils } from "@/lib/types
 import { useRefinementHistory } from "@/lib/hooks/useRefinementHistory";
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import WhiteboardCanvas from "@/components/WhiteboardCanvas";
 
 import { useHybridStorage } from "@/lib/storage/useHybridStorage";
 import { enforceYouTubeDimensionsBatch, fitImageToYouTubeTransparent, YOUTUBE_THUMBNAIL } from "@/lib/utils/thumbnailDimensions";
@@ -54,6 +55,10 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState(false);
   const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
   const [refFrames, setRefFrames] = useState<Frame[]>([]);
+
+  // Whiteboard state
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [whiteboardCanvasData, setWhiteboardCanvasData] = useState<string | null>(null);
 
   // Cloud storage integration
   const hybridStorage = useHybridStorage();
@@ -160,8 +165,8 @@ export default function Home() {
                 colors,
                 aspect,
                 notes: prompt,
-                hasReferenceImages: refFrames.length > 0,
-                hasSubjectImages: frames.length > 0,
+                hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+                hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
               });
 
               const response = await fetch("/api/suggest-refinements", {
@@ -262,7 +267,7 @@ export default function Home() {
 
   // Wizard/stepper state
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const step1Done = frames.length > 0; // at least one subject image/frame
+  const step1Done = frames.length > 0 || !!whiteboardCanvasData; // at least one subject image/frame OR whiteboard canvas
   const step2Done = selectedIds.length > 0; // at least one template selected
   const step3Done = true; // headline/notes optional, always allow progression
   const canGoTo = (n: number) => {
@@ -925,8 +930,9 @@ export default function Home() {
         const promptOverride = templateInfo?.prompt;
         const refUrls: string[] = (templateInfo?.referenceImages ?? []) as string[];
         const useUserRefs = refFrames.length > 0;
-        const hasReferenceImages = useUserRefs || refUrls.length > 0;
-        const hasSubjectImages = frames.length > 0;
+        // When whiteboard canvas is used, it replaces all other images, so no separate reference images exist
+        const hasReferenceImages = whiteboardCanvasData ? false : (useUserRefs || refUrls.length > 0);
+        const hasSubjectImages = frames.length > 0 || !!whiteboardCanvasData;
 
         const finalPrompt = buildPrompt({
           profile: tid,
@@ -939,46 +945,55 @@ export default function Home() {
           hasSubjectImages,
         });
 
-        // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
-        let refB64: string[] = [];
-        if (useUserRefs) {
-          refB64 = refFrames.map((f) => f.b64).slice(0, 3);
-        } else {
-          for (const u of refUrls.slice(0, 3)) {
-            try {
-              const dataUrl = await fetch(u)
-                .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
-                .then(blob => new Promise<string>((resolve, reject) => {
-                  const fr = new FileReader();
-                  fr.onerror = () => reject(new Error("reader"));
-                  fr.onload = () => resolve(String(fr.result || ""));
-                  fr.readAsDataURL(blob);
-                }));
-              const normalized = await normalizeToYouTubeDataUrl(dataUrl);
-              const b64 = normalized.split(",")[1] || "";
-              if (b64) refB64.push(b64);
-            } catch {}
-          }
-        }
-
-        // Assemble frames: put subject images first, then reference images last
-        // This gives priority to the user's content while still providing style reference
+        // Assemble frames: if whiteboard canvas exists, use it as the ONLY reference image
+        // Otherwise, put subject images first, then reference images last
         let combinedFrames: string[] = [];
-        if (refB64.length > 0) {
-          const primary = frames.map((f) => f.b64);
-          // Subject images first, then reference images
-          const ordered = [...primary, ...refB64];
-          combinedFrames = ordered.slice(0, 3);
 
-          // If we don't have enough images, pad with the first subject image if available,
-          // otherwise pad with the first reference image
-          while (combinedFrames.length < 3) {
-            const padImage = primary.length > 0 ? primary[0] : refB64[0];
-            if (padImage) combinedFrames.push(padImage);
-            else break;
-          }
+        if (whiteboardCanvasData) {
+          // Whiteboard canvas is the single reference image - skip ref-image assembly
+          const canvasB64 = whiteboardCanvasData.startsWith('data:')
+            ? whiteboardCanvasData.split(',')[1] || ''
+            : whiteboardCanvasData;
+          combinedFrames = [canvasB64];
         } else {
-          combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+          // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
+          let refB64: string[] = [];
+          if (useUserRefs) {
+            refB64 = refFrames.map((f) => f.b64).slice(0, 3);
+          } else {
+            for (const u of refUrls.slice(0, 3)) {
+              try {
+                const dataUrl = await fetch(u)
+                  .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
+                  .then(blob => new Promise<string>((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onerror = () => reject(new Error("reader"));
+                    fr.onload = () => resolve(String(fr.result || ""));
+                    fr.readAsDataURL(blob);
+                  }));
+                const normalized = await normalizeToYouTubeDataUrl(dataUrl);
+                const b64 = normalized.split(",")[1] || "";
+                if (b64) refB64.push(b64);
+              } catch {}
+            }
+          }
+
+          if (refB64.length > 0) {
+            const primary = frames.map((f) => f.b64);
+            // Subject images first, then reference images
+            const ordered = [...primary, ...refB64];
+            combinedFrames = ordered.slice(0, 3);
+
+            // If we don't have enough images, pad with the first subject image if available,
+            // otherwise pad with the first reference image
+            while (combinedFrames.length < 3) {
+              const padImage = primary.length > 0 ? primary[0] : refB64[0];
+              if (padImage) combinedFrames.push(padImage);
+              else break;
+            }
+          } else {
+            combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+          }
         }
 
         let normalizedFrames = combinedFrames;
@@ -1341,8 +1356,8 @@ export default function Home() {
         colors,
         aspect,
         notes: prompt,
-        hasReferenceImages: refFrames.length > 0,
-        hasSubjectImages: frames.length > 0,
+        hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+        hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
       });
 
       // Create new refinement history
@@ -1386,8 +1401,8 @@ export default function Home() {
         colors,
         aspect,
         notes: prompt,
-        hasReferenceImages: refFrames.length > 0,
-        hasSubjectImages: frames.length > 0,
+        hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+        hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
       });
 
       const response = await fetch("/api/suggest-refinements", {
@@ -1555,9 +1570,23 @@ export default function Home() {
           <>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+            {/* Primary option: Whiteboard Canvas */}
+            <button
+              type="button"
+              className={styles.fileInput}
+              onClick={() => setShowWhiteboard(true)}
+              style={{
+                background: whiteboardCanvasData ? 'var(--nb-accent)' : undefined,
+                color: whiteboardCanvasData ? '#fff' : undefined,
+                borderStyle: 'solid'
+              }}
+              aria-label="Open Whiteboard"
+            >
+              <span>🎨 {whiteboardCanvasData ? 'Edit Whiteboard' : 'Open Whiteboard'}</span>
+            </button>
             <label className={styles.fileInput} aria-label="Add Video(s)">
               <input style={{ display: "none" }} type="file" accept="video/*" onChange={onFile} />
-              <span>Add Video(s)</span>
+              <span>📹 Add Video(s)</span>
             </label>
             <label
               className={styles.fileInput}
@@ -1566,7 +1595,7 @@ export default function Home() {
               title={framesFull ? "Limit reached (3 subject images)" : undefined}
             >
               <input style={{ display: "none" }} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/tiff" multiple onChange={onAddImages} disabled={framesFull} />
-              <span>Add Images</span>
+              <span>🖼️ Add Images</span>
             </label>
             {process.env.NODE_ENV === "development" && (
               <>
@@ -1606,7 +1635,7 @@ export default function Home() {
           {importing && (
             <div role="status" aria-live="polite" style={{ fontSize: 12, textAlign: "center" }}>
               Importing images… {importing.done}/{importing.total}
-              <button style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
+              <button type="button" style={{ marginLeft: 8 }} onClick={() => setCancelImport(true)}>Cancel</button>
             </div>
           )}
           {importing?.errors?.length ? (
@@ -1686,7 +1715,7 @@ export default function Home() {
                     }}
                   />
                 </div>
-                <button onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
+                <button type="button" onClick={captureFrame} disabled={!videoReady || framesFull} title={framesFull ? "Limit reached (3 subject images)" : undefined}>
                   Capture frame at current time
                 </button>
               </div>
@@ -1694,7 +1723,62 @@ export default function Home() {
 
             <canvas ref={canvasRef} style={{ display: "none" }} />
 
-            {frames.length > 0 && (
+            {/* Whiteboard Canvas Preview */}
+            {whiteboardCanvasData && (
+              <section style={{
+                border: '3px solid var(--nb-accent)',
+                borderRadius: 12,
+                padding: 16,
+                background: 'linear-gradient(135deg, #fff5f5 0%, #fff 100%)',
+                boxShadow: '4px 4px 0 var(--nb-border)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    🎨 Whiteboard Canvas
+                    <span style={{
+                      background: 'var(--nb-accent)',
+                      color: '#fff',
+                      fontSize: 11,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      fontWeight: 600
+                    }}>
+                      Active
+                    </span>
+                  </h3>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setShowWhiteboard(true)} style={{ fontSize: 13 }}>
+                      ✏️ Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWhiteboardCanvasData(null)}
+                      style={{ fontSize: 13, color: 'crimson' }}
+                    >
+                      🗑️ Clear
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <img
+                    src={whiteboardCanvasData}
+                    alt="Whiteboard canvas preview"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: 300,
+                      border: '2px dashed var(--nb-border)',
+                      borderRadius: 8,
+                      background: '#fff'
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8, marginBottom: 0 }}>
+                  This canvas will be used as the reference image for generation
+                </p>
+              </section>
+            )}
+
+            {frames.length > 0 && !whiteboardCanvasData && (
               <section>
                 <h3>Subject frames/images ({frames.length}/3)</h3>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -1705,9 +1789,9 @@ export default function Home() {
                       </span>
                       {f.dataUrl ? (<img src={f.dataUrl} alt={`item-${i}`} style={{ width: 220 }} />) : null}
                       <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
-                        <button onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
-                        <button onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
-                        <button onClick={() => removeFrame(i)}>Remove</button>
+                        <button type="button" onClick={() => moveFrame(i, i - 1)} disabled={i === 0} aria-label="Move left">◀</button>
+                        <button type="button" onClick={() => moveFrame(i, i + 1)} disabled={i === frames.length - 1} aria-label="Move right">▶</button>
+                        <button type="button" onClick={() => removeFrame(i)}>Remove</button>
                       </div>
                     </div>
                   ))}
@@ -1716,7 +1800,7 @@ export default function Home() {
             )}
 
             <div className={styles.navRow}>
-              <button onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
+              <button type="button" onClick={() => goTo(2)} disabled={!step1Done}>Next: Templates →</button>
             </div>
             </>
           )}
@@ -1785,8 +1869,8 @@ export default function Home() {
               />
 
               <div className={styles.navRow}>
-                <button onClick={() => goTo(1)}>← Back</button>
-                <button onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
+                <button type="button" onClick={() => goTo(1)}>← Back</button>
+                <button type="button" onClick={() => goTo(3)} disabled={!step2Done}>Next: Generate →</button>
               </div>
             </section>
           )}
@@ -1917,12 +2001,13 @@ export default function Home() {
 
                   {/* Generate button - compact */}
                   <button
+                    type="button"
                     className={styles.primary}
                     onClick={(e) => {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || selectedProviders.size === 0 || (!loadingCustomer && credits < (Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || (frames.length === 0 && !whiteboardCanvasData) || selectedProviders.size === 0 || (!loadingCustomer && credits < (Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)))}
                     style={{ padding: '10px 16px', fontSize: 14 }}
                   >
                     {authLoading
@@ -1947,7 +2032,7 @@ export default function Home() {
                   </div>
 
                   <div className={styles.navRow}>
-                    <button onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
+                    <button type="button" onClick={() => goTo(2)} style={{ padding: '6px 12px', fontSize: 13 }}>← Back</button>
                   </div>
                 </div>
                 </>
@@ -2029,6 +2114,7 @@ export default function Home() {
                               {/* Compact action buttons */}
                               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                                 <button
+                                  type="button"
                                   onClick={() => download(src, i)}
                                   disabled={downloadingIndex === i}
                                   style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
@@ -2036,6 +2122,7 @@ export default function Home() {
                                   {downloadingIndex === i ? "..." : "⬇ Download"}
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => copyToClipboard(src, i)}
                                   disabled={copyingIndex === i}
                                   style={{ flex: 1, padding: '4px 6px', fontSize: 11 }}
@@ -2058,10 +2145,10 @@ export default function Home() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: '0 4px' }}>
                     <h3 style={{ margin: 0, fontSize: 16 }}>Results ({results.length})</h3>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={downloadAll} disabled={downloadingAll} style={{ padding: '6px 12px', fontSize: 13 }}>
+                      <button type="button" onClick={downloadAll} disabled={downloadingAll} style={{ padding: '6px 12px', fontSize: 13 }}>
                         {downloadingAll ? "Downloading..." : "⬇ All"}
                       </button>
-                      <button onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }} style={{ padding: '6px 12px', fontSize: 13 }}>
+                      <button type="button" onClick={() => { setResults([]); cleanupBlobUrls(); setSuggestedRefinements({}); setLoadingSuggestions({}); }} style={{ padding: '6px 12px', fontSize: 13 }}>
                         ↻ New
                       </button>
                     </div>
@@ -2117,6 +2204,7 @@ export default function Home() {
                         {/* Compact action buttons */}
                         <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
                           <button
+                            type="button"
                             onClick={() => download(src, i)}
                             disabled={downloadingIndex === i}
                             style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
@@ -2124,6 +2212,7 @@ export default function Home() {
                             {downloadingIndex === i ? "..." : "⬇"}
                           </button>
                           <button
+                            type="button"
                             onClick={() => copyToClipboard(src, i)}
                             disabled={copyingIndex === i}
                             style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
@@ -2154,6 +2243,7 @@ export default function Home() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 6 }}>
                               {suggestedRefinements[i].map((suggestion, idx) => (
                                 <button
+                                  type="button"
                                   key={idx}
                                   onClick={() => handleApplySuggestedRefinement(i, suggestion)}
                                   style={{
@@ -2177,6 +2267,7 @@ export default function Home() {
 
                           {/* Custom Refine Button - compact */}
                           <button
+                            type="button"
                             onClick={() => handleSelectThumbnailForRefinement(i)}
                             style={{
                               width: '100%',
@@ -2200,7 +2291,7 @@ export default function Home() {
 
                   {/* Compact nav */}
                   <div className={styles.navRow} style={{ marginTop: 12 }}>
-                    <button onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
+                    <button type="button" onClick={() => goTo(1)} style={{ padding: '6px 12px', fontSize: 13 }}>← Start Over</button>
                   </div>
                 </>
               )}
@@ -2210,6 +2301,7 @@ export default function Home() {
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                     <button
+                      type="button"
                       onClick={handleExitRefinementMode}
                       style={{
                         padding: "8px 16px",
@@ -2234,8 +2326,8 @@ export default function Home() {
                       colors,
                       aspect,
                       notes: prompt,
-                      hasReferenceImages: refFrames.length > 0,
-                      hasSubjectImages: frames.length > 0,
+                      hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+                      hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
                     })}
                     templateId={selectedIds[0] || "default"}
                     credits={credits}
@@ -2256,7 +2348,7 @@ export default function Home() {
             <div style={{ color: "#111", background: "#ffe5e5", border: "2px solid #d33", padding: 12, borderRadius: 8 }}>
               <div style={{ fontWeight: 700, marginBottom: 6 }}>Sign in required</div>
               <div style={{ marginBottom: 8 }}>You need to be signed in to generate thumbnails. It’s free after you sign up.</div>
-              <button onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
+              <button type="button" onClick={() => (window.location.href = '/api/auth/signin')} style={{ border: '3px solid var(--nb-border)', borderRadius: 8, background: '#fff', padding: '8px 12px', fontWeight: 700, boxShadow: '4px 4px 0 var(--nb-border)', cursor: 'pointer' }}>
                 Sign in with Google
               </button>
             </div>
@@ -2268,11 +2360,26 @@ export default function Home() {
                 <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Sign in to generate — it’s free</div>
                 <p style={{ marginTop: 0 }}>Create thumbnails for free after you sign up. We’ll also track your credits.</p>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
-                  <button onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
+                  <button type="button" onClick={() => (window.location.href = '/api/auth/signin')} className="nb-btn nb-btn--accent">Sign in with Google</button>
+                  <button type="button" onClick={() => setShowAuthModal(false)} className="nb-btn">Close</button>
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Whiteboard Canvas Modal */}
+          {showWhiteboard && (
+            <WhiteboardCanvas
+              onExport={(dataUrl) => {
+                setWhiteboardCanvasData(dataUrl);
+                setShowWhiteboard(false);
+              }}
+              onClose={() => {
+                setShowWhiteboard(false);
+              }}
+              initialImage={whiteboardCanvasData || undefined}
+              existingVideoUrl={videoUrl}
+            />
           )}
 
         {/* Refinement History Browser */}
@@ -2280,6 +2387,7 @@ export default function Home() {
           <section style={{ marginTop: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
               <button
+                type="button"
                 onClick={() => setShowHistoryBrowser(!showHistoryBrowser)}
                 className={`${styles.historyButton} ${showHistoryBrowser ? styles.historyButtonActive : ""}`}
               >
