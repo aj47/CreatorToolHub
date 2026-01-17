@@ -394,6 +394,9 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
       isDrawingShape.current = true;
       shapeStartPoint.current = { x: pointer.x, y: pointer.y };
 
+      // Suppress automatic history save during initial shape creation (0x0 dimensions)
+      isHistoryAction.current = true;
+
       let shape: fabric.Object | null = null;
 
       if (activeTool === 'rect') {
@@ -430,6 +433,9 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
         currentShape.current = shape;
         canvas.add(shape);
       }
+
+      // Re-enable history after shape is added
+      isHistoryAction.current = false;
     });
 
     canvas.on('mouse:move', (opt) => {
@@ -473,6 +479,9 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
       if (isDrawingShape.current && currentShape.current) {
         currentShape.current.set({ selectable: true });
 
+        // Suppress history during arrow group creation
+        isHistoryAction.current = true;
+
         // Add arrowhead for arrow tool
         if (activeTool === 'arrow' && shapeStartPoint.current) {
           const line = currentShape.current as fabric.Line;
@@ -503,6 +512,10 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
           canvas.remove(currentShape.current);
           canvas.add(group);
         }
+
+        // Re-enable history and save the final shape state
+        isHistoryAction.current = false;
+        saveHistory();
 
         canvas.renderAll();
       }
@@ -596,15 +609,22 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
   // ============ Keyboard Shortcuts ============
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts if editing text (allow native text undo/redo)
+      const activeObj = fabricRef.current?.getActiveObject();
+      const isEditingText = activeObj && activeObj.type === 'i-text' && (activeObj as fabric.IText).isEditing;
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
         // Don't delete if editing text
-        const activeObj = fabricRef.current?.getActiveObject();
-        if (activeObj && activeObj.type === 'i-text' && (activeObj as fabric.IText).isEditing) {
+        if (isEditingText) {
           return;
         }
         handleDelete();
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        // Don't intercept undo/redo if editing text (allow native text undo)
+        if (isEditingText) {
+          return;
+        }
         e.preventDefault();
         if (e.shiftKey) {
           handleRedo();
@@ -618,17 +638,22 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleDelete, handleUndo, handleRedo]);
 
+  // Track blob URLs we've created for proper cleanup
+  const createdBlobUrlsRef = useRef<Set<string>>(new Set());
+
   // ============ Video Handling ============
   const handleVideoFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Revoke old URL if exists
-    if (internalVideoUrl && !existingVideoUrl) {
+    // Revoke old blob URL if it was one we created
+    if (internalVideoUrl && createdBlobUrlsRef.current.has(internalVideoUrl)) {
       URL.revokeObjectURL(internalVideoUrl);
+      createdBlobUrlsRef.current.delete(internalVideoUrl);
     }
 
     const url = URL.createObjectURL(file);
+    createdBlobUrlsRef.current.add(url);
     setInternalVideoUrl(url);
     setShowVideoCapture(true);
 
@@ -636,7 +661,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     if (videoInputRef.current) {
       videoInputRef.current.value = '';
     }
-  }, [internalVideoUrl, existingVideoUrl]);
+  }, [internalVideoUrl]);
 
   const handleCaptureVideoFrame = useCallback(() => {
     const video = videoRef.current;
@@ -694,14 +719,16 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     }
   }, [internalVideoUrl, existingVideoUrl, onAddFromVideo]);
 
-  // Cleanup video URL on unmount
+  // Cleanup all created blob URLs on unmount
   useEffect(() => {
+    const blobUrls = createdBlobUrlsRef.current;
     return () => {
-      if (internalVideoUrl && !existingVideoUrl) {
-        URL.revokeObjectURL(internalVideoUrl);
-      }
+      blobUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+      });
+      blobUrls.clear();
     };
-  }, [internalVideoUrl, existingVideoUrl]);
+  }, []);
 
   // ============ Crop Selected Image ============
   const [cropMode, setCropMode] = useState(false);
