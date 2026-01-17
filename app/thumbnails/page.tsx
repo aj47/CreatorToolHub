@@ -59,8 +59,6 @@ export default function Home() {
   // Whiteboard state
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [whiteboardCanvasData, setWhiteboardCanvasData] = useState<string | null>(null);
-  const [pendingVideoFrame, setPendingVideoFrame] = useState<string | null>(null);
-  const [showVideoCapture, setShowVideoCapture] = useState(false);
 
   // Cloud storage integration
   const hybridStorage = useHybridStorage();
@@ -2373,82 +2371,13 @@ export default function Home() {
               onExport={(dataUrl) => {
                 setWhiteboardCanvasData(dataUrl);
                 setShowWhiteboard(false);
-                setPendingVideoFrame(null);
               }}
               onClose={() => {
                 setShowWhiteboard(false);
-                setPendingVideoFrame(null);
               }}
               initialImage={whiteboardCanvasData || undefined}
               existingVideoUrl={videoUrl}
-              videoFrameToAdd={pendingVideoFrame}
             />
-          )}
-
-          {/* Video Frame Capture Modal for Whiteboard (legacy - now handled inside WhiteboardCanvas) */}
-          {showVideoCapture && videoUrl && !showWhiteboard && (
-            <div role="dialog" aria-modal="true" style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.9)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 10000,
-              padding: 20
-            }}>
-              <div style={{
-                background: '#fff',
-                color: '#111',
-                padding: 20,
-                borderRadius: 10,
-                border: '3px solid var(--nb-border)',
-                boxShadow: '8px 8px 0 var(--nb-border)',
-                maxWidth: '90vw',
-                maxHeight: '90vh',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 16
-              }}>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>Capture Frame for Whiteboard</div>
-                <p style={{ margin: 0, fontSize: 14 }}>Scrub to find the perfect moment, then click &quot;Add to Whiteboard&quot;</p>
-                <video
-                  src={videoUrl}
-                  controls
-                  style={{ maxWidth: '100%', maxHeight: '50vh', background: '#000' }}
-                  id="whiteboard-video-capture"
-                />
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    onClick={() => setShowVideoCapture(false)}
-                    className="nb-btn"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const video = document.getElementById('whiteboard-video-capture') as HTMLVideoElement;
-                      if (!video) return;
-                      const canvas = document.createElement('canvas');
-                      canvas.width = video.videoWidth;
-                      canvas.height = video.videoHeight;
-                      const ctx = canvas.getContext('2d');
-                      if (!ctx) return;
-                      ctx.drawImage(video, 0, 0);
-                      const dataUrl = canvas.toDataURL('image/png');
-                      setPendingVideoFrame(dataUrl);
-                      setShowVideoCapture(false);
-                    }}
-                    className="nb-btn nb-btn--accent"
-                  >
-                    📸 Add to Whiteboard
-                  </button>
-                </div>
-              </div>
-            </div>
           )}
 
         {/* Refinement History Browser */}
