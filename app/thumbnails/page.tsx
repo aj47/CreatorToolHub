@@ -2007,7 +2007,7 @@ export default function Home() {
                       if (!isAuthed) { e.preventDefault(); setAuthRequired(true); setShowAuthModal(true); return; }
                       generate();
                     }}
-                    disabled={authLoading || loading || frames.length === 0 || selectedProviders.size === 0 || (!loadingCustomer && credits < (Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)))}
+                    disabled={authLoading || loading || (frames.length === 0 && !whiteboardCanvasData) || selectedProviders.size === 0 || (!loadingCustomer && credits < (Math.max(1, count) * ((selectedProviders.has('gemini') ? 4 : 0) + (selectedProviders.has('fal-flux') ? 1 : 0) + (selectedProviders.has('fal-qwen') ? 1 : 0)) * (getValidSelectedIds().length || 0)))}
                     style={{ padding: '10px 16px', fontSize: 14 }}
                   >
                     {authLoading
