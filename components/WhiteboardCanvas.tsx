@@ -137,6 +137,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
   const [fillColor, setFillColor] = useState(DEFAULT_FILL_COLOR);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [scale, setScale] = useState(1);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
 
   // Video capture state
   const [showVideoCapture, setShowVideoCapture] = useState(false);
@@ -247,14 +248,25 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     const initialScale = calculateScale();
     setScale(initialScale);
 
-    // Set up events for history
-    canvas.on('object:added', () => saveHistory());
-    canvas.on('object:modified', () => saveHistory());
-    canvas.on('object:removed', () => saveHistory());
+    // Set up events for history (skip crop rectangle interactions)
+    canvas.on('object:added', (e) => {
+      if (e.target && (e.target as fabric.Object & { isCropRect?: boolean }).isCropRect) return;
+      saveHistory();
+    });
+    canvas.on('object:modified', (e) => {
+      if (e.target && (e.target as fabric.Object & { isCropRect?: boolean }).isCropRect) return;
+      saveHistory();
+    });
+    canvas.on('object:removed', (e) => {
+      if (e.target && (e.target as fabric.Object & { isCropRect?: boolean }).isCropRect) return;
+      saveHistory();
+    });
 
     // Load initial image if provided
     if (initialImage) {
       fabric.FabricImage.fromURL(initialImage).then((img) => {
+        // Guard against unmounted component
+        if (!fabricRef.current) return;
         const imgScale = Math.min(CANVAS_WIDTH / (img.width || 1), CANVAS_HEIGHT / (img.height || 1));
         img.scale(imgScale);
         img.set({
@@ -264,10 +276,15 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
         canvas.add(img);
         canvas.renderAll();
         // Note: saveHistory is called by object:added event handler
+        setIsCanvasReady(true);
+      }).catch(() => {
+        // Still mark as ready even if image fails to load
+        setIsCanvasReady(true);
       });
     } else {
       // Save initial state
       saveHistory();
+      setIsCanvasReady(true);
     }
 
     // Handle window resize
@@ -280,6 +297,7 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.dispose();
+      fabricRef.current = null; // Clear ref to prevent post-unmount operations
     };
   }, []);
 
@@ -787,7 +805,8 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
       selectable: true,
       hasControls: true,
       lockRotation: true,
-    });
+    }) as fabric.Rect & { isCropRect?: boolean };
+    cropRect.isCropRect = true; // Mark as crop rect to exclude from history
 
     cropRectRef.current = cropRect;
     cropTargetRef.current = img;
@@ -1002,9 +1021,23 @@ export default function WhiteboardCanvas({ onExport, onClose, initialImage, onAd
             ...styles.canvasWrapper,
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
+            position: 'relative',
           }}
         >
           <canvas ref={canvasRef} />
+          {!isCanvasReady && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              zIndex: 10,
+            }}>
+              <span style={{ fontWeight: 700 }}>Loading...</span>
+            </div>
+          )}
         </div>
       </div>
 

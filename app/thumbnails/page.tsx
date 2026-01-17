@@ -945,53 +945,55 @@ export default function Home() {
           hasSubjectImages,
         });
 
-        // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
-        let refB64: string[] = [];
-        if (useUserRefs) {
-          refB64 = refFrames.map((f) => f.b64).slice(0, 3);
-        } else {
-          for (const u of refUrls.slice(0, 3)) {
-            try {
-              const dataUrl = await fetch(u)
-                .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
-                .then(blob => new Promise<string>((resolve, reject) => {
-                  const fr = new FileReader();
-                  fr.onerror = () => reject(new Error("reader"));
-                  fr.onload = () => resolve(String(fr.result || ""));
-                  fr.readAsDataURL(blob);
-                }));
-              const normalized = await normalizeToYouTubeDataUrl(dataUrl);
-              const b64 = normalized.split(",")[1] || "";
-              if (b64) refB64.push(b64);
-            } catch {}
-          }
-        }
-
         // Assemble frames: if whiteboard canvas exists, use it as the ONLY reference image
         // Otherwise, put subject images first, then reference images last
         let combinedFrames: string[] = [];
 
         if (whiteboardCanvasData) {
-          // Whiteboard canvas is the single reference image
+          // Whiteboard canvas is the single reference image - skip ref-image assembly
           const canvasB64 = whiteboardCanvasData.startsWith('data:')
             ? whiteboardCanvasData.split(',')[1] || ''
             : whiteboardCanvasData;
           combinedFrames = [canvasB64];
-        } else if (refB64.length > 0) {
-          const primary = frames.map((f) => f.b64);
-          // Subject images first, then reference images
-          const ordered = [...primary, ...refB64];
-          combinedFrames = ordered.slice(0, 3);
-
-          // If we don't have enough images, pad with the first subject image if available,
-          // otherwise pad with the first reference image
-          while (combinedFrames.length < 3) {
-            const padImage = primary.length > 0 ? primary[0] : refB64[0];
-            if (padImage) combinedFrames.push(padImage);
-            else break;
-          }
         } else {
-          combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+          // Build reference images: prefer user-provided reference images; otherwise fetch template reference URLs
+          let refB64: string[] = [];
+          if (useUserRefs) {
+            refB64 = refFrames.map((f) => f.b64).slice(0, 3);
+          } else {
+            for (const u of refUrls.slice(0, 3)) {
+              try {
+                const dataUrl = await fetch(u)
+                  .then(r => r.ok ? r.blob() : Promise.reject(new Error("bad ref")))
+                  .then(blob => new Promise<string>((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onerror = () => reject(new Error("reader"));
+                    fr.onload = () => resolve(String(fr.result || ""));
+                    fr.readAsDataURL(blob);
+                  }));
+                const normalized = await normalizeToYouTubeDataUrl(dataUrl);
+                const b64 = normalized.split(",")[1] || "";
+                if (b64) refB64.push(b64);
+              } catch {}
+            }
+          }
+
+          if (refB64.length > 0) {
+            const primary = frames.map((f) => f.b64);
+            // Subject images first, then reference images
+            const ordered = [...primary, ...refB64];
+            combinedFrames = ordered.slice(0, 3);
+
+            // If we don't have enough images, pad with the first subject image if available,
+            // otherwise pad with the first reference image
+            while (combinedFrames.length < 3) {
+              const padImage = primary.length > 0 ? primary[0] : refB64[0];
+              if (padImage) combinedFrames.push(padImage);
+              else break;
+            }
+          } else {
+            combinedFrames = frames.map((f) => f.b64).slice(0, 3);
+          }
         }
 
         let normalizedFrames = combinedFrames;
