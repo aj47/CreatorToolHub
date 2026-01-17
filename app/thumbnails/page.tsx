@@ -167,8 +167,8 @@ export default function Home() {
                 colors,
                 aspect,
                 notes: prompt,
-                hasReferenceImages: refFrames.length > 0,
-                hasSubjectImages: frames.length > 0,
+                hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+                hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
               });
 
               const response = await fetch("/api/suggest-refinements", {
@@ -1356,8 +1356,8 @@ export default function Home() {
         colors,
         aspect,
         notes: prompt,
-        hasReferenceImages: refFrames.length > 0,
-        hasSubjectImages: frames.length > 0,
+        hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+        hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
       });
 
       // Create new refinement history
@@ -1401,8 +1401,8 @@ export default function Home() {
         colors,
         aspect,
         notes: prompt,
-        hasReferenceImages: refFrames.length > 0,
-        hasSubjectImages: frames.length > 0,
+        hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+        hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
       });
 
       const response = await fetch("/api/suggest-refinements", {
@@ -2326,8 +2326,8 @@ export default function Home() {
                       colors,
                       aspect,
                       notes: prompt,
-                      hasReferenceImages: refFrames.length > 0,
-                      hasSubjectImages: frames.length > 0,
+                      hasReferenceImages: whiteboardCanvasData ? false : refFrames.length > 0,
+                      hasSubjectImages: frames.length > 0 || !!whiteboardCanvasData,
                     })}
                     templateId={selectedIds[0] || "default"}
                     credits={credits}
