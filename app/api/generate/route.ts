@@ -92,11 +92,13 @@ async function generateImagesWithFal(
     // Build input based on model type
     // Flux uses image_urls (array), Qwen uses image_url (singular)
     const isQwen = model === FAL_MODEL_QWEN;
-    const input = isQwen
+    // Build input based on model type - use type assertion to handle complex fal types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const input: Record<string, unknown> = isQwen
       ? {
           prompt,
           image_url: dataUrl, // Qwen uses singular image_url
-          output_format: "png",
+          output_format: "png" as const,
         }
       : {
           prompt,
@@ -108,7 +110,8 @@ async function generateImagesWithFal(
 
     // Use specified model (Flux or Qwen)
     const result = await fal.subscribe(model, {
-      input,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      input: input as any,
       logs: false,
     }) as { data: { images: Array<{ url: string }> } };
 
