@@ -61,16 +61,22 @@ export async function editImageWithFal(
 ): Promise<{ data: FalEditImageOutput; requestId: string }> {
   // Use the specified model or default to Flux
   const modelToUse = input.model || FAL_MODEL_FLUX;
+
+  // Build input - use type assertion to handle complex fal types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const falInput: Record<string, unknown> = {
+    prompt: input.prompt,
+    image_urls: input.image_urls,
+    image_size: input.image_size || "auto",
+    enable_prompt_expansion: input.enable_prompt_expansion || false,
+    seed: input.seed,
+    output_format: input.output_format || "png",
+    sync_mode: input.sync_mode || false
+  };
+
   const result = await fal.subscribe(modelToUse, {
-    input: {
-      prompt: input.prompt,
-      image_urls: input.image_urls,
-      image_size: input.image_size || "auto",
-      enable_prompt_expansion: input.enable_prompt_expansion || false,
-      seed: input.seed,
-      output_format: input.output_format || "png",
-      sync_mode: input.sync_mode || false
-    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    input: falInput as any,
     logs: false,
   });
 
