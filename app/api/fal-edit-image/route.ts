@@ -90,11 +90,14 @@ export async function POST(request: Request) {
 
     // Build input based on model type
     // Flux uses image_urls (array), Qwen uses image_url (singular)
+    // Qwen only supports "jpeg" | "png" for output_format, not "webp"
+    const qwenOutputFormat: "jpeg" | "png" = output_format === "webp" ? "png" : output_format;
+
     const input = isQwen
       ? {
           prompt,
           image_url: image_urls[0], // Qwen uses singular image_url
-          output_format,
+          output_format: qwenOutputFormat,
         }
       : {
           prompt,
