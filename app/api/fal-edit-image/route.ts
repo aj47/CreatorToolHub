@@ -93,13 +93,22 @@ export async function POST(request: Request) {
     // Qwen only supports "jpeg" | "png" for output_format, not "webp"
     const qwenOutputFormat: "jpeg" | "png" = output_format === "webp" ? "png" : output_format;
 
-    const input = isQwen
-      ? {
+    // Use explicit input objects to avoid type union issues
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let result: { data: FalEditImageResponse; requestId: string };
+
+    if (isQwen) {
+      result = await fal.subscribe(modelToUse, {
+        input: {
           prompt,
           image_url: image_urls[0], // Qwen uses singular image_url
           output_format: qwenOutputFormat,
-        }
-      : {
+        },
+        logs: false,
+      }) as { data: FalEditImageResponse; requestId: string };
+    } else {
+      result = await fal.subscribe(modelToUse, {
+        input: {
           prompt,
           image_urls, // Flux uses plural image_urls
           image_size,
@@ -107,13 +116,10 @@ export async function POST(request: Request) {
           seed,
           output_format,
           sync_mode
-        };
-
-    // Call Fal AI API
-    const result = await fal.subscribe(modelToUse, {
-      input,
-      logs: false,
-    }) as { data: FalEditImageResponse; requestId: string };
+        },
+        logs: false,
+      }) as { data: FalEditImageResponse; requestId: string };
+    }
 
     // Return the result
     return Response.json({
