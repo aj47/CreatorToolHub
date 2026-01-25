@@ -215,13 +215,14 @@ async function refineImageWithFal(
     const falModel = provider === 'fal-qwen' ? FAL_MODEL_QWEN : FAL_MODEL_FLUX;
     const isQwen = falModel === FAL_MODEL_QWEN;
 
-    // Build input based on model type
+    // Build input based on model type - use type assertion to handle complex fal types
     // Flux uses image_urls (array), Qwen uses image_url (singular)
-    const input = isQwen
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const input: Record<string, unknown> = isQwen
       ? {
           prompt: feedbackPrompt,
           image_url: imageUrls[0], // Qwen uses singular image_url
-          output_format: "png",
+          output_format: "png" as const,
         }
       : {
           prompt: feedbackPrompt,
@@ -232,7 +233,8 @@ async function refineImageWithFal(
         };
 
     const result = await fal.subscribe(falModel, {
-      input,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      input: input as any,
       logs: false,
     }) as { data: { images: Array<{ url: string }> } };
 
